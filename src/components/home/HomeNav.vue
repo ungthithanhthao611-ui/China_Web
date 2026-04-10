@@ -34,19 +34,17 @@ const navigate = (index) => {
 </template>
 
 <style lang="scss" scoped>
-@use "../../assets/scss/variables" as *;
-
 .home-nav {
   position: fixed;
-  right: 40px;
+  right: 24px;
   top: 50%;
   transform: translateY(-50%);
-  z-index: 1000;
+  z-index: 1005;
 
   ul {
     display: flex;
     flex-direction: column;
-    gap: 15px;
+    gap: 16px;
   }
 
   li {
@@ -54,50 +52,36 @@ const navigate = (index) => {
     display: flex;
     justify-content: flex-end;
     align-items: center;
-
-    &:hover {
-      .label {
-        opacity: 1;
-        transform: translateX(0);
-      }
-    }
   }
 
   button {
     background: none;
     border: none;
-    padding: 10px;
+    padding: 0;
     cursor: pointer;
     display: flex;
     align-items: center;
-    gap: 15px;
+    gap: 0;
     flex-direction: row-reverse;
 
     .dot {
-      width: 10px;
-      height: 10px;
-      background-color: #999;
+      width: 8px;
+      height: 8px;
+      background-color: rgba(255, 255, 255, 0.56);
       border-radius: 50%;
       transition: all 0.3s ease;
     }
 
     .label {
-      font-size: 11px;
-      font-weight: 700;
-      color: #333;
-      text-transform: uppercase;
-      letter-spacing: 1px;
-      opacity: 0;
-      transform: translateX(10px);
-      transition: all 0.3s ease;
-      white-space: nowrap;
-      pointer-events: none;
+      display: none;
     }
 
     &.active {
       .dot {
-        background-color: $primary-color;
-        transform: scale(1.5);
+        width: 16px;
+        height: 16px;
+        background-color: #e10012;
+        box-shadow: 0 0 0 5px rgba(225, 0, 18, 0.12);
       }
     }
   }

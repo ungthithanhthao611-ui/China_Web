@@ -13,34 +13,44 @@ const routes = [
       {
         path: 'company-introduction',
         name: 'CompanyIntroduction',
-        component: () => import('../pages/about/CompanyIntroduction.vue')
+        component: () => import('../pages/about/AboutPage.vue')
       },
       {
         path: 'chairman-speech',
         name: 'ChairmanSpeech',
-        component: () => import('../pages/about/ChairmanSpeech.vue')
+        component: () => import('../pages/about/AboutPage.vue')
       },
       {
         path: 'organization-chart',
         name: 'OrganizationChart',
-        component: () => import('../pages/about/OrganizationChart.vue')
+        component: () => import('../pages/about/AboutPage.vue')
       },
       {
         path: 'corporate-culture',
         name: 'CorporateCulture',
-        component: () => import('../pages/about/CorporateCulture.vue')
+        component: () => import('../pages/about/AboutPage.vue')
       },
       {
         path: 'development-course',
         name: 'DevelopmentCourse',
-        component: () => import('../pages/about/DevelopmentCourse.vue')
+        component: () => import('../pages/about/AboutPage.vue')
       },
       {
         path: 'leadership-care',
         name: 'LeadershipCare',
-        component: () => import('../pages/about/LeadershipCare.vue')
+        component: () => import('../pages/about/AboutPage.vue')
+      },
+      {
+        path: 'cooperative-partner',
+        name: 'CooperativePartner',
+        component: () => import('../pages/about/AboutPage.vue')
       }
     ]
+  },
+  {
+    path: '/honors',
+    name: 'Honors',
+    component: () => import('../pages/Honors.vue')
   },
   {
     path: '/business-areas',
@@ -73,7 +83,7 @@ const routes = [
     component: () => import('../pages/news/NewsList.vue'),
     children: [
       { path: 'enterprise', name: 'EnterpriseNews', component: () => import('../pages/news/NewsList.vue') },
-      { path: 'industry', name: 'IndustryNews', component: () => import('../pages/news/NewsList.vue') },
+      { path: 'industry', name: 'IndustryNews', component: () => import('../pages/news/NewsList.vue') }
     ]
   },
   {
@@ -129,6 +139,11 @@ const router = createRouter({
   scrollBehavior(to, from, savedPosition) {
     if (savedPosition) {
       return savedPosition
+    } else if (to.hash) {
+      return {
+        el: to.hash,
+        behavior: 'smooth'
+      }
     } else {
       return { top: 0 }
     }

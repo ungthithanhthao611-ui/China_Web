@@ -1,14 +1,12 @@
-<script setup>
+﻿<script setup>
 import AppHeader from './components/layout/AppHeader.vue'
 import AppFooter from './components/layout/AppFooter.vue'
-import AppTopbar from './components/layout/AppTopbar.vue'
 </script>
 
 <template>
   <div class="app-wrapper">
-    <AppTopbar />
     <AppHeader />
-    
+
     <main class="main-content">
       <router-view v-slot="{ Component }">
         <transition name="fade" mode="out-in">
@@ -16,7 +14,7 @@ import AppTopbar from './components/layout/AppTopbar.vue'
         </transition>
       </router-view>
     </main>
-    
+
     <AppFooter />
   </div>
 </template>

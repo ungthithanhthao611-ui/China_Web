@@ -1,85 +1,159 @@
 <script setup>
+import { nextTick, ref } from 'vue'
 import { Swiper, SwiperSlide } from 'swiper/vue'
-import { Navigation, Pagination, Autoplay, EffectFade } from 'swiper/modules'
-import { ArrowRight } from 'lucide-vue-next'
+import { Autoplay, EffectFade } from 'swiper/modules'
 import 'swiper/css'
-import 'swiper/css/navigation'
-import 'swiper/css/pagination'
 import 'swiper/css/effect-fade'
 
 const slides = [
   {
-    image: 'https://images.unsplash.com/photo-1541976844346-f18aeac57b06?q=80&w=2070', // Ảnh đại diện kiến trúc 1
-    title: 'Precision in Construction',
-    subtitle: 'Creating Architectural Masterpieces Since 1983',
-    cta: 'Explore Projects'
+    type: 'image',
+    src: '/images/5b410cd6-2314-4dd5-bf3c-0a947c63008f.png',
+    alt: 'China Decor hero banner'
   },
   {
-    image: 'https://images.unsplash.com/photo-1503387762-592dea58ef23?q=80&w=2070', // Ảnh đại diện nội thất 2
-    title: 'Innovative Interior Solutions',
-    subtitle: 'Redefining the standards of modern living spaces',
-    cta: 'Our Services'
+    type: 'image',
+    src: '/images/banner/banner2.jpg',
+    alt: 'China Decor banner 2'
   },
   {
-    image: 'https://images.unsplash.com/photo-1486406146926-c627a92ad1ab?q=80&w=2070', // Ảnh đại diện tòa nhà 3
-    title: 'Public Space Design',
-    subtitle: 'Connecting communities through functional landmarks',
-    cta: 'View Portfolio'
+    type: 'image',
+    src: '/images/banner/banner3.jpg',
+    alt: 'China Decor banner 3'
+  },
+  {
+    type: 'image',
+    src: '/images/banner/banner4.jpg',
+    alt: 'China Decor banner 4'
+  },
+  {
+    type: 'image',
+    src: '/images/banner/banner5.jpg',
+    alt: 'China Decor banner 5'
+  },
+  {
+    type: 'video',
+    src: '/images/banner/vd.banner6.mp4',
+    poster: '/images/banner/banner5.jpg',
+    alt: 'China Decor banner video'
   }
 ]
 
-const modules = [Navigation, Pagination, Autoplay, EffectFade]
+const emit = defineEmits(['scroll-next'])
+
+const modules = [Autoplay, EffectFade]
+const activeSlide = ref(0)
+const swiperRef = ref(null)
+const videoRefs = ref([])
+
+const setVideoRef = (element, index) => {
+  if (!element) {
+    return
+  }
+
+  videoRefs.value[index] = element
+}
+
+const syncVideos = () => {
+  videoRefs.value.forEach((video, index) => {
+    if (!video) {
+      return
+    }
+
+    if (slides[index]?.type === 'video' && index === activeSlide.value) {
+      const playAttempt = video.play()
+
+      if (playAttempt?.catch) {
+        playAttempt.catch(() => {})
+      }
+    } else {
+      video.pause()
+      video.currentTime = 0
+    }
+  })
+}
+
+const handleSwiper = (swiper) => {
+  swiperRef.value = swiper
+  activeSlide.value = swiper.realIndex
+  nextTick(syncVideos)
+}
+
+const handleSlideChange = (swiper) => {
+  activeSlide.value = swiper.realIndex
+  nextTick(syncVideos)
+}
+
+const goToSlide = (index) => {
+  swiperRef.value?.slideToLoop(index)
+}
+
+const goToNextSection = () => {
+  emit('scroll-next')
+}
 </script>
 
 <template>
-  <div class="hero-banner">
+  <section class="hero-banner">
     <swiper
       :modules="modules"
       :slides-per-view="1"
       :loop="true"
       :effect="'fade'"
       :fade-effect="{ crossFade: true }"
-      :pagination="{ clickable: true }"
-      :navigation="true"
-      :autoplay="{ delay: 6000, disableOnInteraction: false }"
-      :speed="1500"
+      :autoplay="{ delay: 5000, disableOnInteraction: false }"
+      :speed="1800"
       class="hero-swiper"
+      @swiper="handleSwiper"
+      @slideChange="handleSlideChange"
     >
       <swiper-slide v-for="(slide, index) in slides" :key="index">
-        <div 
-          class="zoom-bg" 
-          :style="{ backgroundImage: `url(${slide.image})` }"
-        ></div>
-        
-        <div class="overlay"></div>
-
-        <div class="slide-content">
-          <div class="container slide-inner">
-            <h2 class="animate-down">{{ slide.subtitle }}</h2>
-            <h1 class="animate-up">{{ slide.title }}</h1>
-            
-            <div class="cta-wrap animate-zoom">
-              <router-link to="/projects" class="btn-china">
-                <span>{{ slide.cta }}</span>
-                <ArrowRight class="icon" :size="20" />
-              </router-link>
-            </div>
-          </div>
+        <div class="hero-media">
+          <img v-if="slide.type === 'image'" :src="slide.src" :alt="slide.alt" />
+          <video
+            v-else
+            :ref="(element) => setVideoRef(element, index)"
+            :src="slide.src"
+            :poster="slide.poster"
+            muted
+            playsinline
+            preload="metadata"
+          ></video>
         </div>
+
+        <div class="overlay"></div>
       </swiper-slide>
     </swiper>
-  </div>
+
+    <div class="hero-pagination" aria-label="Banner pagination">
+      <button
+        v-for="(slide, index) in slides"
+        :key="`pagination-${index}`"
+        :class="['hero-page', { active: activeSlide === index }]"
+        type="button"
+        @click="goToSlide(index)"
+      >
+        <span class="page-number">{{ String(index + 1).padStart(2, '0') }}</span>
+        <span class="page-dot"></span>
+      </button>
+    </div>
+
+    <button class="hero-scroll" type="button" aria-label="Scroll to next section" @click="goToNextSection">
+      <span class="hero-scroll__dot"></span>
+      <span class="hero-scroll__line"></span>
+      <span class="hero-scroll__arrow"></span>
+    </button>
+  </section>
 </template>
 
 <style scoped>
-/* Reset & Base */
 .hero-banner {
   height: 100vh;
+  min-height: 720px;
   width: 100%;
   position: relative;
   overflow: hidden;
-  background: #000;
-  font-family: sans-serif; /* Thêm font cơ bản */
+  background: #010917;
 }
 
 .hero-swiper {
@@ -87,148 +161,156 @@ const modules = [Navigation, Pagination, Autoplay, EffectFade]
   width: 100%;
 }
 
-/* Hiệu ứng Ken Burns (Zoom ảnh nền) */
-.zoom-bg {
+.hero-media {
   position: absolute;
-  top: 0;
-  left: 0;
-  width: 100%;
-  height: 100%;
-  background-size: cover;
-  background-position: center;
-  transition: transform 7s linear; /* Zoom rất chậm trong 7 giây */
+  inset: 0;
+  overflow: hidden;
   z-index: 1;
+
+  img,
+  video {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+    transition: transform 7s linear;
+  }
 }
 
-/* Chỉ zoom khi slide đang hiển thị */
-:deep(.swiper-slide-active) .zoom-bg {
-  transform: scale(1.15);
+:deep(.swiper-slide-active) .hero-media img,
+:deep(.swiper-slide-active) .hero-media video {
+  transform: scale(1.06);
 }
 
 .overlay {
   position: absolute;
-  top: 0;
-  left: 0;
-  width: 100%;
-  height: 100%;
-  background: rgba(0, 0, 0, 0.45);
+  inset: 0;
+  background:
+    linear-gradient(180deg, rgba(2, 10, 23, 0.34) 0%, rgba(2, 10, 23, 0.08) 22%, rgba(2, 10, 23, 0.12) 62%, rgba(2, 10, 23, 0.34) 100%),
+    radial-gradient(circle at center, rgba(8, 30, 74, 0.08) 0%, rgba(2, 10, 23, 0) 52%);
   z-index: 2;
 }
 
-/* Nội dung chữ */
-.slide-content {
-  position: relative;
-  z-index: 3;
-  height: 100%;
+.hero-pagination {
+  position: absolute;
+  top: 50%;
+  right: 54px;
+  transform: translateY(-50%);
+  z-index: 4;
+  display: flex;
+  flex-direction: column;
+  gap: 24px;
+}
+
+.hero-page {
   display: flex;
   align-items: center;
-  justify-content: center;
-  color: #ffffff;
-  text-align: center;
-  padding: 0 20px;
+  justify-content: flex-end;
+  gap: 22px;
+  border: 0;
+  background: transparent;
+  padding: 0;
+  cursor: pointer;
 }
 
-.slide-inner h2 {
-  font-size: 18px;
-  font-weight: 300;
-  letter-spacing: 5px;
-  text-transform: uppercase;
-  margin-bottom: 20px;
-  opacity: 0;
+.page-number {
+  min-width: 38px;
+  text-align: right;
+  font-size: 17px;
+  line-height: 1;
+  color: rgba(223, 189, 142, 0.92);
+  transition: color 0.25s ease, transform 0.25s ease;
 }
 
-.slide-inner h1 {
-  font-size: clamp(32px, 5vw, 64px); /* Tự động scale cỡ chữ theo màn hình */
-  font-weight: 700;
-  margin-bottom: 35px;
-  line-height: 1.2;
-  opacity: 0;
+.page-dot {
+  width: 9px;
+  height: 9px;
+  border-radius: 50%;
+  background: rgba(255, 255, 255, 0.48);
+  transition: background 0.25s ease, transform 0.25s ease;
 }
 
-/* Animation khi slide active */
-:deep(.swiper-slide-active) .animate-down {
-  animation: fadeDown 1s ease forwards 0.5s;
+.hero-page.active .page-number {
+  color: #e10012;
+  transform: translateX(-4px);
 }
 
-:deep(.swiper-slide-active) .animate-up {
-  animation: fadeUp 1s ease forwards 0.8s;
+.hero-page.active .page-dot {
+  background: #e10012;
+  transform: scale(1.55);
 }
 
-:deep(.swiper-slide-active) .animate-zoom {
-  animation: zoomIn 1s ease forwards 1.2s;
+.hero-scroll {
+  position: absolute;
+  right: 78px;
+  bottom: 66px;
+  z-index: 4;
+  width: 58px;
+  height: 96px;
+  border: 0;
+  background: transparent;
+  cursor: pointer;
 }
 
-@keyframes fadeDown {
-  from { opacity: 0; transform: translateY(-30px); }
-  to { opacity: 1; transform: translateY(0); }
+.hero-scroll__dot {
+  position: absolute;
+  top: 0;
+  left: 50%;
+  width: 58px;
+  height: 58px;
+  border-radius: 50%;
+  transform: translateX(-50%);
+  background: #e10012;
+  box-shadow: 0 12px 30px rgba(225, 0, 18, 0.3);
 }
 
-@keyframes fadeUp {
-  from { opacity: 0; transform: translateY(30px); }
-  to { opacity: 1; transform: translateY(0); }
+.hero-scroll__line {
+  position: absolute;
+  top: 29px;
+  left: 50%;
+  width: 1px;
+  height: 52px;
+  transform: translateX(-50%);
+  background: rgba(255, 255, 255, 0.9);
 }
 
-@keyframes zoomIn {
-  from { opacity: 0; transform: scale(0.8); }
-  to { opacity: 1; transform: scale(1); }
-}
-
-/* Nút bấm phong cách China Decor */
-.btn-china {
-  display: inline-flex;
-  align-items: center;
-  padding: 14px 45px;
-  border: 1px solid rgba(255, 255, 255, 0.6);
-  color: #fff;
-  text-decoration: none;
-  font-size: 14px;
-  letter-spacing: 2px;
-  text-transform: uppercase;
-  background: rgba(255, 255, 255, 0.05);
-  backdrop-filter: blur(4px);
-  transition: all 0.4s cubic-bezier(0.4, 0, 0.2, 1);
-}
-
-.btn-china:hover {
-  background: #ffffff;
-  color: #000000;
-}
-
-.btn-china .icon {
-  margin-left: 12px;
-  transition: transform 0.3s ease;
-}
-
-.btn-china:hover .icon {
-  transform: translateX(8px);
-}
-
-/* Tùy chỉnh Pagination (Dấu gạch ngang dài) */
-:deep(.swiper-pagination-bullet) {
-  width: 35px;
-  height: 2px;
-  border-radius: 0;
-  background: #fff;
-  opacity: 0.4;
-  transition: all 0.3s ease;
-}
-
-:deep(.swiper-pagination-bullet-active) {
-  opacity: 1;
-  width: 55px;
-  background: #e11d48; /* Màu đỏ nổi bật */
-}
-
-/* Navigation buttons (Ẩn trên mobile cho sạch) */
-:deep(.swiper-button-next),
-:deep(.swiper-button-prev) {
-  color: #fff;
-  transform: scale(0.6);
+.hero-scroll__arrow {
+  position: absolute;
+  bottom: 4px;
+  left: 50%;
+  width: 12px;
+  height: 12px;
+  border-right: 1px solid rgba(255, 255, 255, 0.9);
+  border-bottom: 1px solid rgba(255, 255, 255, 0.9);
+  transform: translateX(-50%) rotate(45deg);
 }
 
 @media (max-width: 768px) {
-  :deep(.swiper-button-next),
-  :deep(.swiper-button-prev) {
+  .hero-banner {
+    min-height: 540px;
+  }
+
+  .hero-pagination {
+    top: auto;
+    right: 20px;
+    bottom: 26px;
+    transform: none;
+    gap: 14px;
+  }
+
+  .hero-page {
+    gap: 12px;
+  }
+
+  .page-number {
+    font-size: 13px;
+  }
+
+  .page-dot {
+    width: 7px;
+    height: 7px;
+  }
+
+  .hero-scroll {
     display: none;
   }
 }

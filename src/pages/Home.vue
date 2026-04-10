@@ -45,7 +45,7 @@ const scrollToSection = (index) => {
   isScrolling.value = true
   activeSection.value = index
   
-  const height = window.innerHeight - 140
+  const height = window.innerHeight
   scrollContainer.value.scrollTo({
     top: index * height,
     behavior: 'smooth'
@@ -91,16 +91,17 @@ onUnmounted(() => {
 <template>
   <div class="full-page-wrapper">
     <!-- Side Nav Dots -->
-    <HomeNav 
-      :sections="sections" 
-      :activeSection="activeSection" 
-      @navigate="navigateToSection" 
+    <HomeNav
+      v-if="activeSection > 0"
+      :sections="sections"
+      :activeSection="activeSection"
+      @navigate="navigateToSection"
     />
 
     <!-- Main Scroll Container -->
     <div ref="scrollContainer" class="scroll-container">
       <section id="ctn1" class="section-full">
-        <HeroBanner :active="activeSection === 0" />
+        <HeroBanner :active="activeSection === 0" @scroll-next="navigateToSection(1)" />
       </section>
 
       <section id="ctn2" class="section-full">
@@ -146,7 +147,7 @@ onUnmounted(() => {
 .full-page-wrapper {
   position: relative;
   width: 100%;
-  height: calc(100vh - 140px); // Subtract Header + Topbar height
+  height: 100vh;
   overflow: hidden;
   
   @media (max-width: 992px) {

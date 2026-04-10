@@ -8,27 +8,25 @@ const footerLinks = [
     title: 'About Us',
     links: [
       { name: 'Company Profile', path: '/about/company-introduction' },
-      { name: 'Chairman\'s Speech', path: '/about/chairman-speech' },
+      { name: "Chairman's Speech", path: '/about/chairman-speech' },
       { name: 'Corporate Culture', path: '/about/corporate-culture' },
       { name: 'Development Course', path: '/about/development-course' }
     ]
   },
   {
-    title: 'Business Areas',
+    title: 'Qualification Honor',
     links: [
-      { name: 'Design Works', path: '/projects/design-works' },
-      { name: 'Star Hotel', path: '/projects/star-hotel' },
-      { name: 'Medical Engineering', path: '/projects/medical-engineering' },
-      { name: 'Terminal Space', path: '/projects/terminal-space' }
+      { name: 'Qualification Certificate', path: '/honors#page2' },
+      { name: 'Honorary Awards', path: '/honors#page3' }
     ]
   },
   {
     title: 'Resources',
     links: [
+      { name: 'Business Areas', path: '/business-areas' },
       { name: 'Project Case', path: '/projects' },
       { name: 'Video Center', path: '/video' },
-      { name: 'News Center', path: '/news' },
-      { name: 'Join Us', path: '/join-us' }
+      { name: 'News Center', path: '/news/enterprise' }
     ]
   }
 ]
@@ -97,7 +95,7 @@ const footerLinks = [
 </template>
 
 <style lang="scss" scoped>
-@use "../../assets/scss/variables" as *;
+@use '../../assets/scss/variables' as *;
 
 .footer {
   background-color: $black;
@@ -109,11 +107,11 @@ const footerLinks = [
     grid-template-columns: 1.5fr 1fr 1fr 1fr 1.5fr;
     gap: 40px;
     padding-bottom: 60px;
-    
+
     @media (max-width: 1200px) {
       grid-template-columns: 1fr 1fr 1fr;
     }
-    
+
     @media (max-width: 768px) {
       grid-template-columns: 1fr;
     }
@@ -123,11 +121,13 @@ const footerLinks = [
     display: flex;
     flex-direction: column;
     margin-bottom: 20px;
+
     .logo-text {
       font-size: 24px;
       font-weight: 800;
       color: $white;
     }
+
     .logo-sub {
       font-size: 9px;
       color: #999;
@@ -144,6 +144,7 @@ const footerLinks = [
   .social-links {
     display: flex;
     gap: 15px;
+
     a {
       display: flex;
       align-items: center;
@@ -154,6 +155,7 @@ const footerLinks = [
       border-radius: 50%;
       color: $white;
       transition: all 0.3s;
+
       &:hover {
         background-color: $primary-color;
         transform: translateY(-3px);
@@ -167,7 +169,7 @@ const footerLinks = [
     margin-bottom: 25px;
     position: relative;
     padding-bottom: 10px;
-    
+
     &::after {
       content: '';
       position: absolute;
@@ -184,9 +186,11 @@ const footerLinks = [
       display: flex;
       flex-direction: column;
       gap: 12px;
+
       li {
         a {
           font-size: 14px;
+
           &:hover {
             color: $white;
             padding-left: 5px;
@@ -200,11 +204,13 @@ const footerLinks = [
     display: flex;
     flex-direction: column;
     gap: 15px;
+
     li {
       display: flex;
       gap: 12px;
       font-size: 14px;
       align-items: flex-start;
+
       svg {
         color: $primary-color;
         flex-shrink: 0;
@@ -222,7 +228,7 @@ const footerLinks = [
       display: flex;
       justify-content: space-between;
       align-items: center;
-      
+
       @media (max-width: 768px) {
         flex-direction: column;
         gap: 15px;
@@ -233,6 +239,7 @@ const footerLinks = [
     .footer-bottom-links {
       display: flex;
       gap: 20px;
+
       a:hover {
         color: $white;
       }
