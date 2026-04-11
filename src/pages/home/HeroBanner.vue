@@ -39,7 +39,7 @@ const slides = [
   }
 ]
 
-const emit = defineEmits(['scroll-next'])
+const emit = defineEmits(['scroll-next', 'slide-change'])
 
 const modules = [Autoplay, EffectFade]
 const activeSlide = ref(0)
@@ -76,11 +76,13 @@ const syncVideos = () => {
 const handleSwiper = (swiper) => {
   swiperRef.value = swiper
   activeSlide.value = swiper.realIndex
+  emit('slide-change', swiper.realIndex)
   nextTick(syncVideos)
 }
 
 const handleSlideChange = (swiper) => {
   activeSlide.value = swiper.realIndex
+  emit('slide-change', swiper.realIndex)
   nextTick(syncVideos)
 }
 
@@ -91,6 +93,8 @@ const goToSlide = (index) => {
 const goToNextSection = () => {
   emit('scroll-next')
 }
+
+defineExpose({ goToSlide })
 </script>
 
 <template>
@@ -125,18 +129,7 @@ const goToNextSection = () => {
       </swiper-slide>
     </swiper>
 
-    <div class="hero-pagination" aria-label="Banner pagination">
-      <button
-        v-for="(slide, index) in slides"
-        :key="`pagination-${index}`"
-        :class="['hero-page', { active: activeSlide === index }]"
-        type="button"
-        @click="goToSlide(index)"
-      >
-        <span class="page-number">{{ String(index + 1).padStart(2, '0') }}</span>
-        <span class="page-dot"></span>
-      </button>
-    </div>
+    <!-- Removed internal pagination here as it will be moved to HomeNav -->
 
     <button class="hero-scroll" type="button" aria-label="Scroll to next section" @click="goToNextSection">
       <span class="hero-scroll__dot"></span>
@@ -190,55 +183,6 @@ const goToNextSection = () => {
   z-index: 2;
 }
 
-.hero-pagination {
-  position: absolute;
-  top: 50%;
-  right: 54px;
-  transform: translateY(-50%);
-  z-index: 4;
-  display: flex;
-  flex-direction: column;
-  gap: 24px;
-}
-
-.hero-page {
-  display: flex;
-  align-items: center;
-  justify-content: flex-end;
-  gap: 22px;
-  border: 0;
-  background: transparent;
-  padding: 0;
-  cursor: pointer;
-}
-
-.page-number {
-  min-width: 38px;
-  text-align: right;
-  font-size: 17px;
-  line-height: 1;
-  color: rgba(223, 189, 142, 0.92);
-  transition: color 0.25s ease, transform 0.25s ease;
-}
-
-.page-dot {
-  width: 9px;
-  height: 9px;
-  border-radius: 50%;
-  background: rgba(255, 255, 255, 0.48);
-  transition: background 0.25s ease, transform 0.25s ease;
-}
-
-.hero-page.active .page-number {
-  color: #e10012;
-  transform: translateX(-4px);
-}
-
-.hero-page.active .page-dot {
-  background: #e10012;
-  transform: scale(1.55);
-}
-
 .hero-scroll {
   position: absolute;
   right: 78px;
@@ -287,27 +231,6 @@ const goToNextSection = () => {
 @media (max-width: 768px) {
   .hero-banner {
     min-height: 540px;
-  }
-
-  .hero-pagination {
-    top: auto;
-    right: 20px;
-    bottom: 26px;
-    transform: none;
-    gap: 14px;
-  }
-
-  .hero-page {
-    gap: 12px;
-  }
-
-  .page-number {
-    font-size: 13px;
-  }
-
-  .page-dot {
-    width: 7px;
-    height: 7px;
   }
 
   .hero-scroll {

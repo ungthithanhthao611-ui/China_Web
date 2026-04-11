@@ -114,7 +114,7 @@ onUnmounted(() => {
   <div class="section page4" :class="{ 'is-active': active }">
     
     <!-- 1) RED HEADER (Top Right) -->
-    <div class="top-red-block">
+    <div class="top-red-block slide-right-red">
       <a class="more-btn" :class="{ 'reveal-anim': active }" href="javascript:;">
         <div class="icon-circle">
           <svg viewBox="0 0 1024 1024" width="16" height="16">
@@ -207,8 +207,8 @@ onUnmounted(() => {
   position: absolute;
   top: 0;
   right: 0;
-  width: 32%;
-  height: 25%;
+  width: 38%;
+  height: 20%;
   background: url('https://en.sinodecor.com/repository/portal-local/ngc202304190002/cms/image/442e1fd6-c07a-4e7b-99b0-b9cccb231a03.jpeg') center/cover;
   background-color: #cd0000;
   display: flex;
@@ -257,11 +257,10 @@ onUnmounted(() => {
    ==================== */
 .vertical-text-float {
   position: absolute;
-  top: 25%;
-  bottom: 12%; 
-  /* Compute left spacing centered in the gray gutter */
-  left: max(20px, calc( (100% - 1600px)/4 ));
-  width: 60px;
+  top: 20%;
+  bottom: 15%; 
+  left: 54px; /* Align with nav numbers */
+  width: 40px;
   display: flex;
   flex-direction: column;
   align-items: center;
@@ -287,7 +286,7 @@ onUnmounted(() => {
   writing-mode: vertical-rl;
   text-orientation: mixed;
   transform: rotate(180deg);
-  font-size: 12px;
+  font-size: 13px;
   color: #333;
   letter-spacing: 2px;
   white-space: nowrap;
@@ -301,16 +300,15 @@ onUnmounted(() => {
   top: 0;
   bottom: 0;
   right: 0;
-  /* Left edge aligns to the left edge of a centered 1600px container */
-  left: max(40px, calc((100% - 1600px) / 2));
+  left: 140px; /* Leave space for vertical text */
   display: flex;
   flex-direction: column;
   z-index: 10;
 }
 
-/* Title Area takes the Top 25% */
+/* Title Area takes the Top 20% */
 .title-area {
-  height: 25%;
+  height: 20%;
   display: flex;
   align-items: center;
 }
@@ -329,27 +327,27 @@ onUnmounted(() => {
 
 .fnt-36 {
   font-family: inherit;
-  font-size: 32px;
-  font-style: normal; /* Force normal */
-  color: #333;
-  letter-spacing: 1px;
+  font-size: 36px;
+  font-weight: 500;
+  color: #222;
+  letter-spacing: 1.5px;
 }
 
-.stamp-ic { height: 26px; }
+.stamp-ic { height: 28px; }
 
 .tit-line {
-  width: 160px; /* Only underlines the text, not the stamp completely */
+  width: 180px;
   height: 1px;
   background-color: #c9000a;
 }
 
-/* Slider Area takes the remaining 75% */
+/* Slider Area takes the remaining 80% */
 .slider-area {
   flex: 1;
   position: relative;
   background: #000;
   overflow: hidden;
-  box-shadow: 0 10px 40px rgba(0,0,0,0.15);
+  box-shadow: -20px 20px 60px rgba(0,0,0,0.15);
 }
 
 .image-wrapper {
@@ -363,13 +361,13 @@ onUnmounted(() => {
   width: 100%;
   height: 100%;
   object-fit: cover;
-  transition: transform 1s ease;
+  transition: transform 1.2s cubic-bezier(0.19, 1, 0.22, 1);
 }
 
 /* Transitions for Images */
 .fade-enter-active,
 .fade-leave-active {
-  transition: opacity 1.2s ease-in-out;
+  transition: opacity 1.5s ease;
 }
 .fade-enter-from,
 .fade-leave-to {
@@ -381,21 +379,22 @@ onUnmounted(() => {
   position: absolute;
   top: 50%;
   transform: translateY(-50%);
-  width: 44px;
-  height: 44px;
-  background: rgba(0,0,0,0.5);
+  width: 48px;
+  height: 48px;
+  background: rgba(0,0,0,0.4);
   border-radius: 50%;
   display: flex;
   justify-content: center;
   align-items: center;
   cursor: pointer;
   z-index: 10;
-  transition: background 0.3s;
+  transition: all 0.3s ease;
+  backdrop-filter: blur(4px);
 }
-.arrow-btn:hover { background: rgba(201, 0, 10, 0.8); }
-.arrow-btn svg { width: 14px; height: 14px; }
+.arrow-btn:hover { background: #c9000a; transform: translateY(-50%) scale(1.1); }
+.arrow-btn svg { width: 16px; height: 16px; }
 .prev { left: 40px; }
-.next { right: 80px; } /* Push left a bit to avoid fullpage scroll dots */
+.next { right: 80px; }
 
 /* ====================
    BOTTOM TABS
@@ -405,63 +404,94 @@ onUnmounted(() => {
   bottom: 0;
   left: 0;
   width: 100%;
-  height: 60px;
-  background: rgba(0,0,0,0.6);
+  height: 70px;
+  background: rgba(0,0,0,0.7);
   display: flex;
   z-index: 20;
+  backdrop-filter: blur(10px);
 }
 
 .nav-tab {
   flex: 1;
   display: flex;
   align-items: center;
-  padding: 0 25px;
+  padding: 0 30px;
   cursor: pointer;
   position: relative;
-  transition: background-color 0.4s ease;
+  transition: all 0.4s ease;
+  border-right: 1px solid rgba(255,255,255,0.1);
 }
 
-.nav-tab::after {
-  content: '';
-  position: absolute;
-  right: 0;
-  top: 35%;
-  height: 30%;
-  width: 1px;
-  background: rgba(255,255,255,0.25);
-}
-.nav-tab:last-child::after { display: none; }
+.nav-tab:last-child { border-right: 0; }
 
 .active-tab {
   background-color: #cd0000;
 }
-.active-tab::after {
-  display: none;
-}
 
 .tab-text {
   color: #fff;
-  font-size: 13.5px;
+  font-size: 14px;
+  font-weight: 400;
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
   letter-spacing: 0.5px;
+  opacity: 0.8;
+  transition: opacity 0.3s;
+}
+
+.active-tab .tab-text {
+  opacity: 1;
+  font-weight: 600;
 }
 
 /* ====================
    ANIMATIONS
    ==================== */
 .reveal-anim {
-  will-change: transform, opacity;
   opacity: 0;
-  transform: translateY(40px);
-  transition: opacity 1s cubic-bezier(0.25, 1, 0.5, 1), transform 1s cubic-bezier(0.25, 1, 0.5, 1);
+  transform: translateY(30px);
+  transition: all 0.8s cubic-bezier(0.19, 1, 0.22, 1);
 }
+
 .reveal-right {
-  will-change: transform, opacity;
   opacity: 0;
-  transform: translateX(80px);
-  transition: opacity 1s cubic-bezier(0.25, 1, 0.5, 1) 0.3s, transform 1s cubic-bezier(0.25, 1, 0.5, 1) 0.3s;
+  transform: translateX(60px);
+  transition: all 1s cubic-bezier(0.19, 1, 0.22, 1) 0.2s;
+}
+
+/* New Sliding Animations for Red Blocks */
+.slide-right-red {
+  transform: translateX(100%);
+  transition: transform 1.2s cubic-bezier(0.19, 1, 0.22, 1);
+}
+
+.is-active .slide-right-red {
+  transform: translateX(0);
+}
+
+.bottom-nav .nav-tab.active-tab {
+  position: relative;
+  overflow: hidden;
+}
+
+.bottom-nav .nav-tab.active-tab::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background-color: #cd0000;
+  transform: translateX(-100%);
+  transition: transform 0.8s cubic-bezier(0.19, 1, 0.22, 1) 0.5s;
+  z-index: -1;
+}
+
+.is-active .bottom-nav .nav-tab.active-tab::before {
+  transform: translateX(0);
+}
+
+/* Remove direct background color to allow animation */
+.active-tab {
+  background-color: transparent !important;
 }
 
 .is-active .reveal-anim { opacity: 1; transform: translateY(0); }

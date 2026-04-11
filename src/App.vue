@@ -1,6 +1,7 @@
-﻿<script setup>
+<script setup>
 import AppHeader from './components/layout/AppHeader.vue'
 import AppFooter from './components/layout/AppFooter.vue'
+import { uiState } from './utils/uiState'
 </script>
 
 <template>
@@ -15,7 +16,7 @@ import AppFooter from './components/layout/AppFooter.vue'
       </router-view>
     </main>
 
-    <AppFooter />
+    <AppFooter v-if="!uiState.isFooterHidden" />
   </div>
 </template>
 

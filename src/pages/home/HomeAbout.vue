@@ -1,6 +1,6 @@
 <script setup>
 import { ArrowRight, Play } from 'lucide-vue-next'
-import CountUp from '../common/CountUp.vue'
+import CountUp from '@/components/common/CountUp.vue'
 
 defineProps({
   active: {

@@ -2,12 +2,13 @@
 import { computed, ref, watch } from 'vue'
 import { useRoute } from 'vue-router'
 import { Menu, X, Search, Globe } from 'lucide-vue-next'
+import { uiState } from '../../utils/uiState'
 
 const isMobileMenuOpen = ref(false)
 const route = useRoute()
 
 const navItems = [
-  { name: 'Home', path: '/' },
+  { name: 'Home', path: '/#ctn1' },
   {
     name: 'About Us',
     path: '/about/company-introduction#page1',
@@ -31,10 +32,10 @@ const navItems = [
   },
   {
     name: 'Business Display',
-    path: '/business-areas',
+    path: '/business-areas#ctn1',
     children: [
-      { name: 'Business Field', path: '/business-areas' },
-      { name: 'Project Case', path: '/projects' },
+      { name: 'Business Field', path: '/business-areas#ctn1' },
+      { name: 'Project Case', path: '/project-case' },
       { name: 'Video', path: '/video' }
     ]
   },
@@ -96,10 +97,16 @@ watch(
       'header',
       {
         'is-home': isHomeOverlay || isAboutHero,
-        'is-about-light': isAboutSectionOverlay
+        'is-about-light': isAboutSectionOverlay,
+        'is-hidden': uiState.isHeaderHidden,
+        'is-hovered': uiState.isHeaderHovered
       }
     ]"
+    @mouseenter="uiState.isHeaderHovered = true"
+    @mouseleave="uiState.isHeaderHovered = false"
   >
+    <!-- Hover Trigger Zone (Active when hidden) -->
+    <div class="header-trigger" v-if="uiState.isHeaderHidden"></div>
     <div class="header_flx">
       <router-link to="/" class="logo-link">
         <img src="/images/logo.png" alt="China Decor logo" />
@@ -159,21 +166,33 @@ watch(
 
 <style lang="scss" scoped>
 .header {
-  position: sticky;
+  position: fixed;
   top: 0;
   left: 0;
   width: 100%;
-  z-index: 1200;
-  transition: background 0.28s ease, border-color 0.28s ease, box-shadow 0.28s ease;
-  background: linear-gradient(180deg, rgba(4, 14, 35, 0.98) 0%, rgba(5, 19, 45, 0.95) 100%);
-  border-bottom: 1px solid rgba(226, 189, 136, 0.14);
-  box-shadow: 0 12px 28px rgba(4, 12, 28, 0.2);
+  height: 96px;
+  z-index: 1000;
+  display: flex;
+  align-items: center;
+  /* Premium smooth transition */
+  transition: transform 0.6s cubic-bezier(0.19, 1, 0.22, 1),
+              background-color 0.4s ease,
+              opacity 0.6s ease,
+              height 0.4s ease;
+  padding: 0 40px;
+  background: transparent; /* Hoàn toàn trong suốt */
+  backdrop-filter: none;
+  border-bottom: none;
+  box-shadow: none;
+  opacity: 0; /* Ẩn mặc định */
 
   &.is-home {
     position: fixed;
     background: transparent;
     border-bottom-color: transparent;
     box-shadow: none;
+    backdrop-filter: none;
+    opacity: 0; /* Ẩn cả ở trang Home cho sạch */
 
     &::before {
       content: '';
@@ -205,6 +224,36 @@ watch(
       color: #f5cfaa;
     }
   }
+
+  &.is-hidden {
+    transform: translateY(-100%);
+    opacity: 0;
+    /* Removed pointer-events: none; to allow header-trigger to work */
+  }
+
+  &.is-hovered {
+    transform: translateY(0) !important;
+    opacity: 1 !important;
+    background: rgba(43, 44, 58, 0.85) !important; /* Light/faded dark color from screenshot */
+    backdrop-filter: blur(12px);
+    height: 80px;
+    box-shadow: 0 4px 30px rgba(0, 0, 0, 0.2);
+    
+    .logo-link img {
+       filter: brightness(1.1); /* Make logo pop slightly on dark bg */
+    }
+  }
+}
+
+.header-trigger {
+  position: absolute;
+  top: 100%;
+  left: 0;
+  width: 100%;
+  height: 40px; /* Hover this area to show header */
+  pointer-events: auto;
+  background: transparent;
+  z-index: 10;
 }
 
 .header_flx {

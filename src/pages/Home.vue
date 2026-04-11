@@ -1,17 +1,34 @@
 <script setup>
-import { ref, onMounted, onUnmounted } from 'vue'
-import HeroBanner from '../components/home/HeroBanner.vue'
-import HomeAbout from '../components/home/HomeAbout.vue'
-import StatsSection from '../components/home/StatsSection.vue'
-import BusinessDisplay from '../components/home/BusinessDisplay.vue'
-import ProjectSection from '../components/home/ProjectSection.vue'
-import NewsSection from '../components/home/NewsSection.vue'
-import IndustrialDistribution from '../components/home/IndustrialDistribution.vue'
-import PartnerSlider from '../components/home/PartnerSlider.vue'
-import HomeNav from '../components/home/HomeNav.vue'
+import { ref, onMounted, onUnmounted, watch } from 'vue'
+import HeroBanner from './home/HeroBanner.vue'
+import HomeAbout from './home/HomeAbout.vue'
+import StatsSection from './home/StatsSection.vue'
+import BusinessDisplay from './home/BusinessDisplay.vue'
+import ProjectSection from './home/ProjectSection.vue'
+import NewsSection from './home/NewsSection.vue'
+import IndustrialDistribution from './home/IndustrialDistribution.vue'
+import PartnerSlider from './home/PartnerSlider.vue'
+import HomeNav from './home/HomeNav.vue'
+import AppFooter from '../components/layout/AppFooter.vue'
+import { uiState } from '../utils/uiState'
 
 const activeSection = ref(0)
+const activeBanner = ref(0)
+
+// Watch activeSection to control UI visibility
+watch(activeSection, (newVal) => {
+  uiState.isHeaderHidden = newVal > 0
+  uiState.isNavHidden = newVal > 0 // Hide side navigation dots for all sections except Hero
+  uiState.isFooterHidden = true   // Keep global footer hidden on Home, we'll embed it in the last section
+}, { immediate: true })
+
+onUnmounted(() => {
+  uiState.isFooterHidden = false
+  uiState.isHeaderHidden = false
+  uiState.isNavHidden = false
+})
 const scrollContainer = ref(null)
+const heroRef = ref(null)
 
 const sections = [
   { label: 'Home', id: 'ctn1' },
@@ -24,6 +41,16 @@ const sections = [
 ]
 
 const isScrolling = ref(false)
+
+const handleBannerChange = (index) => {
+  activeBanner.value = index
+}
+
+const handleBannerNavigate = (index) => {
+  if (heroRef.value) {
+    heroRef.value.goToSlide(index)
+  }
+}
 
 const handleWheel = (e) => {
   if (isScrolling.value || window.innerWidth <= 992) return
@@ -53,7 +80,7 @@ const scrollToSection = (index) => {
 
   // Hash update
   const newHash = sections[index].id
-  window.history.replaceState(null, '', `#${newHash}`)
+  window.history.replaceState(history.state, '', `#${newHash}`)
 
   // Cooldown to match 700ms transition
   setTimeout(() => {
@@ -92,16 +119,22 @@ onUnmounted(() => {
   <div class="full-page-wrapper">
     <!-- Side Nav Dots -->
     <HomeNav
-      v-if="activeSection > 0"
       :sections="sections"
       :activeSection="activeSection"
+      :activeBanner="activeBanner"
       @navigate="navigateToSection"
+      @navigate-banner="handleBannerNavigate"
     />
 
     <!-- Main Scroll Container -->
     <div ref="scrollContainer" class="scroll-container">
       <section id="ctn1" class="section-full">
-        <HeroBanner :active="activeSection === 0" @scroll-next="navigateToSection(1)" />
+        <HeroBanner 
+          ref="heroRef" 
+          :active="activeSection === 0" 
+          @scroll-next="navigateToSection(1)" 
+          @slide-change="handleBannerChange"
+        />
       </section>
 
       <section id="ctn2" class="section-full">
@@ -113,7 +146,7 @@ onUnmounted(() => {
       </section>
 
       <section id="ctn4" class="section-full bg-light">
-        <div class="section-inner">
+        <div class="section-inner projects-full">
           <ProjectSection :active="activeSection === 3" />
         </div>
       </section>
@@ -128,13 +161,10 @@ onUnmounted(() => {
         <IndustrialDistribution :active="activeSection === 5" />
       </section>
 
-      <section id="ctn7" class="section-full bg-dark">
-        <div class="section-inner">
+      <section id="ctn7" class="section-full last-section">
+        <div class="section-inner partner-section">
           <PartnerSlider />
-          <!-- Small footer inside last section if needed -->
-          <footer class="mini-footer">
-            <p>&copy; 2024 China National Decoration Co.,Ltd All Rights Reserved.</p>
-          </footer>
+          <AppFooter />
         </div>
       </section>
     </div>
@@ -197,14 +227,19 @@ onUnmounted(() => {
 }
 
 .bg-light { background-color: $bg-light; }
-.bg-dark { background-color: #f9f9f9; }
 
-.mini-footer {
-  margin-top: 80px;
-  text-align: center;
-  color: #999;
-  font-size: 13px;
-  padding: 40px 0;
-  border-top: 1px solid #eee;
+.projects-full {
+  padding: 0 !important;
+}
+
+.last-section {
+  background-color: #f9f9f9;
+  height: auto !important;
+  min-height: 100vh;
+  
+  .partner-section {
+    padding: 80px 0 0 0 !important;
+    justify-content: flex-start !important;
+  }
 }
 </style>

@@ -1,5 +1,6 @@
 <script setup>
 import { Mail, Phone, MapPin, Facebook, Twitter, Linkedin, Instagram } from 'lucide-vue-next'
+import { uiState } from '../../utils/uiState'
 
 const currentYear = new Date().getFullYear()
 
@@ -33,7 +34,7 @@ const footerLinks = [
 </script>
 
 <template>
-  <footer class="footer">
+  <footer class="footer" :class="{ 'is-hidden': uiState.isFooterHidden }">
     <div class="container footer-top">
       <div class="footer-grid">
         <div class="footer-info">
@@ -95,12 +96,17 @@ const footerLinks = [
 </template>
 
 <style lang="scss" scoped>
+@use "sass:color";
 @use '../../assets/scss/variables' as *;
 
 .footer {
   background-color: $black;
   color: #ccc;
   padding-top: 80px;
+
+  &.is-hidden {
+    display: none !important;
+  }
 
   .footer-grid {
     display: grid;
@@ -219,7 +225,7 @@ const footerLinks = [
   }
 
   .footer-bottom {
-    background-color: darken($black, 5%);
+    background-color: color.adjust($black, $lightness: -5%);
     padding: 25px 0;
     font-size: 13px;
     border-top: 1px solid #222;

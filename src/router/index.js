@@ -63,6 +63,11 @@ const routes = [
     component: () => import('../pages/projects/ProjectList.vue')
   },
   {
+    path: '/project-case',
+    name: 'ProjectCase',
+    component: () => import('../pages/business/project/ProjectCase.vue')
+  },
+  {
     path: '/projects/:category',
     name: 'ProjectCategory',
     component: () => import('../pages/projects/ProjectList.vue')
@@ -130,6 +135,11 @@ const routes = [
     path: '/copyright',
     name: 'Copyright',
     component: () => import('../pages/Copyright.vue')
+  },
+  {
+    path: '/security',
+    name: 'Security',
+    component: () => import('../pages/Security.vue')
   }
 ]
 

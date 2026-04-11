@@ -1,5 +1,5 @@
 <script setup>
-import CountUp from '../common/CountUp.vue'
+import CountUp from '@/components/common/CountUp.vue'
 
 defineProps({
   active: {
