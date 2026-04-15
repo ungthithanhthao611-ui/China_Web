@@ -1,71 +1,121 @@
-<script setup>
+﻿<script setup>
 import { computed, onBeforeUnmount, onMounted, reactive, ref, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 
-import { ADMIN_TOKEN_STORAGE_KEY } from '@/admin/constants/auth'
-import { getAdminEntities, listAdminEntityRecords, listNavigationMenus } from '@/admin/services/adminApi'
+import { ADMIN_TOKEN_STORAGE_KEY, ADMIN_USER_STORAGE_KEY } from '@/admin/constants/auth'
+import { ADMIN_SECTION_GROUPS, ADMIN_SECTION_INDEX } from '@/admin/config/entityConfigs'
+import { getCurrentAdminUser, listAdminEntityRecords, listNavigationMenus } from '@/admin/services/adminApi'
 import { uiState } from '@/utils/uiState'
+import EntityManager from './components/entity-manager/EntityManager.vue'
 import NavigationMenusManager from './components/navigation-manager/NavigationMenusManager.vue'
 
 const router = useRouter()
 const route = useRoute()
 
+const availableSectionKeys = ['dashboard', 'navigation', ...Object.keys(ADMIN_SECTION_INDEX).filter((key) => key !== 'dashboard' && key !== 'navigation')]
+
 function resolveSection(value) {
-  return value === 'navigation' ? 'navigation' : 'dashboard'
+  return availableSectionKeys.includes(String(value || '')) ? String(value) : 'dashboard'
+}
+
+function readStoredUser() {
+  try {
+    const value = localStorage.getItem(ADMIN_USER_STORAGE_KEY)
+    return value ? JSON.parse(value) : null
+  } catch {
+    return null
+  }
 }
 
 const token = ref(localStorage.getItem(ADMIN_TOKEN_STORAGE_KEY) || '')
+const currentUser = ref(readStoredUser())
 const activeSection = ref(resolveSection(route.query.section))
-const entities = ref([])
-const selectedEntity = ref('')
-const records = ref([])
-const pagination = reactive({
-  skip: 0,
-  limit: 20,
-  total: 0,
-})
 const navMenuCount = ref(0)
+const summary = reactive({
+  pages: 0,
+  posts: 0,
+  projects: 0,
+  media_assets: 0,
+  inquiry_submissions: 0,
+})
 
-const loadingEntities = ref(false)
-const loadingRecords = ref(false)
+const loadingSummary = ref(false)
 const errorMessage = ref('')
 const successMessage = ref('')
 const isSidebarOpen = ref(false)
 
-const selectedEntityLabel = computed(() => selectedEntity.value || 'No entity')
-const currentTitle = computed(() => (activeSection.value === 'navigation' ? 'Navigation Menus' : 'Dashboard'))
-const currentBreadcrumb = computed(() =>
-  activeSection.value === 'navigation' ? 'Home / Admin / Navigation Menus' : 'Home / Admin / Dashboard'
-)
+const currentSectionMeta = computed(() => {
+  if (activeSection.value === 'dashboard') {
+    return {
+      label: 'Dashboard',
+      eyebrow: 'Admin overview',
+      description: 'Review the current CMS footprint and jump into the module you need to edit.',
+    }
+  }
+
+  if (activeSection.value === 'navigation') {
+    return {
+      label: 'Menu Navigation',
+      eyebrow: 'Navigation menus',
+      description: 'Manage header and footer menu trees, labels, links, and ordering.',
+    }
+  }
+
+  const config = ADMIN_SECTION_INDEX[activeSection.value]
+  return {
+    label: config?.label || 'Dashboard',
+    eyebrow: config?.eyebrow || 'Admin module',
+    description: config?.description || '',
+  }
+})
+
+const currentTitle = computed(() => currentSectionMeta.value.label)
+const currentBreadcrumb = computed(() => `Home / Admin / ${currentSectionMeta.value.label}`)
+const userLabel = computed(() => currentUser.value?.full_name || currentUser.value?.username || 'Admin user')
+const userRole = computed(() => currentUser.value?.role || 'admin')
 
 const statCards = computed(() => [
   {
-    key: 'loaded',
-    title: 'Records loaded',
-    value: records.value.length,
-    subtitle: selectedEntityLabel.value,
+    key: 'pages',
+    title: 'Pages',
+    value: summary.pages,
+    subtitle: 'CMS pages',
     tone: 'cyan',
   },
   {
-    key: 'total',
-    title: 'Total records',
-    value: pagination.total,
-    subtitle: 'Current entity',
+    key: 'posts',
+    title: 'Posts',
+    value: summary.posts,
+    subtitle: 'News records',
     tone: 'blue',
   },
   {
-    key: 'entities',
-    title: 'Entities',
-    value: entities.value.length,
-    subtitle: 'Admin registry',
+    key: 'projects',
+    title: 'Projects',
+    value: summary.projects,
+    subtitle: 'Project entries',
     tone: 'yellow',
   },
   {
     key: 'menus',
     title: 'Nav menus',
     value: navMenuCount.value,
-    subtitle: activeSection.value === 'navigation' ? 'Navigation manager' : 'From backend',
+    subtitle: 'Header and footer trees',
     tone: 'rose',
+  },
+  {
+    key: 'media_assets',
+    title: 'Media assets',
+    value: summary.media_assets,
+    subtitle: 'Uploaded library items',
+    tone: 'cyan',
+  },
+  {
+    key: 'inquiry_submissions',
+    title: 'Inquiries',
+    value: summary.inquiry_submissions,
+    subtitle: 'Incoming contact submissions',
+    tone: 'blue',
   },
 ])
 
@@ -89,6 +139,7 @@ function closeSidebar() {
 }
 
 function handleSectionChange(section) {
+  clearMessages()
   activeSection.value = section
   if (window.innerWidth <= 1024) {
     closeSidebar()
@@ -101,104 +152,64 @@ function handleViewportChange() {
   }
 }
 
-async function loadEntities() {
-  const normalizedToken = token.value.trim()
+async function loadDashboardSummary() {
+  const normalizedToken = String(token.value || '').trim()
   if (!normalizedToken) {
-    setError('Please provide admin token first.')
     return
   }
 
-  loadingEntities.value = true
+  loadingSummary.value = true
   try {
-    const response = await getAdminEntities(normalizedToken)
-    entities.value = response.entities || []
-    if (entities.value.length && !selectedEntity.value) {
-      selectedEntity.value = entities.value[0]
+    const [me, menus, pages, posts, projects, mediaAssets, inquiries] = await Promise.all([
+      getCurrentAdminUser(normalizedToken),
+      listNavigationMenus(normalizedToken),
+      listAdminEntityRecords('pages', normalizedToken, { skip: 0, limit: 1 }),
+      listAdminEntityRecords('posts', normalizedToken, { skip: 0, limit: 1 }),
+      listAdminEntityRecords('projects', normalizedToken, { skip: 0, limit: 1 }),
+      listAdminEntityRecords('media_assets', normalizedToken, { skip: 0, limit: 1 }),
+      listAdminEntityRecords('inquiry_submissions', normalizedToken, { skip: 0, limit: 1 }),
+    ])
+
+    currentUser.value = me
+    localStorage.setItem(ADMIN_USER_STORAGE_KEY, JSON.stringify(me))
+    navMenuCount.value = (menus.items || []).length
+    summary.pages = pages.pagination?.total || 0
+    summary.posts = posts.pagination?.total || 0
+    summary.projects = projects.pagination?.total || 0
+    summary.media_assets = mediaAssets.pagination?.total || 0
+    summary.inquiry_submissions = inquiries.pagination?.total || 0
+  } catch (error) {
+    const message = error?.message || 'Failed to load admin summary.'
+
+    if (message.toLowerCase().includes('unauthorized') || message.toLowerCase().includes('invalid') || message.toLowerCase().includes('token')) {
+      localStorage.removeItem(ADMIN_TOKEN_STORAGE_KEY)
+      localStorage.removeItem(ADMIN_USER_STORAGE_KEY)
+      token.value = ''
+      currentUser.value = null
+      await router.replace({ name: 'AdminLogin' })
+      return
     }
+
+    setError(message)
   } finally {
-    loadingEntities.value = false
-  }
-}
-
-async function loadRecords() {
-  const normalizedToken = token.value.trim()
-  if (!normalizedToken || !selectedEntity.value) {
-    records.value = []
-    pagination.total = 0
-    return
-  }
-
-  loadingRecords.value = true
-  try {
-    const response = await listAdminEntityRecords(selectedEntity.value, normalizedToken, {
-      skip: pagination.skip,
-      limit: pagination.limit,
-    })
-    records.value = response.items || []
-    pagination.total = response.pagination?.total || 0
-  } catch (error) {
-    setError(error.message || 'Failed to load summary records.')
-  } finally {
-    loadingRecords.value = false
-  }
-}
-
-async function loadNavigationCount() {
-  const normalizedToken = token.value.trim()
-  if (!normalizedToken) {
-    navMenuCount.value = 0
-    return
-  }
-
-  try {
-    const response = await listNavigationMenus(normalizedToken)
-    navMenuCount.value = (response.items || []).length
-  } catch {
-    navMenuCount.value = 0
-  }
-}
-
-async function connectAdmin() {
-  clearMessages()
-  const normalizedToken = token.value.trim()
-
-  if (!normalizedToken) {
-    setError('Please provide admin token first.')
-    return
-  }
-
-  try {
-    await loadEntities()
-    await loadRecords()
-    await loadNavigationCount()
-    setSuccess('Connected to admin API.')
-  } catch (error) {
-    setError(error.message || 'Failed to connect admin API.')
+    loadingSummary.value = false
   }
 }
 
 async function handleLogout() {
   localStorage.removeItem(ADMIN_TOKEN_STORAGE_KEY)
+  localStorage.removeItem(ADMIN_USER_STORAGE_KEY)
   token.value = ''
-  entities.value = []
-  selectedEntity.value = ''
-  records.value = []
-  pagination.total = 0
+  currentUser.value = null
   navMenuCount.value = 0
+  summary.pages = 0
+  summary.posts = 0
+  summary.projects = 0
+  summary.media_assets = 0
+  summary.inquiry_submissions = 0
   clearMessages()
   await router.replace({ name: 'AdminLogin' })
 }
-
-watch(token, (value) => {
-  localStorage.setItem(ADMIN_TOKEN_STORAGE_KEY, value)
-})
-
-watch(selectedEntity, () => {
-  pagination.skip = 0
-  if (activeSection.value === 'dashboard') {
-    loadRecords()
-  }
-})
 
 watch(activeSection, async (section) => {
   const nextQuery = { ...route.query }
@@ -207,17 +218,13 @@ watch(activeSection, async (section) => {
   } else {
     nextQuery.section = section
   }
+
   if (String(route.query.section || '') !== String(nextQuery.section || '')) {
     router.replace({ query: nextQuery })
   }
 
-  if (!token.value.trim()) {
-    return
-  }
-  if (section === 'dashboard') {
-    await loadRecords()
-  } else {
-    await loadNavigationCount()
+  if (section === 'dashboard' && token.value.trim()) {
+    await loadDashboardSummary()
   }
 })
 
@@ -238,9 +245,12 @@ onMounted(async () => {
   uiState.isHeaderHovered = false
   window.addEventListener('resize', handleViewportChange)
 
-  if (token.value.trim()) {
-    await connectAdmin()
+  if (!token.value.trim()) {
+    await router.replace({ name: 'AdminLogin' })
+    return
   }
+
+  await loadDashboardSummary()
 })
 
 onBeforeUnmount(() => {
@@ -248,274 +258,280 @@ onBeforeUnmount(() => {
   uiState.isNavHidden = false
   uiState.isFooterHidden = false
   uiState.isHeaderHidden = false
-  uiState.isHeaderHovered = false
 })
 </script>
 
 <template>
-  <div class="admin-shell" :class="{ 'sidebar-open': isSidebarOpen }">
-    <div v-if="isSidebarOpen" class="sidebar-backdrop" @click="closeSidebar"></div>
+  <div class="admin-shell">
+    <div v-if="isSidebarOpen" class="sidebar-backdrop" @click="closeSidebar" />
 
     <aside class="sidebar" :class="{ open: isSidebarOpen }">
-      <div class="sidebar-top">
-        <div class="brand">CHINA ADMIN</div>
-        <button type="button" class="sidebar-close" aria-label="Close admin sidebar" @click="closeSidebar">x</button>
+      <div class="brand-row">
+        <div>
+          <p class="brand-kicker">China</p>
+          <h2>Admin</h2>
+        </div>
+        <button class="sidebar-close" type="button" aria-label="Close sidebar" @click="closeSidebar">
+          ×
+        </button>
       </div>
 
-      <div class="sidebar-section">
-        <button
-          type="button"
-          class="menu-item"
-          :class="{ active: activeSection === 'dashboard' }"
-          @click="handleSectionChange('dashboard')"
-        >
-          Dashboard
-        </button>
-        <button
-          type="button"
-          class="menu-item"
-          :class="{ active: activeSection === 'navigation' }"
-          @click="handleSectionChange('navigation')"
-        >
-          Menu Navigation
-        </button>
-      </div>
+      <nav class="nav-groups" aria-label="Admin sections">
+        <section v-for="group in ADMIN_SECTION_GROUPS" :key="group.title" class="nav-group">
+          <p class="nav-group-title">{{ group.title }}</p>
+          <button
+            v-for="item in group.items"
+            :key="item.key"
+            type="button"
+            class="nav-item"
+            :class="{ active: activeSection === item.key }"
+            @click="handleSectionChange(item.key)"
+          >
+            {{ item.label }}
+          </button>
+        </section>
+      </nav>
     </aside>
 
     <main class="workspace">
-      <header class="topbar">
+      <header class="topbar card-shell">
         <div class="title-panel">
-          <button type="button" class="sidebar-toggle" aria-label="Open admin sidebar" :aria-expanded="isSidebarOpen ? 'true' : 'false'" @click="isSidebarOpen = !isSidebarOpen">Menu</button>
+          <button class="sidebar-toggle" type="button" aria-label="Open sidebar" @click="isSidebarOpen = true">
+            ?
+          </button>
           <div>
+            <p class="eyebrow">{{ currentSectionMeta.eyebrow }}</p>
             <h1>{{ currentTitle }}</h1>
             <p>{{ currentBreadcrumb }}</p>
           </div>
         </div>
 
-        <div class="auth-panel">
-          <input id="admin-token" v-model="token" type="password" placeholder="X-Admin-Token" />
-          <button type="button" class="btn btn-primary" :disabled="loadingEntities" @click="connectAdmin">
-            {{ loadingEntities ? 'Loading...' : 'Connect' }}
+        <div class="session-panel">
+          <div class="session-card">
+            <strong>{{ userLabel }}</strong>
+            <span>{{ userRole }}</span>
+          </div>
+          <button class="btn btn-secondary" type="button" @click="loadDashboardSummary" :disabled="loadingSummary">
+            {{ loadingSummary ? 'Refreshing...' : 'Refresh' }}
           </button>
-          <button type="button" class="btn btn-secondary" @click="handleLogout">Logout</button>
+          <button class="btn btn-primary" type="button" @click="handleLogout">Logout</button>
         </div>
       </header>
 
-      <p v-if="errorMessage" class="notice error">{{ errorMessage }}</p>
-      <p v-if="successMessage" class="notice success">{{ successMessage }}</p>
+      <div v-if="errorMessage" class="notice error">{{ errorMessage }}</div>
+      <div v-else-if="successMessage" class="notice success">{{ successMessage }}</div>
 
-      <section v-if="activeSection === 'dashboard'" class="stats">
-        <article
-          v-for="card in statCards"
-          :key="card.key"
-          class="stat-card"
-          :class="`tone-${card.tone}`"
-        >
-          <p class="stat-value">{{ card.value }}</p>
-          <p class="stat-title">{{ card.title }}</p>
-          <p class="stat-sub">{{ card.subtitle }}</p>
-        </article>
+      <section v-if="activeSection === 'dashboard'" class="dashboard-panel">
+        <div class="hero-card card-shell">
+          <p class="hero-eyebrow">Admin overview</p>
+          <h2>Qu?n lý n?i dung theo t?ng module</h2>
+          <p class="hero-copy">
+            Menu t?ng quát dã du?c b?. B?n di th?ng vào t?ng ph?n riêng nhu Pages, Posts, Projects, Media Library,
+            Contacts ho?c Inquiries d? thao tác dúng ch?c nang.
+          </p>
+        </div>
+
+        <div class="stats">
+          <article v-for="card in statCards" :key="card.key" class="stat-card" :class="`tone-${card.tone}`">
+            <p class="stat-value">{{ card.value }}</p>
+            <p class="stat-title">{{ card.title }}</p>
+            <p class="stat-sub">{{ card.subtitle }}</p>
+          </article>
+        </div>
       </section>
 
       <NavigationMenusManager
-        v-if="activeSection === 'navigation'"
+        v-else-if="activeSection === 'navigation'"
         :token="token"
-        :active="activeSection === 'navigation'"
         @notify-success="setSuccess"
         @notify-error="setError"
         @clear-notify="clearMessages"
-        @menus-count="navMenuCount = $event"
+      />
+
+      <EntityManager
+        v-else
+        :token="token"
+        :entity-key="activeSection"
+        :active="true"
+        @notify-success="setSuccess"
+        @notify-error="setError"
+        @clear-notify="clearMessages"
       />
     </main>
   </div>
 </template>
 
 <style scoped>
-.admin-shell {
-  --bg-page: #eef3fa;
-  --bg-sidebar-top: #1f3146;
-  --bg-sidebar-bottom: #2d4767;
-  --text-primary: #16324a;
-  --text-muted: #6c8098;
-  --line-soft: #d9e4f1;
-  --line-strong: #c6d7e8;
-  --shadow-soft: 0 12px 32px rgba(33, 61, 98, 0.08);
-  --shadow-card: 0 10px 24px rgba(26, 51, 84, 0.12);
-  min-height: 100vh;
-  display: grid;
-  grid-template-columns: 252px minmax(0, 1fr);
+:global(body) {
   background:
-    radial-gradient(800px 420px at 85% -10%, rgba(64, 178, 215, 0.14), transparent 65%),
-    linear-gradient(180deg, var(--bg-page) 0%, #e8eef6 100%);
-  color: var(--text-primary);
-  font-family: Manrope, 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+    radial-gradient(circle at left top, rgba(117, 197, 232, 0.26), transparent 35%),
+    radial-gradient(circle at right bottom, rgba(180, 207, 246, 0.24), transparent 32%),
+    #edf3fa;
 }
 
-.sidebar-backdrop {
-  display: none;
+.admin-shell {
+  min-height: 100vh;
+  display: grid;
+  grid-template-columns: 272px minmax(0, 1fr);
 }
 
 .sidebar {
-  background: linear-gradient(180deg, var(--bg-sidebar-top) 0%, var(--bg-sidebar-bottom) 100%);
-  border-right: 1px solid rgba(172, 196, 224, 0.22);
-  color: #e8f0f7;
-  padding: 18px 12px;
-  position: sticky;
-  top: 0;
-  height: 100vh;
-  z-index: 3;
+  background: linear-gradient(180deg, #23344c 0%, #2b4463 100%);
+  color: #fff;
+  padding: 20px 18px 24px;
+  box-shadow: 12px 0 24px rgba(21, 39, 64, 0.12);
 }
 
-.sidebar-top {
+.sidebar-backdrop,
+.sidebar-toggle,
+.sidebar-close {
+  display: none;
+}
+
+.brand-row {
   display: flex;
   align-items: flex-start;
   justify-content: space-between;
-  gap: 10px;
+  gap: 12px;
 }
 
-.sidebar-close {
-  display: none;
-  width: 34px;
-  height: 34px;
-  border-radius: 10px;
-  border: 1px solid rgba(161, 192, 222, 0.28);
-  background: rgba(255, 255, 255, 0.08);
-  color: #fff;
-  font-size: 24px;
-  line-height: 1;
-  cursor: pointer;
+.brand-kicker {
+  margin: 0;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  font-size: 12px;
+  color: rgba(235, 245, 255, 0.78);
 }
 
-.sidebar::before {
-  content: '';
-  position: absolute;
-  inset: 0;
-  background: radial-gradient(420px 260px at 90% -10%, rgba(102, 180, 232, 0.16), transparent 70%);
-  pointer-events: none;
+.sidebar h2 {
+  margin: 6px 0 0;
+  font-family: 'Merriweather', Georgia, 'Times New Roman', serif;
+  font-size: 42px;
+  line-height: 0.95;
 }
 
-.brand {
-  font-size: 36px;
-  font-weight: 700;
-  line-height: 0.82;
-  letter-spacing: 0.04em;
-  margin: 14px 10px 20px;
-  color: #fff;
-  text-shadow: 0 8px 28px rgba(11, 20, 36, 0.42);
+.nav-groups {
+  margin-top: 26px;
+  display: flex;
+  flex-direction: column;
+  gap: 18px;
 }
 
-.sidebar-section {
-  display: grid;
-  gap: 8px;
-  position: relative;
-  z-index: 1;
+.nav-group-title {
+  margin: 0 0 8px;
+  color: rgba(215, 230, 250, 0.76);
+  font-size: 12px;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
 }
 
-.menu-item {
+.nav-item {
   width: 100%;
-  text-align: left;
   border: 1px solid transparent;
-  background: rgba(255, 255, 255, 0.04);
-  color: #d4e4f4;
-  border-radius: 10px;
+  border-radius: 8px;
   padding: 11px 12px;
-  cursor: pointer;
-  font-size: 16px;
+  margin-bottom: 6px;
+  background: rgba(255, 255, 255, 0.06);
+  color: #f7fbff;
+  text-align: left;
+  font-size: 15px;
   font-weight: 600;
-  transition: all 0.22s ease;
+  cursor: pointer;
+  transition: background 0.2s ease, border-color 0.2s ease, transform 0.2s ease;
 }
 
-.menu-item:hover {
-  background: rgba(255, 255, 255, 0.1);
-  border-color: rgba(166, 200, 236, 0.34);
+.nav-item:hover {
+  background: rgba(255, 255, 255, 0.12);
+  border-color: rgba(164, 208, 234, 0.28);
 }
 
-.menu-item.active {
-  background: linear-gradient(135deg, #2a9bd3 0%, #3db6e7 100%);
-  border-color: rgba(132, 214, 255, 0.6);
-  color: #fff;
-  box-shadow: 0 10px 22px rgba(15, 74, 116, 0.35);
+.nav-item.active {
+  background: linear-gradient(135deg, #2fa8da 0%, #4dc2ee 100%);
+  border-color: rgba(255, 255, 255, 0.16);
 }
 
 .workspace {
-  padding: 14px 18px 18px;
-  min-width: 0;
+  padding: 18px;
+}
+
+.card-shell {
+  background: rgba(255, 255, 255, 0.88);
+  border: 1px solid #d9e7f4;
+  border-radius: 8px;
+  box-shadow: 0 18px 40px rgba(26, 52, 84, 0.08);
 }
 
 .topbar {
-  min-height: 78px;
-  background: rgba(255, 255, 255, 0.76);
-  border: 1px solid var(--line-soft);
-  border-radius: 14px;
-  box-shadow: var(--shadow-soft);
+  min-height: 106px;
   display: flex;
   align-items: center;
   justify-content: space-between;
-  gap: 16px;
-  padding: 10px 16px;
-  backdrop-filter: blur(8px);
+  gap: 18px;
+  padding: 18px 20px;
 }
 
 .title-panel {
   display: flex;
-  align-items: flex-start;
-  gap: 12px;
-  min-width: 0;
+  align-items: center;
+  gap: 14px;
 }
 
-.sidebar-toggle {
-  display: none;
-  width: 40px;
-  height: 40px;
-  border-radius: 10px;
-  border: 1px solid #cddceb;
-  background: #fff;
-  color: #244260;
-  font-size: 19px;
-  cursor: pointer;
+.eyebrow {
+  margin: 0;
+  color: #5f7e9f;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  font-size: 12px;
+  font-weight: 700;
 }
 
 .topbar h1 {
-  margin: 0;
+  margin: 4px 0 0;
   font-family: 'Merriweather', Georgia, 'Times New Roman', serif;
-  font-size: clamp(32px, 4vw, 42px);
+  font-size: clamp(30px, 4vw, 44px);
   line-height: 1;
   color: #1f3850;
 }
 
-.topbar p {
-  margin: 6px 0 0;
-  color: var(--text-muted);
+.topbar p:last-child {
+  margin: 8px 0 0;
+  color: #67829d;
   font-size: 13px;
 }
 
-.auth-panel {
-  width: min(470px, 100%);
+.session-panel {
   display: flex;
   align-items: center;
-  gap: 8px;
+  justify-content: flex-end;
+  gap: 10px;
+  flex-wrap: wrap;
 }
 
-.auth-panel input {
-  flex: 1;
-  min-width: 0;
-  border: 1px solid var(--line-strong);
-  border-radius: 10px;
-  padding: 9px 10px;
-  font-size: 13px;
+.session-card {
+  min-width: 160px;
+  padding: 10px 12px;
+  border: 1px solid #d7e3ef;
+  border-radius: 8px;
   background: #fff;
-  transition: border-color 0.2s ease, box-shadow 0.2s ease;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
 }
 
-.auth-panel input:focus {
-  outline: none;
-  border-color: #6ebfe5;
-  box-shadow: 0 0 0 3px rgba(67, 177, 219, 0.2);
+.session-card strong {
+  color: #244260;
+  font-size: 14px;
+}
+
+.session-card span {
+  color: #68819a;
+  font-size: 12px;
+  text-transform: capitalize;
 }
 
 .btn {
-  border-radius: 10px;
-  padding: 9px 14px;
+  border-radius: 8px;
+  padding: 10px 14px;
   font-size: 13px;
   font-weight: 600;
   cursor: pointer;
@@ -542,12 +558,12 @@ onBeforeUnmount(() => {
 
 .btn-primary:hover {
   transform: translateY(-1px);
-  box-shadow: 0 10px 20px rgba(34, 146, 190, 0.28);
+  box-shadow: 0 10px 20px rgba(34, 146, 190, 0.22);
 }
 
 .notice {
-  margin: 10px 0 0;
-  border-radius: 10px;
+  margin: 12px 0 0;
+  border-radius: 8px;
   border: 1px solid transparent;
   padding: 10px 12px;
   font-size: 13px;
@@ -565,31 +581,65 @@ onBeforeUnmount(() => {
   color: #1d7740;
 }
 
+.dashboard-panel {
+  margin-top: 14px;
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+}
+
+.hero-card {
+  padding: 18px 20px;
+}
+
+.hero-eyebrow {
+  margin: 0;
+  color: #5f7e9f;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  font-size: 12px;
+  font-weight: 700;
+}
+
+.hero-card h2 {
+  margin: 8px 0 0;
+  font-family: 'Merriweather', Georgia, 'Times New Roman', serif;
+  font-size: clamp(24px, 3vw, 34px);
+  color: #1f3850;
+}
+
+.hero-copy {
+  max-width: 780px;
+  margin: 10px 0 0;
+  color: #567089;
+  font-size: 14px;
+  line-height: 1.6;
+}
+
 .stats {
   display: grid;
-  grid-template-columns: repeat(4, minmax(0, 1fr));
+  grid-template-columns: repeat(3, minmax(0, 1fr));
   gap: 12px;
-  margin-top: 14px;
 }
 
 .stat-card {
   padding: 16px;
   color: #fff;
-  min-height: 116px;
+  min-height: 112px;
   position: relative;
   overflow: hidden;
-  border-radius: 14px;
-  box-shadow: var(--shadow-card);
+  border-radius: 8px;
+  box-shadow: 0 18px 36px rgba(26, 52, 84, 0.16);
 }
 
 .stat-card::after {
   content: '';
   position: absolute;
-  width: 118px;
-  height: 118px;
+  width: 110px;
+  height: 110px;
   border-radius: 999px;
-  top: -18px;
-  right: -20px;
+  top: -20px;
+  right: -24px;
   background: rgba(255, 255, 255, 0.17);
 }
 
@@ -611,7 +661,7 @@ onBeforeUnmount(() => {
 
 .stat-value {
   margin: 0;
-  font-size: 42px;
+  font-size: 40px;
   line-height: 1;
   font-weight: 700;
 }
@@ -619,13 +669,13 @@ onBeforeUnmount(() => {
 .stat-title {
   margin: 6px 0 0;
   font-size: 13px;
-  font-weight: 600;
+  font-weight: 700;
 }
 
 .stat-sub {
   margin: 4px 0 0;
   font-size: 12px;
-  opacity: 0.9;
+  opacity: 0.92;
 }
 
 button:disabled {
@@ -635,11 +685,7 @@ button:disabled {
   transform: none !important;
 }
 
-@media (max-width: 1200px) {
-  .admin-shell {
-    grid-template-columns: 228px minmax(0, 1fr);
-  }
-
+@media (max-width: 1280px) {
   .stats {
     grid-template-columns: repeat(2, minmax(0, 1fr));
   }
@@ -663,7 +709,8 @@ button:disabled {
     top: 0;
     left: 0;
     width: min(320px, 84vw);
-    border-right: 1px solid rgba(172, 196, 224, 0.22);
+    height: 100vh;
+    overflow-y: auto;
     transform: translateX(-100%);
     transition: transform 0.24s ease;
     z-index: 60;
@@ -678,54 +725,50 @@ button:disabled {
     display: inline-flex;
     align-items: center;
     justify-content: center;
+    width: 40px;
+    height: 40px;
+    border: 1px solid #d7e3ef;
+    border-radius: 8px;
+    background: #fff;
+    color: #244260;
+    font-size: 18px;
+    cursor: pointer;
   }
 }
 
 @media (max-width: 860px) {
-  .topbar {
-    min-height: 0;
-    flex-direction: column;
-    align-items: stretch;
-    padding: 12px;
-  }
-
-  .title-panel {
-    align-items: center;
-  }
-
-  .auth-panel {
-    width: 100%;
-    flex-wrap: wrap;
-  }
-
-  .btn {
-    min-height: 40px;
-  }
-
-  .stat-value {
-    font-size: 38px;
-  }
-}
-
-@media (max-width: 640px) {
   .workspace {
     padding: 12px;
   }
 
-  .auth-panel input {
-    width: 100%;
+  .topbar {
+    min-height: 0;
+    flex-direction: column;
+    align-items: stretch;
+    padding: 14px;
   }
 
-  .auth-panel .btn {
-    width: 100%;
+  .title-panel {
+    align-items: flex-start;
   }
 
+  .session-panel {
+    justify-content: stretch;
+  }
+
+  .session-card,
+  .session-panel .btn {
+    width: 100%;
+  }
+}
+
+@media (max-width: 640px) {
   .stats {
     grid-template-columns: 1fr;
   }
 
   .topbar h1 {
-    font-size: 30px;
+    font-size: 28px;
   }
 }
 </style>

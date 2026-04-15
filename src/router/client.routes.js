@@ -1,4 +1,4 @@
-const clientRoutes = [
+﻿const clientRoutes = [
   {
     path: '',
     name: 'Home',
@@ -118,7 +118,7 @@ const clientRoutes = [
     component: () => import('@/client/pages/Subsidiary.vue'),
   },
   {
-    path: 'subsidiary_Detail/:id.html',
+    path: 'subsidiary_Detail/:slug.html',
     name: 'SubsidiaryDetail',
     component: () => import('@/client/pages/SubsidiaryDetail.vue'),
   },
@@ -155,3 +155,4 @@ const clientRoutes = [
 ]
 
 export default clientRoutes
+

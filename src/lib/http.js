@@ -57,6 +57,7 @@ export async function fetchJson(path, options = {}) {
   const url = buildUrl(path, query)
   const controller = new AbortController()
   const timeoutId = window.setTimeout(() => controller.abort(), timeoutMs)
+  const isFormData = body instanceof FormData
 
   if (signal) {
     signal.addEventListener('abort', () => controller.abort(), { once: true })
@@ -67,10 +68,10 @@ export async function fetchJson(path, options = {}) {
       method,
       headers: {
         Accept: 'application/json',
-        ...(body ? { 'Content-Type': 'application/json' } : {}),
+        ...(body && !isFormData ? { 'Content-Type': 'application/json' } : {}),
         ...headers,
       },
-      body: body ? JSON.stringify(body) : undefined,
+      body: body ? (isFormData ? body : JSON.stringify(body)) : undefined,
       signal: controller.signal,
     })
 

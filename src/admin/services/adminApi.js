@@ -1,16 +1,27 @@
 import { fetchJson } from '@/lib/http'
 
-const ADMIN_TOKEN_HEADER = 'X-Admin-Token'
-
 function withAdminHeaders(token) {
   const normalized = String(token || '').trim()
   if (!normalized) {
-    throw new Error('Admin token is required.')
+    throw new Error('Admin access token is required.')
   }
 
   return {
-    [ADMIN_TOKEN_HEADER]: normalized,
+    Authorization: `Bearer ${normalized}`,
   }
+}
+
+export function loginAdmin(username, password) {
+  return fetchJson('/auth/login', {
+    method: 'POST',
+    body: { username, password },
+  })
+}
+
+export function getCurrentAdminUser(token) {
+  return fetchJson('/auth/me', {
+    headers: withAdminHeaders(token),
+  })
 }
 
 export function getAdminEntities(token) {
@@ -52,6 +63,24 @@ export function deleteAdminEntityRecord(entityName, recordId, token) {
   return fetchJson(`/admin/${entityName}/${recordId}`, {
     method: 'DELETE',
     headers: withAdminHeaders(token),
+  })
+}
+
+export function uploadAdminMediaAsset(token, file, metadata = {}) {
+  const formData = new FormData()
+  formData.append('file', file)
+  if (metadata.title) {
+    formData.append('title', metadata.title)
+  }
+  if (metadata.altText) {
+    formData.append('alt_text', metadata.altText)
+  }
+
+  return fetchJson('/admin/media/upload', {
+    method: 'POST',
+    headers: withAdminHeaders(token),
+    body: formData,
+    timeoutMs: 60000,
   })
 }
 

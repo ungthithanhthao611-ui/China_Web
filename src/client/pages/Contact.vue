@@ -1,14 +1,17 @@
-﻿<script setup>
-import { nextTick, onMounted, onUnmounted, ref, watch } from 'vue'
+<script setup>
+import { computed, nextTick, onMounted, onUnmounted, ref, watch } from 'vue'
 import { useRoute } from 'vue-router'
 import { ChevronRight, ChevronUp, House } from 'lucide-vue-next'
-import AppFooter from '@/client/components/layout/AppFooter.vue'
+import { getContacts } from '@/client/services/publicApi'
 import { uiState } from '@/utils/uiState'
 
 const route = useRoute()
 const scrollContainer = ref(null)
 const activeSection = ref('ctn1')
 const animatedSections = ref(['ctn1'])
+const contacts = ref([])
+const isLoadingContacts = ref(false)
+const contactError = ref('')
 
 const sections = [
   { id: 'ctn1', label: 'Hero' },
@@ -22,59 +25,141 @@ const contactTabs = [
   { name: 'Join Us', path: '/join-us' }
 ]
 
-const companyInfo = {
-  name: 'China National Decoration Co.,Ltd',
-  address: '5F, Block C, Hehuamingcheng Building, No.7 Jianguomen South Street, Dongcheng District, Beijing',
-  postalCode: '100005',
-  phone: '010-65269998',
-  email: 'CNDC@sinodecor.com'
-}
+const fallbackMapEmbed =
+  'https://www.openstreetmap.org/export/embed.html?bbox=116.4378%2C39.9087%2C116.4439%2C39.9124&layer=mapnik&marker=39.910466%2C116.44079'
 
-const contactDetails = [
-  {
-    key: 'address',
-    label: 'Address:',
-    value: companyInfo.address,
-    href: 'https://map.baidu.com/poi/%E8%8D%B7%E5%8D%8E%E6%98%8E%E5%9F%8E%E5%A4%A7%E5%8E%A6-C%E5%BA%A7/@12962304.37,4825324.01,17z?uid=66332e4f3e1ae3326040a9c3&ugc_type=3&ugc_ver=1&device_ratio=1&compat=1&pcevaname=pc4.1&querytype=detailConInfo&da_src=shareurl',
-    icon: 'https://en.sinodecor.com/repository/repository/portal-local/ngc202304190002/cms/image/24d1e273-5c44-4059-923b-bf1dd1e856da.png'
-  },
-  {
-    key: 'postalCode',
-    label: 'Postal Code:',
-    value: companyInfo.postalCode,
-    icon: 'https://en.sinodecor.com/repository/repository/portal-local/ngc202304190002/cms/image/e7b9176d-c52b-43c5-ad9a-2d93ac52626e.png'
-  },
-  {
-    key: 'phone',
-    label: 'Tel:',
-    value: companyInfo.phone,
-    href: `tel:${companyInfo.phone}`,
-    icon: 'https://en.sinodecor.com/repository/repository/portal-local/ngc202304190002/cms/image/406b9eba-aff3-4ca2-8e40-6c4443a11476.png'
-  },
-  {
-    key: 'email',
-    label: 'E-mail:',
-    value: companyInfo.email,
-    href: `mailto:${companyInfo.email}`,
-    icon: 'https://en.sinodecor.com/repository/repository/portal-local/ngc202304190002/cms/image/c8bab589-8307-4f7b-92bb-4fddbb9c7003.png'
-  }
-]
+const contactIcons = {
+  address:
+    'https://en.sinodecor.com/repository/repository/portal-local/ngc202304190002/cms/image/24d1e273-5c44-4059-923b-bf1dd1e856da.png',
+  postalCode:
+    'https://en.sinodecor.com/repository/repository/portal-local/ngc202304190002/cms/image/e7b9176d-c52b-43c5-ad9a-2d93ac52626e.png',
+  phone:
+    'https://en.sinodecor.com/repository/repository/portal-local/ngc202304190002/cms/image/406b9eba-aff3-4ca2-8e40-6c4443a11476.png',
+  email:
+    'https://en.sinodecor.com/repository/repository/portal-local/ngc202304190002/cms/image/c8bab589-8307-4f7b-92bb-4fddbb9c7003.png'
+}
 
 const qrItems = [
   {
-    label: 'å®˜æ–¹å¾®åš',
+    label: '官方微博',
     image:
       'https://en.sinodecor.com/repository/repository/portal-local/ngc202304190002/cms/image/7bf73994-265a-4dd7-82a5-da95de2d899b.png'
   },
   {
-    label: 'å®˜æ–¹å¾®ä¿¡',
+    label: '官方微信',
     image:
       'https://en.sinodecor.com/repository/repository/portal-local/ngc202304190002/cms/image/dd0e6fc9-5acf-455b-9d5b-ab546cee1f2f.png'
   }
 ]
 
-const mapEmbed =
-  'https://www.openstreetmap.org/export/embed.html?bbox=116.4378%2C39.9087%2C116.4439%2C39.9124&layer=mapnik&marker=39.910466%2C116.44079'
+const primaryContact = computed(() => {
+  if (!contacts.value.length) {
+    return null
+  }
+
+  return contacts.value.find((item) => item?.is_primary) || contacts.value[0]
+})
+
+const companyName = computed(() => primaryContact.value?.name || 'China National Decoration Co.,Ltd')
+
+const companyNameLines = computed(() => {
+  const name = companyName.value.trim()
+
+  if (!name) {
+    return ['China National Decoration', 'Co.,Ltd']
+  }
+
+  if (name.includes(',')) {
+    const parts = name
+      .split(',')
+      .map((item) => item.trim())
+      .filter(Boolean)
+
+    return parts.length ? parts : [name]
+  }
+
+  const suffix = 'Co.,Ltd'
+
+  if (name.endsWith(suffix) && name !== suffix) {
+    const prefix = name.slice(0, -suffix.length).trim()
+    return prefix ? [prefix, suffix] : [name]
+  }
+
+  return [name]
+})
+
+const contactDetails = computed(() => {
+  const selectedContact = primaryContact.value
+
+  if (!selectedContact) {
+    return []
+  }
+
+  const details = []
+
+  if (selectedContact.address) {
+    details.push({
+      key: 'address',
+      label: 'Address:',
+      value: selectedContact.address,
+      icon: contactIcons.address,
+    })
+  }
+
+  if (selectedContact.postal_code) {
+    details.push({
+      key: 'postalCode',
+      label: 'Postal Code:',
+      value: selectedContact.postal_code,
+      icon: contactIcons.postalCode,
+    })
+  }
+
+  if (selectedContact.phone) {
+    details.push({
+      key: 'phone',
+      label: 'Tel:',
+      value: selectedContact.phone,
+      href: `tel:${selectedContact.phone}`,
+      icon: contactIcons.phone,
+    })
+  }
+
+  if (selectedContact.email) {
+    details.push({
+      key: 'email',
+      label: 'E-mail:',
+      value: selectedContact.email,
+      href: `mailto:${selectedContact.email}`,
+      icon: contactIcons.email,
+    })
+  }
+
+  return details
+})
+
+const mapEmbed = computed(() => primaryContact.value?.map_url || fallbackMapEmbed)
+
+const hasContactData = computed(() => Boolean(primaryContact.value && contactDetails.value.length))
+
+const fetchContactData = async () => {
+  isLoadingContacts.value = true
+  contactError.value = ''
+
+  try {
+    const response = await getContacts()
+    contacts.value = Array.isArray(response?.items) ? response.items : []
+
+    if (!contacts.value.length) {
+      contactError.value = 'Chưa có dữ liệu liên hệ trong hệ thống.'
+    }
+  } catch (error) {
+    contactError.value = error?.message || 'Không thể tải dữ liệu liên hệ từ máy chủ.'
+    contacts.value = []
+  } finally {
+    isLoadingContacts.value = false
+  }
+}
 
 const markAnimated = (id) => {
   if (!animatedSections.value.includes(id)) {
@@ -151,10 +236,11 @@ watch(
   { immediate: true }
 )
 
-onMounted(() => {
+onMounted(async () => {
   uiState.isFooterHidden = false
   handleScroll()
-  syncHashSection()
+  await fetchContactData()
+  await syncHashSection()
   scrollContainer.value?.addEventListener('scroll', handleScroll, { passive: true })
   window.addEventListener('resize', handleScroll)
 })
@@ -251,12 +337,12 @@ onUnmounted(() => {
           <header class="contact-heading">
             <div class="contact-heading__title">
               <h2>CONTACT US</h2>
-              <div class="contact-heading__line"></div>
+              <img
+                src="https://en.sinodecor.com/repository/repository/portal-local/ngc202304190002/cms/image/bd97f2ca-79a8-43ee-8efa-5b6056d5b1c1.png"
+                alt="Accent"
+              />
             </div>
-            <img
-              src="https://en.sinodecor.com/repository/repository/portal-local/ngc202304190002/cms/image/bd97f2ca-79a8-43ee-8efa-5b6056d5b1c1.png"
-              alt="Accent"
-            />
+            <div class="contact-heading__line"></div>
           </header>
 
           <div class="contact-card">
@@ -269,25 +355,40 @@ onUnmounted(() => {
                   />
                 </div>
                 <div class="contact-card__intro-copy">
-                  <div class="contact-card__company">China National Decoration</div>
-                  <div class="contact-card__company">Co.,Ltd</div>
+                  <div v-for="(line, index) in companyNameLines" :key="`${line}-${index}`" class="contact-card__company">
+                    {{ line }}
+                  </div>
                   <div class="contact-card__rule"></div>
                 </div>
               </div>
 
-              <div class="contact-details">
-                <component
-                  :is="item.href ? 'a' : 'div'"
-                  v-for="item in contactDetails"
-                  :key="item.key"
-                  class="contact-detail"
-                  :href="item.href || undefined"
-                  :target="item.href?.startsWith('http') ? '_blank' : undefined"
-                  :rel="item.href?.startsWith('http') ? 'noopener noreferrer' : undefined"
-                >
-                  <img :src="item.icon" :alt="item.label" class="contact-detail__icon" />
-                  <span><strong>{{ item.label }}</strong>{{ item.value }}</span>
-                </component>
+              <div v-if="isLoadingContacts" class="contact-status-card">
+                Đang tải dữ liệu liên hệ...
+              </div>
+
+              <div v-else-if="contactError && !hasContactData" class="contact-status-card contact-status-card--error">
+                {{ contactError }}
+              </div>
+
+              <div v-else>
+                <div class="contact-details">
+                  <component
+                    :is="item.href ? 'a' : 'div'"
+                    v-for="item in contactDetails"
+                    :key="item.key"
+                    class="contact-detail"
+                    :href="item.href || undefined"
+                    :target="item.href?.startsWith('http') ? '_blank' : undefined"
+                    :rel="item.href?.startsWith('http') ? 'noopener noreferrer' : undefined"
+                  >
+                    <img :src="item.icon" :alt="item.label" class="contact-detail__icon" />
+                    <span><strong>{{ item.label }}</strong>{{ item.value }}</span>
+                  </component>
+                </div>
+
+                <p v-if="contactError && hasContactData" class="contact-inline-note">
+                  {{ contactError }}
+                </p>
               </div>
 
               <div class="contact-qr">
@@ -301,13 +402,13 @@ onUnmounted(() => {
             <div class="contact-card__map">
               <div class="contact-map">
                 <iframe :src="mapEmbed" loading="lazy" referrerpolicy="no-referrer-when-downgrade"></iframe>
-                <div class="contact-map__marker">
+                <div v-if="primaryContact" class="contact-map__marker">
                   <div class="contact-map__brand">
                     <img src="/images/logo.png" alt="China Decor" />
                   </div>
                   <div class="contact-map__label">
-                    <strong>ä¸­å›½è£…é¥°è‚¡ä»½æœ‰é™å…¬å¸</strong>
-                    <span>China National Decoration Co.,Ltd</span>
+                    <strong>{{ primaryContact.name || 'China National Decoration Co.,Ltd' }}</strong>
+                    <span>{{ primaryContact.address || 'Contact address is being updated.' }}</span>
                   </div>
                 </div>
               </div>
@@ -739,6 +840,29 @@ onUnmounted(() => {
   margin-top: 30px;
 }
 
+.contact-status-card {
+  padding: 16px 18px;
+  border-radius: 16px;
+  background: rgba(245, 241, 234, 0.9);
+  border: 1px solid rgba(207, 197, 184, 0.82);
+  color: #5e5043;
+  font-size: 15px;
+  line-height: 1.6;
+}
+
+.contact-status-card--error {
+  background: rgba(255, 240, 240, 0.92);
+  border-color: rgba(205, 81, 81, 0.26);
+  color: #a12d2d;
+}
+
+.contact-inline-note {
+  margin: 14px 0 0;
+  color: #a12d2d;
+  font-size: 13px;
+  line-height: 1.5;
+}
+
 .contact-qr__item {
   width: 56px;
   text-align: center;
@@ -780,8 +904,9 @@ onUnmounted(() => {
 
 .contact-map__marker {
   position: absolute;
-  left: 126px;
-  top: 54px;
+  left: 50%;
+  top: 50%;
+  transform: translate(25px, -50%);
   display: flex;
   align-items: center;
   gap: 12px;
@@ -791,18 +916,20 @@ onUnmounted(() => {
   background: rgba(190, 145, 92, 0.96);
   color: #ffffff;
   box-shadow: 0 16px 28px rgba(88, 58, 28, 0.2);
+  pointer-events: none;
 }
 
 .contact-map__marker::after {
   content: '';
   position: absolute;
-  left: 34px;
-  bottom: -12px;
+  left: -9px;
+  top: 50%;
+  transform: translateY(-50%);
   width: 0;
   height: 0;
-  border-left: 9px solid transparent;
-  border-right: 9px solid transparent;
-  border-top: 12px solid rgba(190, 145, 92, 0.96);
+  border-top: 9px solid transparent;
+  border-bottom: 9px solid transparent;
+  border-right: 12px solid rgba(190, 145, 92, 0.96);
 }
 
 .contact-map__brand {

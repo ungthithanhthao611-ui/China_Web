@@ -2,13 +2,14 @@
 import { computed, ref } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 
-import { ADMIN_TOKEN_STORAGE_KEY } from '@/admin/constants/auth'
-import { getAdminEntities } from '@/admin/services/adminApi'
+import { ADMIN_TOKEN_STORAGE_KEY, ADMIN_USER_STORAGE_KEY } from '@/admin/constants/auth'
+import { loginAdmin } from '@/admin/services/adminApi'
 
 const router = useRouter()
 const route = useRoute()
 
-const token = ref(localStorage.getItem(ADMIN_TOKEN_STORAGE_KEY) || '')
+const username = ref('')
+const password = ref('')
 const loading = ref(false)
 const errorMessage = ref('')
 
@@ -21,9 +22,9 @@ const redirectPath = computed(() => {
 })
 
 async function handleLogin() {
-  const normalizedToken = token.value.trim()
-  if (!normalizedToken) {
-    errorMessage.value = 'Please provide admin token.'
+  const normalizedUsername = username.value.trim()
+  if (!normalizedUsername || !password.value) {
+    errorMessage.value = 'Please provide username and password.'
     return
   }
 
@@ -31,8 +32,9 @@ async function handleLogin() {
   errorMessage.value = ''
 
   try {
-    await getAdminEntities(normalizedToken)
-    localStorage.setItem(ADMIN_TOKEN_STORAGE_KEY, normalizedToken)
+    const response = await loginAdmin(normalizedUsername, password.value)
+    localStorage.setItem(ADMIN_TOKEN_STORAGE_KEY, response.access_token)
+    localStorage.setItem(ADMIN_USER_STORAGE_KEY, JSON.stringify(response.user || null))
     await router.replace(redirectPath.value)
   } catch (error) {
     errorMessage.value = error.message || 'Failed to sign in admin.'
@@ -47,14 +49,24 @@ async function handleLogin() {
     <div class="login-card">
       <p class="eyebrow">Admin Access</p>
       <h1>CHINA ADMIN</h1>
-      <p class="hint">Sign in with `X-Admin-Token` to manage menu/content data.</p>
+      <p class="hint">Sign in with your admin account to manage menu and content data.</p>
 
-      <label for="admin-login-token">X-Admin-Token</label>
+      <label for="admin-login-username">Username</label>
       <input
-        id="admin-login-token"
-        v-model="token"
+        id="admin-login-username"
+        v-model="username"
+        type="text"
+        placeholder="admin"
+        autocomplete="username"
+        @keyup.enter="handleLogin"
+      />
+
+      <label for="admin-login-password">Password</label>
+      <input
+        id="admin-login-password"
+        v-model="password"
         type="password"
-        placeholder="Enter admin token"
+        placeholder="Enter password"
         autocomplete="current-password"
         @keyup.enter="handleLogin"
       />

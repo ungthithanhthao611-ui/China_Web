@@ -3,6 +3,7 @@ import { computed, nextTick, onMounted, onUnmounted, ref, watch } from 'vue'
 import { useRoute } from 'vue-router'
 import { ChevronLeft, ChevronRight, ChevronUp, House, Mail, MapPin, Phone } from 'lucide-vue-next'
 import AppFooter from '@/client/components/layout/AppFooter.vue'
+import { getBranches } from '@/client/services/publicApi'
 import { uiState } from '@/utils/uiState'
 
 const route = useRoute()
@@ -10,6 +11,9 @@ const scrollContainer = ref(null)
 const activeSection = ref('ctn1')
 const animatedSections = ref(['ctn1'])
 const currentPage = ref(1)
+const branchItems = ref([])
+const isLoading = ref(false)
+const loadError = ref('')
 
 const sections = [
   { id: 'ctn1', label: 'Hero' },
@@ -24,74 +28,33 @@ const contactTabs = [
   { name: 'Join Us', path: '/join-us' }
 ]
 
-const branchItems = [
-  {
-    id: 'jiangsu-branch',
-    title: 'Jiangsu Branch of China Decoration Co., LTD',
-    address:
-      'Room 1401,Floor 13A, Shangcheng International Building, No.106 Weiyang Road, Development Zone, Yangzhou City',
-    phone: '010-65269998',
-    email: 'CNDC@sinodecor.com',
-    image: 'https://en.sinodecor.com/repository/portal-local/ngc202304190002/cms/image/2ddb4565-35a5-4189-ba49-dab4432c21d1.jpg',
-    moreUrl: ''
-  },
-  {
-    id: 'yangzhou-branch',
-    title: 'Yangzhou Branch of China Decoration Co., LTD',
-    address: 'No. 579, Shuguang Road, Hangji Town, Ecological Science and Technology New City, Yangzhou',
-    phone: '010-65269998',
-    email: 'CNDC@sinodecor.com',
-    image: 'https://en.sinodecor.com/repository/portal-local/ngc202304190002/cms/image/1cf47449-2b65-4b79-8893-650d6a03e188.jpg',
-    moreUrl: ''
-  },
-  {
-    id: 'taizhou-branch',
-    title: 'Taizhou Branch of China Decoration Co., LTD',
-    address: '7-3-B-65, No.8 Xingguo Road, Gaogang High-tech Zone, Taizhou City',
-    phone: '010-65269998',
-    email: 'CNDC@sinodecor.com',
-    image: 'https://en.sinodecor.com/repository/portal-local/ngc202304190002/cms/image/4652f790-0c75-444d-a318-7c42d69dbce9.jpg',
-    moreUrl: ''
-  },
-  {
-    id: 'shanghai-branch',
-    title: 'China Decoration Co., LTD. Shanghai Decoration Branch',
-    address: 'No.79, Fuhua Road, Luhua Town, Chongming District, Shanghai (Shanghai Luhua Economic Development Zone)',
-    phone: '010-65269998',
-    email: 'CNDC@sinodecor.com',
-    image: 'https://en.sinodecor.com/repository/portal-local/ngc202304190002/cms/image/2e8296c8-6794-4247-80d4-106f24cc84ef.jpg',
-    moreUrl: ''
-  },
-  {
-    id: 'suzhou-branch',
-    title: 'Suzhou Branch of China Decoration Co., LTD',
-    address: 'Room 8E3-02, Golden Lion Building, Shishan Road, Suzhou High-tech Zone',
-    phone: '010-65269998',
-    email: 'CNDC@sinodecor.com',
-    image: 'https://en.sinodecor.com/repository/portal-local/ngc202304190002/cms/image/19e0574f-a697-4c5b-bb0d-afb73af7bcdb.jpg',
-    moreUrl: ''
-  },
-  {
-    id: 'wuhu-branch',
-    title: 'Wuhu Branch of China Decoration Co., LTD',
-    address: 'Room 1309-9, 13th Floor, Block C, Jingshan Street, Jinghu District, Wuhu City, Anhui Province',
-    phone: '010-65269998',
-    email: 'CNDC@sinodecor.com',
-    image: 'https://en.sinodecor.com/repository/portal-local/ngc202304190002/cms/image/f86fd20e-1a85-43e8-bbc8-ce6f4581aa14.jpg',
-    moreUrl: ''
-  }
-]
-
 const pageSize = 4
-const totalPages = Math.ceil(branchItems.length / pageSize)
+const fallbackCardImage =
+  'https://en.sinodecor.com/repository/portal-local/ngc202304190002/cms/image/2ddb4565-35a5-4189-ba49-dab4432c21d1.jpg'
+
+const totalPages = computed(() => Math.max(1, Math.ceil(branchItems.value.length / pageSize)))
 
 const pagedItems = computed(() => {
   const start = (currentPage.value - 1) * pageSize
-  return branchItems.slice(start, start + pageSize)
+  return branchItems.value.slice(start, start + pageSize)
 })
+
+const hasItems = computed(() => branchItems.value.length > 0)
 
 const cardDelay = (index) => ({
   transitionDelay: `${120 + index * 90}ms`
+})
+
+const formatAddress = (item) => {
+  if (item.address) return item.address
+  return [item.city, item.region].filter(Boolean).join(', ')
+}
+
+const resolveImage = (item) => item.image?.url || item.hero_image?.url || fallbackCardImage
+
+const buildDetailRoute = (slug) => ({
+  name: 'SubsidiaryDetail',
+  params: { slug }
 })
 
 const markAnimated = (id) => {
@@ -140,7 +103,7 @@ const scrollToSection = (id) => {
 }
 
 const goToPage = async (page, sectionId = 'ctn2') => {
-  if (page < 1 || page > totalPages) return
+  if (page < 1 || page > totalPages.value) return
 
   currentPage.value = page
   await nextTick()
@@ -158,6 +121,22 @@ const syncHashSection = async () => {
   }
 
   scrollToSection('ctn1')
+}
+
+async function loadBranchItems() {
+  isLoading.value = true
+  loadError.value = ''
+
+  try {
+    const response = await getBranches({ branchType: 'branch' })
+    branchItems.value = Array.isArray(response?.items) ? response.items : []
+    currentPage.value = 1
+  } catch (error) {
+    branchItems.value = []
+    loadError.value = error.message || 'Failed to load branch data.'
+  } finally {
+    isLoading.value = false
+  }
 }
 
 watch(
@@ -178,9 +157,16 @@ watch(
   { immediate: true }
 )
 
-onMounted(() => {
+watch(totalPages, (value) => {
+  if (currentPage.value > value) {
+    currentPage.value = value
+  }
+})
+
+onMounted(async () => {
   uiState.isFooterHidden = true
   uiState.isHeaderHidden = false
+  await loadBranchItems()
   syncActiveByScroll()
   syncHashSection()
   scrollContainer.value?.addEventListener('scroll', syncActiveByScroll, { passive: true })
@@ -291,7 +277,11 @@ onUnmounted(() => {
             <div class="subsidiary-heading__line"></div>
           </header>
 
-          <ul class="subsidiary-grid">
+          <div v-if="isLoading" class="subsidiary-feedback">Loading branch data...</div>
+          <div v-else-if="loadError" class="subsidiary-feedback subsidiary-feedback--error">{{ loadError }}</div>
+          <div v-else-if="!hasItems" class="subsidiary-feedback">No branch data available.</div>
+
+          <ul v-else class="subsidiary-grid">
             <li
               v-for="(item, index) in pagedItems"
               :key="item.id"
@@ -300,34 +290,38 @@ onUnmounted(() => {
             >
               <div class="subsidiary-card__content">
                 <div class="subsidiary-card__content-top">
-                  <h3>{{ item.title }}</h3>
+                  <h3>{{ item.name }}</h3>
                   <div class="subsidiary-card__rule"></div>
 
                   <div class="subsidiary-card__detail">
                     <MapPin :size="20" />
-                    <span>Add: {{ item.address }}</span>
+                    <span>Add: {{ formatAddress(item) || 'Updating...' }}</span>
                   </div>
 
                   <div class="subsidiary-card__detail">
                     <Phone :size="19" />
-                    <span>Tel:{{ item.phone }}</span>
+                    <span>Tel: {{ item.phone || 'Updating...' }}</span>
                   </div>
 
                   <div class="subsidiary-card__detail">
                     <Mail :size="20" />
-                    <span>E-mail:{{ item.email }}</span>
+                    <span>E-mail: {{ item.email || 'Updating...' }}</span>
                   </div>
                 </div>
 
-                <a class="subsidiary-card__more" :href="item.moreUrl">
+                <router-link
+                  v-if="item.slug"
+                  class="subsidiary-card__more"
+                  :to="buildDetailRoute(item.slug)"
+                >
                   <span>More</span>
                   <ChevronRight :size="18" />
-                </a>
+                </router-link>
               </div>
 
               <div class="subsidiary-card__media">
                 <div class="subsidiary-card__media-frame">
-                  <img :src="item.image" :alt="item.title" loading="lazy" />
+                  <img :src="resolveImage(item)" :alt="item.name" loading="lazy" />
                 </div>
               </div>
             </li>
@@ -767,6 +761,22 @@ onUnmounted(() => {
   margin-top: 38px;
   padding: 0;
   list-style: none;
+}
+
+.subsidiary-feedback {
+  margin-top: 34px;
+  padding: 18px 20px;
+  border: 1px solid rgba(25, 55, 90, 0.1);
+  border-radius: 18px;
+  background: rgba(255, 255, 255, 0.76);
+  color: #23354d;
+  font-size: 16px;
+}
+
+.subsidiary-feedback--error {
+  color: #ab243c;
+  border-color: rgba(171, 36, 60, 0.16);
+  background: rgba(255, 241, 243, 0.88);
 }
 
 .subsidiary-card {
@@ -1302,4 +1312,5 @@ onUnmounted(() => {
   }
 }
 </style>
+
 
