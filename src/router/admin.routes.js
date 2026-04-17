@@ -14,6 +14,13 @@ const adminRoutes = [
     component: () => import('@/admin/pages/AdminDashboard.vue'),
     meta: { requiresAdminAuth: true },
   },
+  {
+    path: 'posts/:id/word-editor',
+    name: 'AdminPostWordEditor',
+    component: () => import('@/admin/pages/posts/PostWordEditorPage.vue'),
+    meta: { requiresAdminAuth: true },
+    props: true,
+  },
 ]
 
 export default adminRoutes

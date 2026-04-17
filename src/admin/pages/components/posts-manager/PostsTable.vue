@@ -8,6 +8,10 @@ const props = defineProps({
     type: Boolean,
     default: false,
   },
+  deletingAll: {
+    type: Boolean,
+    default: false,
+  },
   totalRecords: {
     type: Number,
     default: 0,
@@ -32,6 +36,10 @@ const props = defineProps({
     type: String,
     default: '',
   },
+  statusOptions: {
+    type: Array,
+    default: () => ['draft', 'published', 'archived'],
+  },
   publicReadinessFilter: {
     type: String,
     default: '',
@@ -55,6 +63,7 @@ const emit = defineEmits([
   'view',
   'edit',
   'delete',
+  'delete-all',
   'page-change',
 ])
 
@@ -157,6 +166,16 @@ function pageWindow() {
   pages.push(total)
   return pages
 }
+
+function resolveStatusOptionValue(option) {
+  if (typeof option === 'string') return option
+  return String(option?.value || '').trim()
+}
+
+function resolveStatusOptionLabel(option) {
+  if (typeof option === 'string') return option
+  return String(option?.label || option?.value || '').trim()
+}
 </script>
 
 <template>
@@ -178,10 +197,13 @@ function pageWindow() {
         <label for="posts_status_filter">Status</label>
         <select id="posts_status_filter" :value="statusFilter" @change="$emit('update:statusFilter', $event.target.value)">
           <option value="">All Statuses</option>
-          <option value="draft">Draft</option>
-          <option value="published">Published</option>
-          <option value="pending">Pending</option>
-          <option value="archived">Archived</option>
+          <option
+            v-for="status in statusOptions"
+            :key="resolveStatusOptionValue(status)"
+            :value="resolveStatusOptionValue(status)"
+          >
+            {{ resolveStatusOptionLabel(status) }}
+          </option>
         </select>
       </div>
 
@@ -222,7 +244,16 @@ function pageWindow() {
             $emit('search')
           "
         >
-          ↻
+          Reset
+        </button>
+        <button
+          id="posts_delete_all_button"
+          type="button"
+          class="btn btn-danger"
+          :disabled="loading || deletingAll || !totalRecords"
+          @click="$emit('delete-all')"
+        >
+          {{ deletingAll ? 'Dang xoa...' : 'Xoa het bai viet' }}
         </button>
       </div>
     </div>
@@ -416,6 +447,11 @@ function pageWindow() {
   min-width: 48px;
   background: #d9e4ea;
   color: #2a3439;
+}
+
+.btn-danger {
+  background: linear-gradient(145deg, #b4233a 0%, #961d31 100%);
+  color: #fff4f6;
 }
 
 .table-shell {

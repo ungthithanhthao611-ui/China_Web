@@ -1,5 +1,5 @@
 ﻿<script setup>
-import { ref, onMounted, onUnmounted, watch } from 'vue'
+import { computed, ref, onMounted, onUnmounted, watch } from 'vue'
 import HeroBanner from './home/HeroBanner.vue'
 import HomeAbout from './home/HomeAbout.vue'
 import StatsSection from './home/StatsSection.vue'
@@ -9,10 +9,12 @@ import NewsSection from './home/NewsSection.vue'
 import IndustrialDistribution from './home/IndustrialDistribution.vue'
 import HomeNav from './home/HomeNav.vue'
 import AppFooter from '@/client/components/layout/AppFooter.vue'
+import { useBootstrapStore } from '@/client/stores/bootstrap'
 import { uiState } from '@/utils/uiState'
 
 const activeSection = ref(0)
 const activeBanner = ref(0)
+const bootstrapStore = useBootstrapStore()
 
 // Watch activeSection to control UI visibility
 watch(activeSection, (newVal) => {
@@ -28,6 +30,10 @@ onUnmounted(() => {
 })
 const scrollContainer = ref(null)
 const heroRef = ref(null)
+const bannerCount = computed(() => {
+  const count = bootstrapStore.heroBanners?.length || 0
+  return count > 0 ? count : 6
+})
 
 const sections = [
   { label: 'Home', id: 'ctn1' },
@@ -40,6 +46,12 @@ const sections = [
 ]
 
 const isScrolling = ref(false)
+
+watch(bannerCount, (count) => {
+  if (activeBanner.value >= count) {
+    activeBanner.value = 0
+  }
+})
 
 const handleBannerChange = (index) => {
   activeBanner.value = index
@@ -121,6 +133,7 @@ onUnmounted(() => {
       :sections="sections"
       :activeSection="activeSection"
       :activeBanner="activeBanner"
+      :bannerCount="bannerCount"
       @navigate="navigateToSection"
       @navigate-banner="handleBannerNavigate"
     />

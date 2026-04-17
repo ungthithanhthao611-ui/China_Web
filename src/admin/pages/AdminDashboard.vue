@@ -141,6 +141,17 @@ function handleSectionChange(section) {
   }
 }
 
+function hasActiveChild(item) {
+  return Array.isArray(item?.children) && item.children.some((child) => String(child?.key || '') === activeSection.value)
+}
+
+function isGroupItemExpanded(item) {
+  if (!Array.isArray(item?.children) || !item.children.length) {
+    return false
+  }
+  return String(item.key || '') === activeSection.value || hasActiveChild(item)
+}
+
 function handleViewportChange() {
   if (window.innerWidth > 1024) {
     closeSidebar()
@@ -276,16 +287,29 @@ onBeforeUnmount(() => {
       <nav class="nav-groups" aria-label="Admin sections">
         <section v-for="group in ADMIN_SECTION_GROUPS" :key="group.title" class="nav-group">
           <p class="nav-group-title">{{ group.title }}</p>
-          <button
-            v-for="item in group.items"
-            :key="item.key"
-            type="button"
-            class="nav-item"
-            :class="{ active: activeSection === item.key }"
-            @click="handleSectionChange(item.key)"
-          >
-            {{ item.label }}
-          </button>
+          <div v-for="item in group.items" :key="item.key" class="nav-item-shell">
+            <button
+              type="button"
+              class="nav-item"
+              :class="{ active: activeSection === item.key, 'active-parent': hasActiveChild(item) }"
+              @click="handleSectionChange(item.key)"
+            >
+              {{ item.label }}
+            </button>
+
+            <div v-if="isGroupItemExpanded(item)" class="nav-subitems">
+              <button
+                v-for="child in item.children"
+                :key="child.key"
+                type="button"
+                class="nav-subitem"
+                :class="{ active: activeSection === child.key }"
+                @click="handleSectionChange(child.key)"
+              >
+                {{ child.label }}
+              </button>
+            </div>
+          </div>
         </section>
       </nav>
     </aside>
@@ -468,9 +492,46 @@ onBeforeUnmount(() => {
   border-color: rgba(164, 208, 234, 0.28);
 }
 
+.nav-item.active-parent {
+  background: rgba(255, 255, 255, 0.12);
+  border-color: rgba(164, 208, 234, 0.28);
+}
+
 .nav-item.active {
   background: linear-gradient(135deg, #2fa8da 0%, #4dc2ee 100%);
   border-color: rgba(255, 255, 255, 0.16);
+}
+
+.nav-subitems {
+  margin: -2px 0 6px;
+  padding-left: 18px;
+  display: grid;
+  gap: 4px;
+}
+
+.nav-subitem {
+  width: 100%;
+  border: 1px solid transparent;
+  border-radius: 8px;
+  padding: 8px 10px;
+  background: rgba(255, 255, 255, 0.03);
+  color: rgba(240, 248, 255, 0.94);
+  text-align: left;
+  font-size: 13px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: background 0.2s ease, border-color 0.2s ease;
+}
+
+.nav-subitem:hover {
+  background: rgba(255, 255, 255, 0.1);
+  border-color: rgba(164, 208, 234, 0.22);
+}
+
+.nav-subitem.active {
+  background: rgba(77, 194, 238, 0.24);
+  border-color: rgba(77, 194, 238, 0.45);
+  color: #ffffff;
 }
 
 .workspace {

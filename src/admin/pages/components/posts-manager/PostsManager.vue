@@ -9,6 +9,7 @@ import {
   updateAdminEntityRecord,
   uploadAdminMediaAsset,
 } from '@/admin/services/adminApi'
+import { POST_STATUS_OPTIONS } from '@/admin/config/entityConfigs'
 import { fetchPostSourcePreview, importPostSourceFile } from '@/admin/services/postWorkflowApi'
 import { env } from '@/config/env'
 import PostEditorToolbar from './PostEditorToolbar.vue'
@@ -37,6 +38,9 @@ const API_ORIGIN = env.apiBaseUrl.replace(/\/api\/v\d+\/?$/, '')
 const AUTOSAVE_PREFIX = 'china-admin-post-draft'
 const LOOKUP_TIMEOUT_MS = 45000
 const POSTS_TIMEOUT_MS = 30000
+const DELETE_BATCH_SIZE = 8
+const POST_STATUS_SELECT_OPTIONS = POST_STATUS_OPTIONS
+const DEFAULT_POST_STATUS = String(POST_STATUS_SELECT_OPTIONS[0]?.value || 'draft')
 
 const records = ref([])
 const categories = ref([])
@@ -45,6 +49,7 @@ const mediaOptions = ref([])
 const loading = ref(false)
 const saving = ref(false)
 const deletingId = ref(null)
+const deletingAll = ref(false)
 const uploading = ref(false)
 const sourceLoading = ref(false)
 const importLoading = ref(false)
@@ -86,7 +91,7 @@ const form = reactive({
   author: '',
   image_id: null,
   language_id: 1,
-  status: 'draft',
+  status: DEFAULT_POST_STATUS,
   meta_title: '',
   meta_description: '',
 })
@@ -224,15 +229,7 @@ const statsCards = computed(() => {
       value: draft,
       description: 'Các bài đang được biên tập và chưa phát hành.',
       tone: 'warning',
-    },
-    {
-      key: 'reading',
-      label: 'Độ dài nháp',
-      badge: 'Editor',
-      value: `${readingTime.value} phút`,
-      description: `Khoảng ${wordsCount.value} từ trong bài đang mở tại editor.`,
-      tone: 'neutral',
-    },
+    },
   ]
 })
 
@@ -310,6 +307,30 @@ function applySuggestedCategory(suggestedSlug) {
   return true
 }
 
+async function openPostCategoriesManager() {
+  const nextQuery = { ...route.query, section: 'post_categories' }
+  delete nextQuery.postView
+  delete nextQuery.mode
+  delete nextQuery.postId
+  await router.replace({ query: nextQuery })
+}
+
+function handleCategoryCreated(createdCategory) {
+  if (!createdCategory?.id) return
+
+  const existing = categories.value.find((item) => Number(item.id) === Number(createdCategory.id))
+  if (!existing) {
+    categories.value = [...categories.value, createdCategory].sort((a, b) =>
+      String(a?.name || '').localeCompare(String(b?.name || ''), 'vi')
+    )
+  } else {
+    Object.assign(existing, createdCategory)
+  }
+
+  form.category_id = Number(createdCategory.id)
+  notifySuccess(`Đã tạo danh mục "${createdCategory.name}" và gán cho bài viết hiện tại.`)
+}
+
 function ensureWorkflowDefaults(options = {}) {
   const { autoPublish = false, suggestedCategorySlug = '' } = options
 
@@ -324,7 +345,7 @@ function ensureWorkflowDefaults(options = {}) {
   }
 
   if (!form.status) {
-    form.status = 'draft'
+    form.status = DEFAULT_POST_STATUS
   }
 
   if (autoPublish) {
@@ -345,7 +366,7 @@ function resetForm() {
   form.author = ''
   form.image_id = null
   form.language_id = languages.value[0]?.id || 1
-  form.status = 'draft'
+  form.status = DEFAULT_POST_STATUS
   form.meta_title = ''
   form.meta_description = ''
   formErrors.value = []
@@ -423,6 +444,18 @@ async function openEditForm(record) {
   await goToEditorView({ mode: 'manual', postId: record.id })
 }
 
+function openWordEditor() {
+  if (!editingRecordId.value) {
+    notifyError('Save the post first, then open the Word editor.')
+    return
+  }
+
+  router.push({
+    name: 'AdminPostWordEditor',
+    params: { id: String(editingRecordId.value) },
+  })
+}
+
 async function startEditComposer(record) {
   currentCreateMode.value = 'manual'
   formMode.value = 'edit'
@@ -441,7 +474,7 @@ async function startEditComposer(record) {
     form.author = record.author || ''
     form.image_id = record.image_id || null
     form.language_id = record.language_id || languages.value[0]?.id || 1
-    form.status = record.status || 'draft'
+    form.status = record.status || DEFAULT_POST_STATUS
     form.meta_title = record.meta_title || ''
     form.meta_description = record.meta_description || ''
     formErrors.value = []
@@ -548,7 +581,7 @@ function cleanPayload() {
     author: form.author.trim() || null,
     image_id: form.image_id ? Number(form.image_id) : null,
     language_id: Number(form.language_id),
-    status: form.status || 'draft',
+    status: form.status || DEFAULT_POST_STATUS,
     meta_title: form.meta_title.trim() || null,
     meta_description: form.meta_description.trim() || null,
   }
@@ -721,6 +754,87 @@ async function deleteRecord(record) {
     notifyError(error.message || 'Không thể xoá bài viết.')
   } finally {
     deletingId.value = null
+  }
+}
+
+async function collectAllPostIds(token) {
+  const ids = []
+  let skip = 0
+  const limit = 100
+  let total = 0
+
+  while (true) {
+    const response = await listAdminEntityRecords(
+      'posts',
+      token,
+      { skip, limit },
+      { timeoutMs: POSTS_TIMEOUT_MS }
+    )
+
+    const items = response.items || []
+    if (skip === 0) {
+      total = Number(response.pagination?.total || items.length || 0)
+    }
+
+    ids.push(...items.map((item) => Number(item.id)).filter((id) => Number.isFinite(id) && id > 0))
+    if (!items.length || ids.length >= total) break
+    skip += limit
+  }
+
+  return [...new Set(ids)]
+}
+
+async function deleteAllPosts() {
+  const token = normalizedToken()
+  if (!token || deletingAll.value) return
+
+  if (!totalRecords.value) {
+    notifyError('Khong co bai viet de xoa.')
+    return
+  }
+
+  const confirmed = window.confirm('Ban sap xoa TOAN BO bai viet. Hanh dong nay khong the hoan tac. Tiep tuc?')
+  if (!confirmed) return
+
+  const keyword = window.prompt('Nhap DELETE-ALL de xac nhan xoa toan bo bai viet:')
+  if (String(keyword || '').trim().toUpperCase() !== 'DELETE-ALL') {
+    notifyError('Da huy thao tac xoa toan bo.')
+    return
+  }
+
+  deletingAll.value = true
+  clearNotify()
+  try {
+    const ids = await collectAllPostIds(token)
+    if (!ids.length) {
+      notifyError('Khong tim thay bai viet de xoa hang loat.')
+      return
+    }
+
+    let successCount = 0
+    let failedCount = 0
+    for (let index = 0; index < ids.length; index += DELETE_BATCH_SIZE) {
+      const chunk = ids.slice(index, index + DELETE_BATCH_SIZE)
+      const results = await Promise.allSettled(chunk.map((id) => deleteAdminEntityRecord('posts', id, token)))
+
+      for (const result of results) {
+        if (result.status === 'fulfilled') successCount += 1
+        else failedCount += 1
+      }
+    }
+
+    currentPage.value = 1
+    await loadRecords()
+
+    if (failedCount === 0) {
+      notifySuccess(`Da xoa toan bo bai viet (${successCount}).`)
+    } else {
+      notifyError(`Da xoa ${successCount} bai, that bai ${failedCount} bai.`)
+    }
+  } catch (error) {
+    notifyError(error.message || 'Khong the xoa toan bo bai viet.')
+  } finally {
+    deletingAll.value = false
   }
 }
 
@@ -1010,21 +1124,31 @@ onBeforeUnmount(() => {
           </div>
         </div>
         <div class="hero-actions">
-          <button id="create_reference_post_button" type="button" class="create-card create-card--reference" @click="openComposer('reference')">
-            <span class="card-badge">01</span>
-            <strong>Tạo từ nguồn tham khảo</strong>
-            <small>Mở studio riêng để nhập URL, lấy dữ liệu nguồn, tạo bản tóm tắt và dựng nháp biên tập.</small>
-          </button>
-          <button id="create_import_post_button" type="button" class="create-card create-card--import" @click="openComposer('import')">
-            <span class="card-badge">02</span>
-            <strong>Import file tin tức</strong>
-            <small>Nhận docx, txt, md, html hoặc pdf rồi map nội dung vào bài viết để rà soát và chỉnh sửa.</small>
-          </button>
-          <button id="create_manual_post_button" type="button" class="create-card create-card--manual" @click="openComposer('manual')">
-            <span class="card-badge">03</span>
-            <strong>Soạn bài mới</strong>
-            <small>Viết trực tiếp trong editor kiểu Word, có preview, autosave và panel cài đặt xuất bản.</small>
-          </button>
+          <div class="create-options">
+            <button id="create_reference_post_button" type="button" class="create-option create-option--reference" @click="openComposer('reference')">
+              <span class="create-option-index">01</span>
+              <div class="create-option-copy">
+                <strong>Crawl nguon tin tham khao</strong>
+                <small>Lay noi dung tu URL, tao nhap bien tap theo quy dinh ban quyen, sau do chuyen vao trang chinh sua tin tuc.</small>
+              </div>
+            </button>
+
+            <button id="create_import_post_button" type="button" class="create-option create-option--import" @click="openComposer('import')">
+              <span class="create-option-index">02</span>
+              <div class="create-option-copy">
+                <strong>Import file -> chuyen HTML</strong>
+                <small>Nhap docx, txt, md, html hoac pdf, map noi dung thanh HTML va mo trang xem truoc de chinh sua.</small>
+              </div>
+            </button>
+
+            <button id="create_manual_post_button" type="button" class="create-option create-option--manual" @click="openComposer('manual')">
+              <span class="create-option-index">03</span>
+              <div class="create-option-copy">
+                <strong>Tao moi tin tuc</strong>
+                <small>Vao thang trang soan bai tin tuc de viet, xem truoc va xuat ban.</small>
+              </div>
+            </button>
+          </div>
         </div>
       </section>
 
@@ -1033,12 +1157,14 @@ onBeforeUnmount(() => {
       <PostsTable
         :records="filteredRecords"
         :loading="loading"
+        :deleting-all="deletingAll"
         :total-records="publicReadinessFilter ? filteredRecords.length : totalRecords"
         :current-page="currentPage"
         :total-pages="totalPages"
         :page-size="pageSize"
         :search-keyword="searchKeyword"
         :status-filter="statusFilter"
+        :status-options="POST_STATUS_SELECT_OPTIONS"
         :public-readiness-filter="publicReadinessFilter"
         :languages="languages"
         :expected-public-language-code="expectedPublicLanguageCode"
@@ -1050,6 +1176,7 @@ onBeforeUnmount(() => {
         @view="openDetail"
         @edit="openEditForm"
         @delete="deleteRecord"
+        @delete-all="deleteAllPosts"
         @page-change="setPage"
       />
     </template>
@@ -1156,6 +1283,15 @@ onBeforeUnmount(() => {
         </div>
         <div class="composer-topbar-actions">
           <span class="editor-meta">{{ wordsCount }} từ • {{ readingTime }} phút đọc</span>
+          <button
+            id="open_word_editor_button"
+            type="button"
+            class="btn btn-secondary"
+            :disabled="!editingRecordId"
+            @click="openWordEditor"
+          >
+            Open Word Editor
+          </button>
           <button id="back_to_posts_list_button" type="button" class="btn btn-secondary" @click="closeComposer">Quay lại danh sách</button>
           <button id="save_post_button" type="button" class="btn btn-primary" :disabled="saving" @click="submitForm">
             {{ saving ? 'Đang lưu...' : 'Lưu bài viết' }}
@@ -1229,9 +1365,11 @@ onBeforeUnmount(() => {
         </section>
 
         <PostSettingsPanel
+          :token="token"
           :mode="currentCreateMode"
           :form="form"
           :categories="categories"
+          :status-options="POST_STATUS_SELECT_OPTIONS"
           :languages="languages"
           :media-options="mediaOptions"
           :selected-image-url="selectedImageUrl"
@@ -1252,6 +1390,8 @@ onBeforeUnmount(() => {
           @upload-cover="uploadCover"
           @submit="currentCreateMode === 'manual' ? submitForm() : submitWorkflowPublish()"
           @save-draft="saveDraftLocally"
+          @manage-categories="openPostCategoriesManager"
+          @category-created="handleCategoryCreated"
         />
       </div>
     </section>
@@ -1379,58 +1519,91 @@ onBeforeUnmount(() => {
 
 .hero-actions {
   display: grid;
-  gap: 14px;
+  gap: 12px;
 }
 
-.create-card {
-  position: relative;
-  display: grid;
-  gap: 10px;
+.create-main-button {
   border: none;
-  border-radius: 24px;
-  padding: 22px;
+  border-radius: 18px;
+  padding: 16px 18px;
   text-align: left;
   cursor: pointer;
+  background: linear-gradient(145deg, #005ac2 0%, #004fab 100%);
+  color: #f7f7ff;
+  display: grid;
+  gap: 4px;
+}
+
+.create-main-title {
+  font-size: 17px;
+  font-weight: 800;
+}
+
+.create-main-subtitle {
+  opacity: 0.9;
+  line-height: 1.6;
+}
+
+.create-options {
+  display: grid;
+  gap: 10px;
+}
+
+.create-option {
+  border: none;
+  border-radius: 16px;
+  padding: 14px;
+  text-align: left;
+  cursor: pointer;
+  display: grid;
+  grid-template-columns: 42px minmax(0, 1fr);
+  align-items: start;
+  gap: 10px;
   transition: transform 0.2s ease, box-shadow 0.2s ease;
 }
 
-.create-card:hover {
-  transform: translateY(-2px);
-  box-shadow: 0 18px 36px rgba(42, 52, 57, 0.1);
+.create-option:hover {
+  transform: translateY(-1px);
+  box-shadow: 0 14px 28px rgba(42, 52, 57, 0.1);
 }
 
-.create-card strong {
-  color: #2a3439;
-  font-size: 1.05rem;
-  line-height: 1.35;
-}
-
-.create-card small {
-  color: #566166;
-  line-height: 1.7;
-}
-
-.card-badge {
+.create-option-index {
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  width: 44px;
-  height: 44px;
-  border-radius: 14px;
+  width: 42px;
+  height: 42px;
+  border-radius: 12px;
   background: rgba(255, 255, 255, 0.78);
   color: #2a3439;
   font-weight: 800;
 }
 
-.create-card--reference {
+.create-option-copy {
+  display: grid;
+  gap: 4px;
+}
+
+.create-option-copy strong {
+  color: #2a3439;
+  font-size: 15px;
+  line-height: 1.4;
+}
+
+.create-option-copy small {
+  color: #566166;
+  line-height: 1.6;
+}
+
+.create-option--reference {
   background: #d8e2ff;
 }
 
-.create-card--import {
+.create-option--import {
   background: #d3ceef;
 }
 
-.create-card--manual {
+.create-option--manual {
   background: #d3e4fe;
 }
 
@@ -1794,3 +1967,5 @@ onBeforeUnmount(() => {
   }
 }
 </style>
+
+

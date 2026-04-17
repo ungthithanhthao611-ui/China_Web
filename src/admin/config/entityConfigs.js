@@ -1,3 +1,31 @@
+export const DEFAULT_STATUS_OPTIONS = [
+  { value: 'published', label: 'Published' },
+  { value: 'draft', label: 'Draft' },
+  { value: 'archived', label: 'Archived' },
+  { value: 'active', label: 'Active' },
+  { value: 'inactive', label: 'Inactive' },
+  { value: 'new', label: 'New' },
+  { value: 'in_progress', label: 'In Progress' },
+  { value: 'resolved', label: 'Resolved' },
+]
+
+export const POST_STATUS_OPTIONS = [
+  { value: 'draft', label: 'Bản nháp' },
+  { value: 'published', label: 'Xuất bản chính thức' },
+  { value: 'archived', label: 'Lưu trữ' },
+]
+
+export const CATEGORY_STATUS_OPTIONS = [
+  { value: 'active', label: 'Active' },
+  { value: 'inactive', label: 'Inactive' },
+]
+
+export const CONTENT_STATUS_OPTIONS = [
+  { value: 'draft', label: 'Draft' },
+  { value: 'published', label: 'Published' },
+  { value: 'archived', label: 'Archived' },
+]
+
 export const ENTITY_MANAGER_CONFIGS = {
   pages: {
     label: 'Pages',
@@ -7,6 +35,8 @@ export const ENTITY_MANAGER_CONFIGS = {
     table: ['id', 'title', 'slug', 'page_type', 'status', 'language_id', 'sort_order'],
     required: ['slug', 'language_id'],
     fields: ['slug', 'title', 'summary', 'body', 'page_type', 'language_id', 'parent_id', 'status', 'meta_title', 'meta_description', 'sort_order'],
+    statusOptions: CONTENT_STATUS_OPTIONS,
+    defaultStatus: 'draft',
     preview: (record) => `/${record.slug}`,
   },
   page_sections: {
@@ -44,6 +74,42 @@ export const ENTITY_MANAGER_CONFIGS = {
     table: ['id', 'title', 'banner_type', 'language_id', 'sort_order', 'is_active'],
     required: ['language_id'],
     fields: ['title', 'subtitle', 'body', 'image_id', 'link', 'button_text', 'banner_type', 'language_id', 'sort_order', 'is_active'],
+    statusOptions: [
+      { value: 'active', label: 'Active' },
+      { value: 'inactive', label: 'Inactive' },
+    ],
+    defaultStatus: 'active',
+    previewMediaField: 'image_id',
+    mediaUploadTargetField: 'image_id',
+    mediaUploadAccept: 'image/*,video/*',
+    cloudinaryAssetFolder: 'banner',
+    fieldLabels: {
+      title: 'Banner Title',
+      subtitle: 'Subtitle',
+      body: 'Description',
+      image_id: 'Banner Image/Video',
+      link: 'CTA Link',
+      button_text: 'Button Text',
+      banner_type: 'Banner Type',
+      language_id: 'Language',
+      sort_order: 'Display Order',
+      is_active: 'Status',
+    },
+    placeholders: {
+      title: 'Example: Welcome to China Decor',
+      subtitle: 'Elegant Interior Solutions',
+      body: 'Write a short description for this banner.',
+      link: '/about or https://example.com',
+      button_text: 'Learn More',
+    },
+    helpText: {
+      image_id: 'Upload an image (JPG, PNG, WebP) or video (MP4, WebM) for the banner background.',
+      banner_type: 'Hero = homepage slider, CTA = promotional card, Section/Page/Footer = secondary placements.',
+      link: 'URL when users click on the banner or CTA button.',
+      button_text: 'Text displayed on the CTA button (if any).',
+      is_active: 'Only active banners are shown on the public site.',
+    },
+    featuredTableFields: ['image_id', 'banner_type', 'is_active'],
   },
   post_categories: {
     label: 'Post Categories',
@@ -53,6 +119,8 @@ export const ENTITY_MANAGER_CONFIGS = {
     table: ['id', 'name', 'slug', 'status', 'sort_order'],
     required: ['name', 'slug'],
     fields: ['name', 'slug', 'description', 'parent_id', 'sort_order', 'status'],
+    statusOptions: CATEGORY_STATUS_OPTIONS,
+    defaultStatus: 'active',
   },
   posts: {
     label: 'Posts',
@@ -62,6 +130,8 @@ export const ENTITY_MANAGER_CONFIGS = {
     table: ['id', 'title', 'slug', 'category_id', 'status', 'published_at'],
     required: ['title', 'slug', 'language_id'],
     fields: ['title', 'slug', 'category_id', 'summary', 'body', 'published_at', 'author', 'image_id', 'language_id', 'status', 'meta_title', 'meta_description'],
+    statusOptions: POST_STATUS_OPTIONS,
+    defaultStatus: 'draft',
     preview: (record) => `/news/${record.slug}`,
   },
   project_categories: {
@@ -72,6 +142,8 @@ export const ENTITY_MANAGER_CONFIGS = {
     table: ['id', 'name', 'slug', 'status', 'sort_order'],
     required: ['name', 'slug'],
     fields: ['name', 'slug', 'description', 'parent_id', 'sort_order', 'status'],
+    statusOptions: CATEGORY_STATUS_OPTIONS,
+    defaultStatus: 'active',
   },
   projects: {
     label: 'Projects',
@@ -81,6 +153,8 @@ export const ENTITY_MANAGER_CONFIGS = {
     table: ['id', 'title', 'slug', 'category_id', 'project_year', 'status'],
     required: ['title', 'slug', 'language_id'],
     fields: ['title', 'slug', 'category_id', 'summary', 'body', 'location', 'project_year', 'image_id', 'hero_image_id', 'language_id', 'status', 'meta_title', 'meta_description'],
+    statusOptions: CONTENT_STATUS_OPTIONS,
+    defaultStatus: 'draft',
     preview: (record) => `/project/${record.slug}`,
   },
   branches: {
@@ -115,12 +189,38 @@ export const ENTITY_MANAGER_CONFIGS = {
   videos: {
     label: 'Videos',
     eyebrow: 'Video gallery',
-    description: 'Manage video title, description, source URL, thumbnail, and publish status.',
+    description: 'Manage showcase videos, direct media URLs, thumbnails, language, and publish status for the public gallery.',
     titleField: 'title',
-    table: ['id', 'title', 'video_url', 'language_id', 'sort_order', 'status'],
+    table: ['id', 'title', 'video_url', 'thumbnail_id', 'language_id', 'sort_order', 'status'],
     required: ['title', 'video_url', 'language_id'],
     fields: ['title', 'description', 'video_url', 'thumbnail_id', 'language_id', 'sort_order', 'status'],
+    statusOptions: CONTENT_STATUS_OPTIONS,
+    defaultStatus: 'draft',
     preview: () => '/video',
+    previewMediaField: 'thumbnail_id',
+    mediaUploadTargetField: 'thumbnail_id',
+    mediaUploadAccept: 'image/*',
+    cloudinaryAssetFolder: 'videos',
+    fieldLabels: {
+      title: 'Video Title',
+      description: 'Short Description',
+      video_url: 'Video URL',
+      thumbnail_id: 'Thumbnail',
+      language_id: 'Language',
+      sort_order: 'Display Order',
+      status: 'Publish Status',
+    },
+    placeholders: {
+      title: 'Example: China Decor Signature Project Film',
+      description: 'Write a concise teaser for the video card and modal caption.',
+      video_url: 'https://cdn.example.com/showcase/video.mp4 or YouTube/Vimeo embed URL',
+    },
+    helpText: {
+      video_url: 'Use a direct MP4/WebM URL, or a valid YouTube/Vimeo/share link. The frontend will open this in the premium player modal.',
+      thumbnail_id: 'Upload a cover image below or choose one from the media library for the public video card.',
+      status: 'Only videos with Published status are shown on the public page.',
+    },
+    featuredTableFields: ['video_url', 'thumbnail_id', 'status'],
   },
   media_assets: {
     label: 'Media Library',
@@ -130,6 +230,8 @@ export const ENTITY_MANAGER_CONFIGS = {
     table: ['id', 'title', 'file_name', 'asset_type', 'mime_type', 'status'],
     required: ['uuid', 'url', 'asset_type'],
     fields: ['uuid', 'file_name', 'url', 'storage_path', 'asset_type', 'mime_type', 'width', 'height', 'size', 'alt_text', 'title', 'status'],
+    statusOptions: CATEGORY_STATUS_OPTIONS,
+    defaultStatus: 'active',
     allowCreate: false,
     standaloneUpload: true,
   },
@@ -150,6 +252,13 @@ export const ENTITY_MANAGER_CONFIGS = {
     table: ['id', 'full_name', 'email', 'subject', 'status', 'created_at'],
     required: ['full_name', 'email', 'message'],
     fields: ['full_name', 'email', 'phone', 'company', 'subject', 'message', 'source_page', 'status'],
+    statusOptions: [
+      { value: 'new', label: 'New' },
+      { value: 'in_progress', label: 'In Progress' },
+      { value: 'resolved', label: 'Resolved' },
+      { value: 'archived', label: 'Archived' },
+    ],
+    defaultStatus: 'new',
   },
 }
 
@@ -159,7 +268,12 @@ export const ADMIN_SECTION_GROUPS = [
   {
     title: 'Content',
     items: [
-      { key: 'posts', label: 'News Posts' },
+      { key: 'banners', label: 'Banners' },
+      {
+        key: 'posts',
+        label: 'News Posts',
+        children: [{ key: 'post_categories', label: 'News Category' }],
+      },
       { key: 'videos', label: 'Videos' },
       { key: 'honors', label: 'Honors' },
       { key: 'media_assets', label: 'Media Library' },
@@ -167,7 +281,14 @@ export const ADMIN_SECTION_GROUPS = [
   },
 ]
 
-export const ADMIN_SECTION_INDEX = Object.fromEntries(
-  ADMIN_SECTION_GROUPS.flatMap((group) => group.items).map((item) => [item.key, item])
-)
+function flattenSectionItems(items, collector = []) {
+  for (const item of items || []) {
+    collector.push(item)
+    if (Array.isArray(item.children) && item.children.length) {
+      flattenSectionItems(item.children, collector)
+    }
+  }
+  return collector
+}
 
+export const ADMIN_SECTION_INDEX = Object.fromEntries(ADMIN_SECTION_GROUPS.flatMap((group) => flattenSectionItems(group.items)).map((item) => [item.key, item]))

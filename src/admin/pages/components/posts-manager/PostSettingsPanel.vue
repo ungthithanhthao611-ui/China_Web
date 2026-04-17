@@ -1,5 +1,13 @@
 <script setup>
+import { reactive, ref } from 'vue'
+
+import { createAdminEntityRecord } from '@/admin/services/adminApi'
+
 const props = defineProps({
+  token: {
+    type: String,
+    required: true,
+  },
   mode: {
     type: String,
     default: 'manual',
@@ -11,6 +19,10 @@ const props = defineProps({
   categories: {
     type: Array,
     default: () => [],
+  },
+  statusOptions: {
+    type: Array,
+    default: () => ['draft', 'published', 'archived'],
   },
   languages: {
     type: Array,
@@ -71,11 +83,109 @@ const emit = defineEmits([
   'cover-file-change',
   'submit',
   'save-draft',
+  'manage-categories',
+  'category-created',
 ])
+
+const creatingCategory = ref(false)
+const categoryCreateError = ref('')
+const categoryCreateSuccess = ref('')
+const categoryDraft = reactive({
+  name: '',
+  slug: '',
+  description: '',
+})
 
 function seoTone() {
   if (props.form.meta_title || props.form.meta_description) return 'good'
   return 'low'
+}
+
+function slugify(value) {
+  return String(value || '')
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '')
+    .toLowerCase()
+    .replace(/đ/g, 'd')
+    .replace(/[^a-z0-9]+/g, '-')
+    .replace(/^-+|-+$/g, '')
+}
+
+function resetCategoryDraft() {
+  categoryDraft.name = ''
+  categoryDraft.slug = ''
+  categoryDraft.description = ''
+}
+
+function onCategoryNameInput() {
+  if (!String(categoryDraft.slug || '').trim()) {
+    categoryDraft.slug = slugify(categoryDraft.name)
+  }
+}
+
+function onCategorySlugInput() {
+  categoryDraft.slug = slugify(categoryDraft.slug)
+}
+
+function resolveStatusOptionValue(option) {
+  if (typeof option === 'string') return option
+  return String(option?.value || '').trim()
+}
+
+function resolveStatusOptionLabel(option) {
+  if (typeof option === 'string') return option
+  return String(option?.label || option?.value || '').trim()
+}
+
+function handleStatusChange(event) {
+  const value = String(event?.target?.value || '').trim() || 'draft'
+  props.form.status = value
+  if (value === 'published' && !props.form.published_at) {
+    props.form.published_at = new Date().toISOString().slice(0, 16)
+  }
+}
+
+async function createQuickCategory() {
+  const normalizedToken = String(props.token || '').trim()
+  if (!normalizedToken) return
+
+  categoryCreateError.value = ''
+  categoryCreateSuccess.value = ''
+
+  const name = String(categoryDraft.name || '').trim()
+  const slug = slugify(categoryDraft.slug || name)
+  const description = String(categoryDraft.description || '').trim()
+
+  if (!name) {
+    categoryCreateError.value = 'Tên danh mục là bắt buộc.'
+    return
+  }
+  if (!slug) {
+    categoryCreateError.value = 'Slug danh mục chưa hợp lệ.'
+    return
+  }
+
+  creatingCategory.value = true
+  try {
+    const created = await createAdminEntityRecord(
+      'post_categories',
+      {
+        name,
+        slug,
+        description: description || null,
+        status: 'active',
+        sort_order: 0,
+      },
+      normalizedToken
+    )
+    emit('category-created', created)
+    categoryCreateSuccess.value = `Đã tạo danh mục "${created.name}".`
+    resetCategoryDraft()
+  } catch (error) {
+    categoryCreateError.value = error?.message || 'Không thể tạo danh mục mới.'
+  } finally {
+    creatingCategory.value = false
+  }
 }
 </script>
 
@@ -91,6 +201,18 @@ function seoTone() {
           <span>Status</span>
           <strong class="status-tag">{{ form.status || 'draft' }}</strong>
         </div>
+        <label class="field">
+          <span>Tùy chỉnh status</span>
+          <select :value="form.status || 'draft'" @change="handleStatusChange">
+            <option
+              v-for="status in statusOptions"
+              :key="resolveStatusOptionValue(status)"
+              :value="resolveStatusOptionValue(status)"
+            >
+              {{ resolveStatusOptionLabel(status) }}
+            </option>
+          </select>
+        </label>
         <div class="info-row">
           <span>Visibility</span>
           <strong>Public</strong>
@@ -213,6 +335,37 @@ function seoTone() {
           <option v-for="category in categories" :key="category.id" :value="category.id">{{ category.name }}</option>
         </select>
       </label>
+      <div class="category-quick-tools">
+        <button id="manage_post_categories_button" type="button" class="link-action" @click="$emit('manage-categories')">
+          Quản lý danh mục
+        </button>
+      </div>
+      <div class="quick-category-card">
+        <p class="quick-category-title">Tạo danh mục nhanh</p>
+        <label class="field">
+          <span>Tên danh mục</span>
+          <input v-model="categoryDraft.name" type="text" placeholder="Ví dụ: Corporate News" @input="onCategoryNameInput" />
+        </label>
+        <label class="field">
+          <span>Slug</span>
+          <input v-model="categoryDraft.slug" type="text" placeholder="corporate-news" @input="onCategorySlugInput" />
+        </label>
+        <label class="field">
+          <span>Mô tả</span>
+          <textarea v-model="categoryDraft.description" rows="2" placeholder="Mô tả ngắn cho danh mục..."></textarea>
+        </label>
+        <button
+          id="create_post_category_button"
+          type="button"
+          class="secondary-action"
+          :disabled="creatingCategory"
+          @click="createQuickCategory"
+        >
+          {{ creatingCategory ? 'Đang tạo...' : 'Tạo danh mục' }}
+        </button>
+        <p v-if="categoryCreateError" class="quick-category-feedback quick-category-feedback--error">{{ categoryCreateError }}</p>
+        <p v-else-if="categoryCreateSuccess" class="quick-category-feedback quick-category-feedback--success">{{ categoryCreateSuccess }}</p>
+      </div>
       <label class="field">
         <span>Language</span>
         <select v-model.number="form.language_id">
@@ -339,6 +492,55 @@ function seoTone() {
   font-weight: 800;
   text-transform: uppercase;
   letter-spacing: 0.14em;
+}
+
+.category-quick-tools {
+  display: flex;
+  justify-content: flex-end;
+  margin-top: -4px;
+}
+
+.link-action {
+  border: none;
+  background: transparent;
+  color: #005ac2;
+  cursor: pointer;
+  font: inherit;
+  font-size: 12px;
+  font-weight: 700;
+  text-decoration: underline;
+}
+
+.quick-category-card {
+  border: 1px solid rgba(169, 180, 185, 0.28);
+  border-radius: 14px;
+  padding: 12px;
+  background: #fbfdff;
+  display: grid;
+  gap: 10px;
+}
+
+.quick-category-title {
+  margin: 0;
+  color: #2a3439;
+  font-size: 12px;
+  font-weight: 800;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+}
+
+.quick-category-feedback {
+  margin: 0;
+  font-size: 12px;
+  line-height: 1.5;
+}
+
+.quick-category-feedback--error {
+  color: #a73447;
+}
+
+.quick-category-feedback--success {
+  color: #1d7740;
 }
 
 input,

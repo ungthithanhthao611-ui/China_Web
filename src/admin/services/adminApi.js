@@ -77,6 +77,12 @@ export function uploadAdminMediaAsset(token, file, metadata = {}) {
   if (metadata.altText) {
     formData.append('alt_text', metadata.altText)
   }
+  if (metadata.assetFolder) {
+    formData.append('asset_folder', metadata.assetFolder)
+  }
+  if (metadata.publicIdBase) {
+    formData.append('public_id_base', metadata.publicIdBase)
+  }
 
   return fetchJson('/admin/media/upload', {
     method: 'POST',

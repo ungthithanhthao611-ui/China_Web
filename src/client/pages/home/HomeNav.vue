@@ -1,4 +1,5 @@
 <script setup>
+import { computed } from 'vue'
 import { uiState } from '@/utils/uiState'
 
 const props = defineProps({
@@ -13,12 +14,16 @@ const props = defineProps({
   activeBanner: {
     type: Number,
     default: 0
+  },
+  bannerCount: {
+    type: Number,
+    default: 6
   }
 })
 
 const emit = defineEmits(['navigate', 'navigate-banner'])
 
-const bannerItems = Array.from({ length: 6 }, (_, index) => index)
+const bannerItems = computed(() => Array.from({ length: Math.max(0, props.bannerCount || 0) }, (_, index) => index))
 
 const navigate = (index) => {
   emit('navigate', index)

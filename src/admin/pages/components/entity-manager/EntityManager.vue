@@ -1,4 +1,4 @@
-﻿<script setup>
+<script setup>
 import { computed, onMounted, reactive, ref, watch } from 'vue'
 
 import {
@@ -8,7 +8,7 @@ import {
   updateAdminEntityRecord,
   uploadAdminMediaAsset,
 } from '@/admin/services/adminApi'
-import { ENTITY_MANAGER_CONFIGS } from '@/admin/config/entityConfigs'
+import { DEFAULT_STATUS_OPTIONS, ENTITY_MANAGER_CONFIGS } from '@/admin/config/entityConfigs'
 import { env } from '@/config/env'
 
 const props = defineProps({
@@ -28,7 +28,6 @@ const props = defineProps({
 
 const emit = defineEmits(['notify-success', 'notify-error', 'clear-notify'])
 
-const STATUS_OPTIONS = ['published', 'draft', 'archived', 'active', 'inactive', 'new', 'in_progress', 'resolved']
 const SLUG_PATTERN = /^[a-z0-9]+(?:-[a-z0-9]+)*$/
 const API_ORIGIN = env.apiBaseUrl.replace(/\/api\/v\d+\/?$/, '')
 
@@ -72,6 +71,20 @@ const uploading = ref(false)
 const config = computed(() => ENTITY_MANAGER_CONFIGS[props.entityKey])
 const tableColumns = computed(() => config.value?.table || ['id'])
 const formFields = computed(() => config.value?.fields || [])
+const statusOptions = computed(() => {
+  const source = Array.isArray(config.value?.statusOptions) && config.value.statusOptions.length
+    ? config.value.statusOptions
+    : DEFAULT_STATUS_OPTIONS
+  return source.map((option) => {
+    if (typeof option === 'string') {
+      return { value: option, label: option }
+    }
+    return {
+      value: String(option?.value || '').trim(),
+      label: String(option?.label || option?.value || '').trim(),
+    }
+  }).filter((option) => option.value)
+})
 const totalPages = computed(() => Math.max(1, Math.ceil(totalRecords.value / pageSize.value)))
 const hasStatusFilter = computed(() => formFields.value.includes('status'))
 const hasMediaFields = computed(() => formFields.value.some((field) => FIELD_GROUPS.media.includes(field)))
@@ -79,6 +92,9 @@ const mediaFieldOptions = computed(() => formFields.value.filter((field) => FIEL
 const canCreate = computed(() => config.value?.allowCreate !== false)
 const standaloneUpload = computed(() => Boolean(config.value?.standaloneUpload))
 const isMediaAssetsEntity = computed(() => props.entityKey === 'media_assets')
+const isVideosEntity = computed(() => props.entityKey === 'videos')
+const isBannerEntity = computed(() => props.entityKey === 'banners')
+const featuredTableFields = computed(() => config.value?.featuredTableFields || [])
 
 function normalizedToken() {
   return String(props.token || '').trim()
@@ -97,40 +113,33 @@ function clearNotify() {
 }
 
 function fieldLabel(field) {
-  return field.replace(/_/g, ' ').replace(/\b\w/g, (char) => char.toUpperCase())
+  return config.value?.fieldLabels?.[field] || field.replace(/_/g, ' ').replace(/\b\w/g, (char) => char.toUpperCase())
 }
 
-function inputType(field) {
-  if (['sort_order', 'language_id', 'category_id', 'project_id', 'branch_id', 'page_id', 'parent_id', 'block_id', 'entity_id', 'award_year', 'project_year', 'width', 'height', 'size', 'image_id', 'hero_image_id', 'thumbnail_id', 'media_id'].includes(field)) {
-    return 'number'
-  }
-  if (field === 'email') return 'email'
-  if (field.endsWith('_url') || field === 'url' || field === 'link' || field === 'video_url') return 'url'
-  if (field.endsWith('_at')) return 'datetime-local'
-  return 'text'
+function fieldPlaceholder(field) {
+  return config.value?.placeholders?.[field] || ''
 }
 
-function isTextarea(field) {
-  return FIELD_GROUPS.content.includes(field) || field === 'meta_description' || field === 'config_value' || field === 'metadata_json'
+function fieldHelpText(field) {
+  return config.value?.helpText?.[field] || ''
 }
 
-function isBooleanField(field) {
-  return field === 'is_active' || field === 'is_primary' || field === 'is_default'
+function mediaUploadAccept() {
+  return config.value?.mediaUploadAccept || 'image/*,video/*,application/pdf'
 }
 
-function isSelectField(field) {
-  return field === 'status' || field === 'asset_type' || field === 'banner_type' || field === 'branch_type' || field === 'contact_type'
+function mediaUploadAssetFolder() {
+  return String(config.value?.cloudinaryAssetFolder || '').trim()
 }
 
-function selectOptions(field) {
-  const options = {
-    status: STATUS_OPTIONS,
-    asset_type: ['image', 'video', 'document', 'file'],
-    banner_type: ['hero', 'page', 'section', 'footer'],
-    branch_type: ['subsidiary', 'branch', 'office'],
-    contact_type: ['headquarters', 'branch', 'sales', 'support'],
-  }
-  return options[field] || []
+function mediaUploadPublicIdBase() {
+  const seed = uploadTitle.value || form.title || uploadFile.value?.name || ''
+  return String(seed)
+    .trim()
+    .toLowerCase()
+    .replace(/\.[a-z0-9]+$/i, '')
+    .replace(/[^a-z0-9]+/g, '-')
+    .replace(/^-+|-+$/g, '')
 }
 
 function resolveMediaUrl(url) {
@@ -163,6 +172,165 @@ function mediaAssetLabel(record) {
   return record?.title || record?.file_name || record?.url || '-'
 }
 
+function getMediaOptionById(mediaId) {
+  return mediaOptions.value.find((item) => String(item.id) === String(mediaId)) || null
+}
+
+function selectedMediaAsset(field) {
+  return getMediaOptionById(form[field])
+}
+
+function selectedMediaPreviewUrl(field) {
+  const media = selectedMediaAsset(field)
+  return media?.url ? resolveMediaUrl(media.url) : ''
+}
+
+function selectedMediaLabel(field) {
+  const media = getMediaOptionById(form[field])
+  return media ? mediaAssetLabel(media) : 'No media selected'
+}
+
+function rowThumbnailUrl(record) {
+  if (!isVideosEntity.value) return ''
+  return resolveMediaUrl(record?.thumbnail?.url || record?.thumbnail_url || '')
+}
+
+function videoPreviewUrl(record) {
+  if (!record?.video_url) return ''
+  return resolveMediaUrl(record.video_url)
+}
+
+function isDirectVideoFile(url) {
+  const normalized = String(url || '').trim().toLowerCase()
+  return /\.(mp4|webm|ogg|mov|m4v)(\?.*)?$/.test(normalized)
+}
+
+function isAllowedVideoUrl(url) {
+  const normalized = String(url || '').trim()
+  if (!normalized) return false
+
+  try {
+    const parsed = new URL(normalized)
+    if (!['http:', 'https:'].includes(parsed.protocol)) {
+      return false
+    }
+
+    return (
+      isDirectVideoFile(normalized)
+      || /(^|\.)youtube\.com$/i.test(parsed.hostname)
+      || /(^|\.)youtu\.be$/i.test(parsed.hostname)
+      || /(^|\.)vimeo\.com$/i.test(parsed.hostname)
+      || parsed.pathname.includes('/video/')
+    )
+  } catch {
+    return false
+  }
+}
+
+function videoUrlHint(url) {
+  const normalized = String(url || '').trim()
+  if (!normalized) return ''
+  if (isDirectVideoFile(normalized)) return 'Direct video file detected'
+  if (/youtube\.com|youtu\.be/i.test(normalized)) return 'YouTube link detected'
+  if (/vimeo\.com/i.test(normalized)) return 'Vimeo link detected'
+  return 'External video link detected'
+}
+
+function isVideoMediaRecord(record) {
+  if (!record) return false
+  if (String(record.asset_type || '').toLowerCase() === 'video') return true
+  return /\.(mp4|webm|ogg|mov|m4v)(\?.*)?$/i.test(String(record.url || '').trim())
+}
+
+function isImageMedia(record) {
+  return Boolean(record) && !isVideoMediaRecord(record)
+}
+
+function bannerMediaRecord(record) {
+  return record?.image || getMediaOptionById(record?.image_id) || null
+}
+
+function bannerFormMediaRecord() {
+  return getMediaOptionById(form.image_id)
+}
+
+function bannerMediaUrl(record) {
+  const media = typeof record === 'object' && 'url' in (record || {}) && 'asset_type' in (record || {})
+    ? record
+    : bannerMediaRecord(record)
+
+  return media?.url ? resolveMediaUrl(media.url) : ''
+}
+
+function bannerMediaAlt(record) {
+  const media = typeof record === 'object' && 'url' in (record || {}) && 'asset_type' in (record || {})
+    ? record
+    : bannerMediaRecord(record)
+
+  return media?.alt_text || media?.title || record?.title || 'Banner media'
+}
+
+function bannerTypeLabel(value) {
+  const labels = {
+    hero: 'Hero',
+    cta: 'CTA',
+    page: 'Page',
+    section: 'Section',
+    footer: 'Footer',
+  }
+
+  return labels[String(value || '').trim().toLowerCase()] || String(value || 'Banner').trim() || 'Banner'
+}
+
+function bannerOrdinal(value) {
+  const numeric = Number(value)
+  if (Number.isFinite(numeric) && numeric > 0) {
+    return String(Math.trunc(numeric)).padStart(2, '0')
+  }
+  return '00'
+}
+
+function bannerAdminLabel(record) {
+  if (String(record?.title || '').trim()) {
+    return String(record.title).trim()
+  }
+
+  return `${bannerTypeLabel(record?.banner_type)} ${bannerOrdinal(record?.sort_order || record?.id)}`
+}
+
+function inputType(field) {
+  if (['sort_order', 'language_id', 'category_id', 'project_id', 'branch_id', 'page_id', 'parent_id', 'block_id', 'entity_id', 'award_year', 'project_year', 'width', 'height', 'size', 'image_id', 'hero_image_id', 'thumbnail_id', 'media_id'].includes(field)) {
+    return 'number'
+  }
+  if (field === 'email') return 'email'
+  if (field.endsWith('_url') || field === 'url' || field === 'link' || field === 'video_url') return 'url'
+  if (field.endsWith('_at')) return 'datetime-local'
+  return 'text'
+}
+
+function isTextarea(field) {
+  return FIELD_GROUPS.content.includes(field) || field === 'meta_description' || field === 'config_value' || field === 'metadata_json'
+}
+
+function isBooleanField(field) {
+  return field === 'is_active' || field === 'is_primary' || field === 'is_default'
+}
+
+function isSelectField(field) {
+  return field === 'status' || field === 'asset_type' || field === 'banner_type' || field === 'branch_type' || field === 'contact_type'
+}
+
+function selectOptions(field) {
+  const options = {
+    status: statusOptions.value,
+    asset_type: ['image', 'video', 'document', 'file'],
+    banner_type: ['hero', 'cta', 'page', 'section', 'footer'],
+    branch_type: ['subsidiary', 'branch', 'office'],
+    contact_type: ['headquarters', 'branch', 'sales', 'support'],
+  }
+  return options[field] || []
+}
+
 function formatCell(value) {
   if (value === null || value === undefined || value === '') return '-'
   if (typeof value === 'boolean') return value ? 'Yes' : 'No'
@@ -189,7 +357,7 @@ function setDefaultFormValues(record = {}) {
       return
     }
     if (field === 'status') {
-      form[field] = props.entityKey.includes('categor') || props.entityKey === 'media_assets' ? 'active' : 'published'
+      form[field] = config.value?.defaultStatus || statusOptions.value[0]?.value || 'draft'
       return
     }
     if (field === 'language_id') {
@@ -203,7 +371,9 @@ function setDefaultFormValues(record = {}) {
     form[field] = ''
   })
 
-  uploadTargetField.value = mediaFieldOptions.value[0] || 'image_id'
+  uploadTargetField.value = config.value?.mediaUploadTargetField || mediaFieldOptions.value[0] || 'image_id'
+  uploadTitle.value = record?.title || ''
+  uploadAltText.value = record?.title || ''
   formErrors.value = []
 }
 
@@ -249,6 +419,10 @@ function validateForm() {
 
   if (form.email && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(String(form.email))) {
     errors.push('Email format is invalid.')
+  }
+
+  if (isVideosEntity.value && form.video_url && !isAllowedVideoUrl(form.video_url)) {
+    errors.push('Video URL must be a valid http/https direct video link, YouTube URL, or Vimeo URL.')
   }
 
   formFields.value.forEach((field) => {
@@ -409,8 +583,10 @@ async function uploadMedia() {
   uploading.value = true
   try {
     const media = await uploadAdminMediaAsset(token, uploadFile.value, {
-      title: uploadTitle.value,
-      altText: uploadAltText.value,
+      title: uploadTitle.value || form.title,
+      altText: uploadAltText.value || form.title,
+      assetFolder: mediaUploadAssetFolder(),
+      publicIdBase: mediaUploadPublicIdBase(),
     })
     await loadMediaOptions()
     if (standaloneUpload.value) {
@@ -510,7 +686,7 @@ onMounted(() => {
       <input v-model="searchKeyword" type="search" :placeholder="`Search ${config.label.toLowerCase()}...`" @keyup.enter="currentPage = 1; loadRecords()" />
       <select v-if="hasStatusFilter" v-model="statusFilter" aria-label="Status filter">
         <option value="">All statuses</option>
-        <option v-for="status in STATUS_OPTIONS" :key="status" :value="status">{{ status }}</option>
+        <option v-for="status in statusOptions" :key="status.value" :value="status.value">{{ status.label }}</option>
       </select>
       <button type="button" class="btn btn-secondary" :disabled="loading" @click="currentPage = 1; loadRecords()">Search</button>
     </div>
@@ -548,7 +724,7 @@ onMounted(() => {
               <td :colspan="tableColumns.length + 2">No records found.</td>
             </tr>
             <tr v-for="record in records" v-else :key="record.id">
-              <td v-for="column in tableColumns" :key="`${record.id}-${column}`">
+              <td v-for="column in tableColumns" :key="`${record.id}-${column}`" :class="{ 'cell-featured': featuredTableFields.includes(column) }">
                 <template v-if="isMediaAssetsEntity && column === 'title'">
                   <div class="media-title-cell">
                     <img
@@ -562,12 +738,81 @@ onMounted(() => {
                     <span>{{ mediaAssetLabel(record) }}</span>
                   </div>
                 </template>
+                <template v-else-if="isBannerEntity && column === 'title'">
+                  {{ bannerAdminLabel(record) }}
+                </template>
+                <template v-else-if="isBannerEntity && column === 'image_id'">
+                  <div class="banner-media-cell">
+                    <template v-if="bannerMediaUrl(record)">
+                      <video
+                        v-if="isVideoMediaRecord(bannerMediaRecord(record))"
+                        :src="bannerMediaUrl(record)"
+                        muted
+                        playsinline
+                        preload="metadata"
+                      ></video>
+                      <img
+                        v-else
+                        :src="bannerMediaUrl(record)"
+                        :alt="bannerMediaAlt(record)"
+                        loading="lazy"
+                      />
+                    </template>
+                    <div v-else class="video-table-thumb-cell__empty">No media</div>
+                    <small>#{{ record.image_id || '-' }}</small>
+                  </div>
+                </template>
+                <template v-else-if="isVideosEntity && column === 'thumbnail_id'">
+                  <div class="video-table-thumb-cell">
+                    <img v-if="rowThumbnailUrl(record)" :src="rowThumbnailUrl(record)" :alt="record.title || 'Video thumbnail'" loading="lazy" />
+                    <div v-else class="video-table-thumb-cell__empty">No thumbnail</div>
+                    <small>#{{ record.thumbnail_id || '-' }}</small>
+                  </div>
+                </template>
+                <template v-else-if="isVideosEntity && column === 'video_url'">
+                  <div class="video-link-cell">
+                    <a :href="videoPreviewUrl(record)" target="_blank" rel="noreferrer noopener">{{ formatCell(record[column]) }}</a>
+                    <small v-if="videoUrlHint(record[column])">{{ videoUrlHint(record[column]) }}</small>
+                  </div>
+                </template>
                 <template v-else>
                   {{ formatCell(record[column]) }}
                 </template>
               </td>
               <td>
-                <template v-if="isMediaAssetsEntity">
+                <template v-if="isBannerEntity">
+                  <div class="banner-preview-card">
+                    <div class="banner-preview-card__media">
+                      <video
+                        v-if="bannerMediaUrl(record) && isVideoMediaRecord(bannerMediaRecord(record))"
+                        :src="bannerMediaUrl(record)"
+                        muted
+                        playsinline
+                        preload="metadata"
+                        autoplay
+                        loop
+                      ></video>
+                      <img
+                        v-else-if="bannerMediaUrl(record)"
+                        :src="bannerMediaUrl(record)"
+                        :alt="bannerMediaAlt(record)"
+                        loading="lazy"
+                      />
+                      <div v-else class="banner-preview-card__empty">No banner media</div>
+                      <div class="banner-preview-card__overlay"></div>
+                    </div>
+                    <div class="banner-preview-card__content">
+                      <div class="banner-preview-card__meta">
+                        <span>{{ bannerTypeLabel(record.banner_type) }}</span>
+                        <strong>{{ bannerOrdinal(record.sort_order || record.id) }}</strong>
+                      </div>
+                      <h4>{{ bannerAdminLabel(record) }}</h4>
+                      <p v-if="record.subtitle">{{ record.subtitle }}</p>
+                      <small>{{ record.button_text || record.link || 'No CTA configured' }}</small>
+                    </div>
+                  </div>
+                </template>
+                <template v-else-if="isMediaAssetsEntity">
                   <div v-if="isImageMediaRecord(record)" class="media-preview-cell">
                     <a :href="mediaAssetPreviewUrl(record)" target="_blank" rel="noreferrer">
                       <img
@@ -581,6 +826,14 @@ onMounted(() => {
                   </div>
                   <a v-else-if="record.url" :href="resolveMediaUrl(record.url)" target="_blank" rel="noreferrer">Open</a>
                   <span v-else>-</span>
+                </template>
+                <template v-else-if="isVideosEntity">
+                  <div class="video-preview-cell">
+                    <img v-if="rowThumbnailUrl(record)" class="video-preview-cell__poster" :src="rowThumbnailUrl(record)" :alt="record.title || 'Video poster'" loading="lazy" />
+                    <video v-if="isDirectVideoFile(record.video_url)" class="video-preview-cell__player" :src="videoPreviewUrl(record)" muted playsinline preload="metadata" controls></video>
+                    <a v-else-if="record.video_url" :href="videoPreviewUrl(record)" target="_blank" rel="noreferrer noopener">Preview Link</a>
+                    <a v-if="previewUrl(record)" :href="previewUrl(record)" target="_blank" rel="noreferrer">Public Page</a>
+                  </div>
                 </template>
                 <template v-else>
                   <a v-if="previewUrl(record)" :href="previewUrl(record)" target="_blank" rel="noreferrer">Open</a>
@@ -627,33 +880,60 @@ onMounted(() => {
       </div>
 
       <div v-if="hasMediaFields" class="upload-box">
+        <div class="upload-box__head">
+          <div>
+            <p class="eyebrow">Direct upload</p>
+            <strong>{{ isVideosEntity ? 'Thumbnail uploader' : 'Media uploader' }}</strong>
+            <p class="upload-box__copy">
+              {{ isVideosEntity ? 'Upload the thumbnail directly here and it will be assigned to the Thumbnail field automatically.' : 'Upload media and assign it to the selected form field.' }}
+            </p>
+          </div>
+        </div>
         <div class="upload-row">
           <select v-model="uploadTargetField" aria-label="Upload target field">
             <option v-for="field in mediaFieldOptions" :key="field" :value="field">{{ fieldLabel(field) }}</option>
           </select>
-          <input type="file" accept="image/*,video/*,application/pdf" @change="handleFileChange" />
+          <input type="file" :accept="mediaUploadAccept()" @change="handleFileChange" />
         </div>
         <div class="upload-row">
           <input v-model="uploadTitle" type="text" placeholder="Media title" />
           <input v-model="uploadAltText" type="text" placeholder="Alt text" />
           <button type="button" class="btn btn-secondary" :disabled="uploading" @click="uploadMedia">
-            {{ uploading ? 'Uploading...' : 'Upload' }}
+            {{ uploading ? 'Uploading...' : isVideosEntity ? 'Upload Thumbnail' : 'Upload' }}
           </button>
         </div>
       </div>
 
       <form class="dynamic-form" @submit.prevent="submitForm">
-        <label v-for="field in formFields" :key="field" :class="{ wide: isTextarea(field) }">
+        <label v-for="field in formFields" :key="field" :class="{ wide: isTextarea(field) || (isVideosEntity && (field === 'video_url' || field === 'thumbnail_id')) }">
           <span>{{ fieldLabel(field) }}</span>
 
           <input v-if="isBooleanField(field)" v-model="form[field]" type="checkbox" />
 
-          <select v-else-if="FIELD_GROUPS.media.includes(field)" v-model.number="form[field]">
-            <option :value="null">No media</option>
-            <option v-for="media in mediaOptions" :key="media.id" :value="media.id">
-              #{{ media.id }} - {{ media.title || media.file_name || media.url }}
-            </option>
-          </select>
+          <div v-else-if="FIELD_GROUPS.media.includes(field)" class="field-stack">
+            <select v-model.number="form[field]">
+              <option :value="null">No media</option>
+              <option v-for="media in mediaOptions" :key="media.id" :value="media.id">
+                #{{ media.id }} - {{ media.title || media.file_name || media.url }}
+              </option>
+            </select>
+            <small v-if="fieldHelpText(field)" class="field-help">{{ fieldHelpText(field) }}</small>
+            <div v-if="selectedMediaPreviewUrl(field)" class="selected-media-preview">
+              <video
+                v-if="isVideoMediaRecord(selectedMediaAsset(field))"
+                :src="selectedMediaPreviewUrl(field)"
+                muted
+                controls
+                playsinline
+                preload="metadata"
+              ></video>
+              <img v-else :src="selectedMediaPreviewUrl(field)" :alt="selectedMediaLabel(field)" loading="lazy" />
+              <div>
+                <strong>{{ selectedMediaLabel(field) }}</strong>
+                <small>#{{ form[field] }}</small>
+              </div>
+            </div>
+          </div>
 
           <select v-else-if="relationOptions[field]" v-model.number="form[field]">
             <option :value="null">None</option>
@@ -664,17 +944,71 @@ onMounted(() => {
 
           <select v-else-if="isSelectField(field)" v-model="form[field]">
             <option value="">None</option>
-            <option v-for="option in selectOptions(field)" :key="option" :value="option">{{ option }}</option>
+            <option
+              v-for="option in selectOptions(field)"
+              :key="typeof option === 'string' ? option : option.value"
+              :value="typeof option === 'string' ? option : option.value"
+            >
+              {{ typeof option === 'string' ? option : option.label }}
+            </option>
           </select>
 
-          <textarea v-else-if="isTextarea(field)" v-model="form[field]" rows="5"></textarea>
+          <textarea v-else-if="isTextarea(field)" v-model="form[field]" rows="5" :placeholder="fieldPlaceholder(field)"></textarea>
 
-          <input v-else v-model="form[field]" :type="inputType(field)" />
+          <div v-else-if="isVideosEntity && field === 'video_url'" class="field-stack">
+            <input v-model="form[field]" :type="inputType(field)" :placeholder="fieldPlaceholder(field)" />
+            <small v-if="fieldHelpText(field)" class="field-help">{{ fieldHelpText(field) }}</small>
+            <div v-if="form.video_url" class="video-url-helper" :class="{ 'is-valid': isAllowedVideoUrl(form.video_url), 'is-invalid': !isAllowedVideoUrl(form.video_url) }">
+              <span>{{ isAllowedVideoUrl(form.video_url) ? 'Valid video source' : 'Invalid video source' }}</span>
+              <small>{{ videoUrlHint(form.video_url) || 'Supported: MP4/WebM, YouTube, Vimeo' }}</small>
+            </div>
+            <video v-if="isDirectVideoFile(form.video_url)" class="video-form-preview" :src="resolveMediaUrl(form.video_url)" muted controls playsinline preload="metadata"></video>
+            <a v-else-if="isAllowedVideoUrl(form.video_url)" class="video-form-link" :href="resolveMediaUrl(form.video_url)" target="_blank" rel="noreferrer noopener">Open video source</a>
+          </div>
+
+          <input v-else v-model="form[field]" :type="inputType(field)" :placeholder="fieldPlaceholder(field)" />
+
+          <small v-if="!FIELD_GROUPS.media.includes(field) && fieldHelpText(field)" class="field-help">{{ fieldHelpText(field) }}</small>
         </label>
+
+        <div v-if="isBannerEntity" class="banner-form-preview">
+          <p class="eyebrow">Live Preview</p>
+          <div class="banner-preview-card banner-preview-card--editor">
+            <div class="banner-preview-card__media">
+              <video
+                v-if="bannerMediaUrl(bannerFormMediaRecord()) && isVideoMediaRecord(bannerFormMediaRecord())"
+                :src="bannerMediaUrl(bannerFormMediaRecord())"
+                muted
+                playsinline
+                preload="metadata"
+                autoplay
+                loop
+              ></video>
+              <img
+                v-else-if="bannerMediaUrl(bannerFormMediaRecord())"
+                :src="bannerMediaUrl(bannerFormMediaRecord())"
+                :alt="bannerMediaAlt(bannerFormMediaRecord())"
+                loading="lazy"
+              />
+              <div v-else class="banner-preview-card__empty">Select or upload banner media</div>
+              <div class="banner-preview-card__overlay"></div>
+            </div>
+            <div class="banner-preview-card__content">
+              <div class="banner-preview-card__meta">
+                <span>{{ bannerTypeLabel(form.banner_type) }}</span>
+                <strong>{{ bannerOrdinal(form.sort_order || editingRecordId || 1) }}</strong>
+              </div>
+              <h4>{{ form.title || `${bannerTypeLabel(form.banner_type)} ${bannerOrdinal(form.sort_order || editingRecordId || 1)}` }}</h4>
+              <p v-if="form.subtitle">{{ form.subtitle }}</p>
+              <small>{{ form.button_text || form.link || 'CTA text or link will appear here' }}</small>
+            </div>
+          </div>
+        </div>
 
         <div v-if="hasMediaFields && mediaOptions.length" class="media-preview-list">
           <article v-for="media in mediaOptions.slice(0, 8)" :key="media.id">
-            <img v-if="media.asset_type === 'image'" :src="resolveMediaUrl(media.url)" :alt="media.alt_text || media.title || ''" />
+            <img v-if="isImageMedia(media)" :src="resolveMediaUrl(media.url)" :alt="media.alt_text || media.title || ''" />
+            <video v-else-if="isVideoMediaRecord(media)" :src="resolveMediaUrl(media.url)" muted playsinline preload="metadata"></video>
             <span v-else>{{ media.asset_type }}</span>
             <small>#{{ media.id }} {{ media.title || media.file_name }}</small>
           </article>
@@ -845,8 +1179,20 @@ td a {
   font-weight: 700;
 }
 
+.cell-featured {
+  background: linear-gradient(180deg, rgba(39, 158, 208, 0.05), rgba(39, 158, 208, 0.01));
+}
+
 .media-title-cell,
-.media-preview-cell {
+.media-preview-cell,
+.banner-media-cell,
+.banner-preview-card,
+.video-preview-cell,
+.video-table-thumb-cell,
+.video-link-cell,
+.field-stack,
+.banner-form-preview,
+.selected-media-preview {
   display: grid;
   gap: 6px;
 }
@@ -857,7 +1203,13 @@ td a {
 }
 
 .media-title-thumb,
-.media-preview-thumb {
+.media-preview-thumb,
+.banner-media-cell img,
+.banner-media-cell video,
+.video-preview-cell__poster,
+.selected-media-preview video,
+.video-table-thumb-cell img,
+.selected-media-preview img {
   width: 68px;
   height: 52px;
   object-fit: cover;
@@ -866,7 +1218,8 @@ td a {
   border: 1px solid #d8e3f0;
 }
 
-.media-title-placeholder {
+.media-title-placeholder,
+.video-table-thumb-cell__empty {
   width: 68px;
   height: 52px;
   display: grid;
@@ -884,8 +1237,202 @@ td a {
   overflow-wrap: anywhere;
 }
 
-.media-preview-cell {
+.media-preview-cell,
+.banner-media-cell,
+.video-preview-cell,
+.video-table-thumb-cell {
   align-content: start;
+}
+
+.video-preview-cell__player,
+.video-form-preview {
+  width: min(240px, 100%);
+  border-radius: 10px;
+  overflow: hidden;
+  background: #09131f;
+  border: 1px solid #d8e3f0;
+  box-shadow: 0 10px 24px rgba(20, 39, 58, 0.08);
+}
+
+.video-link-cell a,
+.video-form-link {
+  overflow-wrap: anywhere;
+}
+
+.video-link-cell small,
+.video-table-thumb-cell small,
+.field-help,
+.video-url-helper small,
+.selected-media-preview small {
+  color: #607893;
+  font-size: 11px;
+}
+
+.field-stack {
+  gap: 8px;
+}
+
+.selected-media-preview {
+  grid-template-columns: 68px minmax(0, 1fr);
+  align-items: center;
+  padding: 8px;
+  border-radius: 10px;
+  border: 1px solid #dbe7f2;
+  background: #f8fbff;
+}
+
+.selected-media-preview img {
+  width: 100%;
+  height: 62px;
+}
+
+.selected-media-preview video {
+  width: 100%;
+  height: 62px;
+}
+
+.banner-media-cell video {
+  background: #09131f;
+}
+
+.banner-form-preview {
+  grid-column: 1 / -1;
+}
+
+.banner-preview-card {
+  position: relative;
+  min-width: 220px;
+  min-height: 132px;
+  border-radius: 16px;
+  overflow: hidden;
+  border: 1px solid rgba(212, 224, 239, 0.95);
+  background: linear-gradient(135deg, #071122, #11294a);
+  box-shadow: 0 16px 32px rgba(11, 27, 44, 0.14);
+}
+
+.banner-preview-card--editor {
+  min-height: 220px;
+}
+
+.banner-preview-card__media,
+.banner-preview-card__media img,
+.banner-preview-card__media video,
+.banner-preview-card__overlay {
+  position: absolute;
+  inset: 0;
+}
+
+.banner-preview-card__media img,
+.banner-preview-card__media video {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.banner-preview-card__media video {
+  background: #09131f;
+}
+
+.banner-preview-card__overlay {
+  background:
+    linear-gradient(180deg, rgba(2, 9, 19, 0.22) 0%, rgba(2, 10, 23, 0.16) 22%, rgba(2, 10, 23, 0.42) 100%),
+    radial-gradient(circle at 72% 22%, rgba(38, 115, 208, 0.26) 0%, rgba(38, 115, 208, 0) 38%);
+}
+
+.banner-preview-card__empty {
+  position: absolute;
+  inset: 0;
+  display: grid;
+  place-items: center;
+  color: rgba(238, 245, 255, 0.84);
+  font-size: 12px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  z-index: 1;
+}
+
+.banner-preview-card__content {
+  position: relative;
+  z-index: 2;
+  display: grid;
+  gap: 8px;
+  align-content: end;
+  min-height: inherit;
+  padding: 16px;
+  color: #f5f8fd;
+}
+
+.banner-preview-card__meta {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.banner-preview-card__meta span {
+  display: inline-flex;
+  align-items: center;
+  min-height: 24px;
+  padding: 0 10px;
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.13);
+  color: rgba(255, 233, 205, 0.94);
+  font-size: 10px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.1em;
+}
+
+.banner-preview-card__meta strong {
+  color: #ff4459;
+  font-size: 22px;
+  line-height: 1;
+}
+
+.banner-preview-card__content h4,
+.banner-preview-card__content p,
+.banner-preview-card__content small {
+  margin: 0;
+}
+
+.banner-preview-card__content h4 {
+  font-size: 18px;
+  line-height: 1.15;
+}
+
+.banner-preview-card__content p {
+  color: rgba(242, 247, 255, 0.86);
+  font-size: 12px;
+  line-height: 1.45;
+}
+
+.banner-preview-card__content small {
+  color: rgba(255, 221, 179, 0.92);
+  font-size: 11px;
+  font-weight: 700;
+}
+
+.video-url-helper {
+  display: grid;
+  gap: 2px;
+  padding: 10px 12px;
+  border-radius: 10px;
+  border: 1px solid #d8e3f0;
+  background: #f8fbff;
+  color: #31506f;
+}
+
+.video-url-helper.is-valid {
+  border-color: rgba(38, 153, 114, 0.3);
+  background: rgba(38, 153, 114, 0.08);
+  color: #176347;
+}
+
+.video-url-helper.is-invalid {
+  border-color: rgba(187, 70, 92, 0.28);
+  background: rgba(255, 240, 242, 0.9);
+  color: #9d2f42;
 }
 
 .pagination {
@@ -941,6 +1488,12 @@ td a {
   background: #f8fbff;
 }
 
+.upload-box__copy {
+  margin: 4px 0 0;
+  color: #607893;
+  font-size: 12px;
+}
+
 .dynamic-form {
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));
@@ -991,6 +1544,14 @@ td a {
   background: #edf3fa;
 }
 
+.media-preview-list video {
+  width: 100%;
+  aspect-ratio: 16 / 9;
+  object-fit: cover;
+  border-radius: 6px;
+  background: #09131f;
+}
+
 .media-preview-list span {
   display: grid;
   place-items: center;
@@ -1027,6 +1588,18 @@ td a {
   .dynamic-form {
     grid-template-columns: 1fr;
   }
+
+  .selected-media-preview {
+    grid-template-columns: 1fr;
+  }
+
+  .banner-preview-card {
+    min-width: 0;
+  }
+
+  .video-preview-cell__player,
+  .video-form-preview {
+    width: 100%;
+  }
 }
 </style>
-
