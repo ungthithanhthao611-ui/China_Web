@@ -45,6 +45,12 @@ const loadingSummary = ref(false)
 const errorMessage = ref('')
 const successMessage = ref('')
 const isSidebarOpen = ref(false)
+const toast = reactive({
+  visible: false,
+  type: 'success',
+  message: '',
+})
+let toastTimerId = null
 
 const currentSectionMeta = computed(() => {
   if (activeSection.value === 'dashboard') {
@@ -117,16 +123,48 @@ const statCards = computed(() => [
 function setSuccess(message) {
   successMessage.value = message
   errorMessage.value = ''
+  showToast('success', message)
 }
 
 function setError(message) {
   errorMessage.value = message
   successMessage.value = ''
+  showToast('error', message)
 }
 
 function clearMessages() {
   errorMessage.value = ''
   successMessage.value = ''
+  clearToast()
+}
+
+function showToast(type, message) {
+  const normalized = String(message || '').trim()
+  if (!normalized) {
+    clearToast()
+    return
+  }
+
+  toast.type = type === 'error' ? 'error' : 'success'
+  toast.message = normalized
+  toast.visible = true
+
+  if (toastTimerId) {
+    clearTimeout(toastTimerId)
+  }
+
+  toastTimerId = setTimeout(() => {
+    toast.visible = false
+  }, 3200)
+}
+
+function clearToast() {
+  toast.visible = false
+  toast.message = ''
+  if (toastTimerId) {
+    clearTimeout(toastTimerId)
+    toastTimerId = null
+  }
 }
 
 function closeSidebar() {
@@ -263,6 +301,7 @@ onMounted(async () => {
 
 onBeforeUnmount(() => {
   window.removeEventListener('resize', handleViewportChange)
+  clearToast()
   uiState.isNavHidden = false
   uiState.isFooterHidden = false
   uiState.isHeaderHidden = false
@@ -341,6 +380,11 @@ onBeforeUnmount(() => {
 
       <div v-if="errorMessage" class="notice error">{{ errorMessage }}</div>
       <div v-else-if="successMessage" class="notice success">{{ successMessage }}</div>
+      <transition name="toast-pop">
+        <div v-if="toast.visible" class="admin-toast" :class="`admin-toast--${toast.type}`" role="status" aria-live="polite">
+          {{ toast.message }}
+        </div>
+      </transition>
 
       <section v-if="activeSection === 'dashboard'" class="dashboard-panel">
         <div class="hero-card card-shell">
@@ -415,6 +459,8 @@ onBeforeUnmount(() => {
   display: grid;
   grid-template-columns: 272px minmax(0, 1fr);
   align-items: start;
+  width: 100%;
+  overflow-x: clip;
 }
 
 .sidebar {
@@ -536,6 +582,7 @@ onBeforeUnmount(() => {
 
 .workspace {
   padding: 18px;
+  min-width: 0;
 }
 
 .card-shell {
@@ -589,6 +636,10 @@ onBeforeUnmount(() => {
   justify-content: flex-end;
   gap: 10px;
   flex-wrap: wrap;
+}
+
+.session-panel .btn {
+  min-width: 96px;
 }
 
 .session-card {
@@ -663,6 +714,44 @@ onBeforeUnmount(() => {
   background: #e9f9ee;
   border-color: #bde7ca;
   color: #1d7740;
+}
+
+.admin-toast {
+  position: fixed;
+  top: 18px;
+  right: 18px;
+  z-index: 1400;
+  max-width: min(520px, calc(100vw - 36px));
+  padding: 11px 14px;
+  border-radius: 8px;
+  border: 1px solid transparent;
+  box-shadow: 0 14px 28px rgba(16, 35, 58, 0.2);
+  font-size: 13px;
+  font-weight: 600;
+  line-height: 1.4;
+}
+
+.admin-toast--success {
+  background: #e9f9ee;
+  border-color: #bde7ca;
+  color: #1d7740;
+}
+
+.admin-toast--error {
+  background: #ffecef;
+  border-color: #f4bfca;
+  color: #a73447;
+}
+
+.toast-pop-enter-active,
+.toast-pop-leave-active {
+  transition: opacity 0.2s ease, transform 0.2s ease;
+}
+
+.toast-pop-enter-from,
+.toast-pop-leave-to {
+  opacity: 0;
+  transform: translateY(-8px) scale(0.98);
 }
 
 .dashboard-panel {
@@ -834,6 +923,7 @@ button:disabled {
 
   .title-panel {
     align-items: flex-start;
+    flex-wrap: wrap;
   }
 
   .session-panel {
@@ -847,12 +937,31 @@ button:disabled {
 }
 
 @media (max-width: 640px) {
+  .admin-toast {
+    top: 10px;
+    right: 10px;
+    left: 10px;
+    max-width: none;
+  }
+
   .stats {
     grid-template-columns: 1fr;
   }
 
   .topbar h1 {
     font-size: 28px;
+  }
+
+  .sidebar {
+    width: min(300px, 92vw);
+  }
+
+  .brand-row {
+    align-items: center;
+  }
+
+  .sidebar h2 {
+    font-size: 36px;
   }
 }
 </style>

@@ -73,7 +73,7 @@ export const ENTITY_MANAGER_CONFIGS = {
     titleField: 'title',
     table: ['id', 'title', 'banner_type', 'language_id', 'sort_order', 'is_active'],
     required: ['language_id'],
-    fields: ['title', 'subtitle', 'body', 'image_id', 'link', 'button_text', 'banner_type', 'language_id', 'sort_order', 'is_active'],
+    fields: ['title', 'subtitle', 'body', 'image_id', 'focus_x', 'focus_y', 'link', 'button_text', 'banner_type', 'language_id', 'sort_order', 'is_active'],
     statusOptions: [
       { value: 'active', label: 'Active' },
       { value: 'inactive', label: 'Inactive' },
@@ -88,6 +88,8 @@ export const ENTITY_MANAGER_CONFIGS = {
       subtitle: 'Subtitle',
       body: 'Description',
       image_id: 'Banner Image/Video',
+      focus_x: 'Focus X',
+      focus_y: 'Focus Y',
       link: 'CTA Link',
       button_text: 'Button Text',
       banner_type: 'Banner Type',
@@ -104,6 +106,8 @@ export const ENTITY_MANAGER_CONFIGS = {
     },
     helpText: {
       image_id: 'Upload an image (JPG, PNG, WebP) or video (MP4, WebM) for the banner background.',
+      focus_x: 'Horizontal focus point for image crop (0 to 100).',
+      focus_y: 'Vertical focus point for image crop (0 to 100).',
       banner_type: 'Hero = homepage slider, CTA = promotional card, Section/Page/Footer = secondary placements.',
       link: 'URL when users click on the banner or CTA button.',
       button_text: 'Text displayed on the CTA button (if any).',

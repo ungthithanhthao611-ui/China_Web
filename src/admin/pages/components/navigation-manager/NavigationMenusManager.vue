@@ -148,23 +148,23 @@ defineExpose({
           </tr>
         </thead>
         <tbody>
-          <tr v-for="(row, idx) in pagedRows" :key="row.node._cid">
-            <td>{{ (currentPage - 1) * pageSize + idx + 1 }}</td>
-            <td>
+          <tr v-for="(row, idx) in pagedRows" :key="row.node._cid" class="nav-row">
+            <td data-label="ID">{{ (currentPage - 1) * pageSize + idx + 1 }}</td>
+            <td data-label="Menu Title">
               <span class="title-cell" :style="{ paddingLeft: `${row.depth * 18}px` }">{{ row.node.title }}</span>
             </td>
-            <td>{{ itemSlugFromUrl(row.node.url) }}</td>
-            <td>
+            <td data-label="Slug">{{ itemSlugFromUrl(row.node.url) }}</td>
+            <td data-label="Type">
               <span class="pill" :class="row.rowType">{{ row.rowType.toUpperCase() }}</span>
             </td>
-            <td>{{ row.parentTitle || '-' }}</td>
-            <td>{{ row.node.sort_order ?? 0 }}</td>
-            <td>
+            <td data-label="Parent">{{ row.parentTitle || '-' }}</td>
+            <td data-label="Sort">{{ row.node.sort_order ?? 0 }}</td>
+            <td data-label="Status">
               <span class="status-chip" :class="{ inactive: !selectedMenu?.is_active }">
                 {{ selectedMenu?.is_active ? 'Active' : 'Inactive' }}
               </span>
             </td>
-            <td>
+            <td data-label="Actions">
               <div class="row-actions">
                 <button type="button" class="btn btn-mini btn-ghost" @click="openEditNodeDrawer(row.node._cid)">
                   Edit
@@ -178,7 +178,7 @@ defineExpose({
               </div>
             </td>
           </tr>
-          <tr v-if="!pagedRows.length">
+          <tr v-if="!pagedRows.length" class="table-empty-row">
             <td colspan="8" class="empty-row">No navigation entries.</td>
           </tr>
         </tbody>
@@ -536,6 +536,10 @@ th {
   color: #8394aa;
 }
 
+.table-empty-row td {
+  text-align: center;
+}
+
 .drawer-overlay {
   position: fixed;
   inset: 0;
@@ -796,6 +800,78 @@ button:disabled {
 
   table {
     min-width: 760px;
+  }
+}
+
+@media (max-width: 760px) {
+  .table-scroll {
+    overflow: visible;
+  }
+
+  table {
+    min-width: 0;
+    display: block;
+  }
+
+  thead {
+    display: none;
+  }
+
+  tbody {
+    display: grid;
+    gap: 10px;
+    padding: 10px;
+  }
+
+  .nav-row {
+    display: block;
+    border: 1px solid #dbe4f2;
+    border-radius: 10px;
+    background: #fff;
+    overflow: hidden;
+  }
+
+  .nav-row td {
+    display: grid;
+    grid-template-columns: minmax(100px, 38%) minmax(0, 1fr);
+    gap: 10px;
+    align-items: start;
+    border-bottom: 1px dashed #e6eef8;
+    padding: 10px 12px;
+  }
+
+  .nav-row td:last-child {
+    border-bottom: 0;
+  }
+
+  .nav-row td::before {
+    content: attr(data-label);
+    color: #73839a;
+    font-size: 10px;
+    text-transform: uppercase;
+    letter-spacing: 0.1em;
+    font-weight: 700;
+    line-height: 1.4;
+    padding-top: 2px;
+  }
+
+  .table-empty-row {
+    display: block;
+  }
+
+  .table-empty-row td {
+    display: block;
+    border: 1px solid #dbe4f2;
+    border-radius: 10px;
+    background: #fff;
+  }
+
+  .table-empty-row td::before {
+    content: none;
+  }
+
+  .row-actions {
+    justify-content: flex-start;
   }
 }
 

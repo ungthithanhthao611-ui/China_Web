@@ -655,16 +655,16 @@ watch(pageSize, async (nextSize, previousSize) => {
             </tr>
           </thead>
           <tbody>
-            <tr v-for="item in categories" :key="item.id">
-              <td>{{ item.name }}</td>
-              <td>{{ item.slug }}</td>
-              <td>{{ categoryTypeLabel(item.type) }}</td>
-              <td>{{ categoryName(item.parent_id) }}</td>
-              <td>{{ item.sort_order || 0 }}</td>
-              <td>
+            <tr v-for="item in categories" :key="item.id" class="category-row">
+              <td data-label="Name">{{ item.name }}</td>
+              <td data-label="Slug">{{ item.slug }}</td>
+              <td data-label="Type">{{ categoryTypeLabel(item.type) }}</td>
+              <td data-label="Parent">{{ categoryName(item.parent_id) }}</td>
+              <td data-label="Sort">{{ item.sort_order || 0 }}</td>
+              <td data-label="Status">
                 <span :class="statusBadgeClass(item.is_active)">{{ item.is_active ? 'Active' : 'Inactive' }}</span>
               </td>
-              <td>
+              <td data-label="Actions">
                 <div class="actions">
                   <button type="button" class="btn btn-secondary" @click="openEditCategoryForm(item)">Edit</button>
                   <button
@@ -728,8 +728,8 @@ watch(pageSize, async (nextSize, previousSize) => {
             </tr>
           </thead>
           <tbody>
-            <tr v-for="item in honors" :key="item.id">
-              <td>
+            <tr v-for="item in honors" :key="item.id" class="honor-row">
+              <td data-label="Image">
                 <img
                   v-if="item.image_url && !brokenImageIds.has(item.id)"
                   class="thumb"
@@ -739,17 +739,17 @@ watch(pageSize, async (nextSize, previousSize) => {
                 />
                 <div v-else class="thumb thumb-empty">No image</div>
               </td>
-              <td>
+              <td data-label="Title">
                 <p class="title">{{ item.title }}</p>
                 <p class="meta">{{ item.issued_by || 'No issuer' }}</p>
               </td>
-              <td>{{ categoryName(item.category_id) }}</td>
-              <td>{{ item.year || '-' }}</td>
-              <td>{{ item.sort_order || 0 }}</td>
-              <td>
+              <td data-label="Category">{{ categoryName(item.category_id) }}</td>
+              <td data-label="Year">{{ item.year || '-' }}</td>
+              <td data-label="Sort">{{ item.sort_order || 0 }}</td>
+              <td data-label="Status">
                 <span :class="statusBadgeClass(item.is_active)">{{ item.is_active ? 'Active' : 'Inactive' }}</span>
               </td>
-              <td>
+              <td data-label="Actions">
                 <div class="actions">
                   <button type="button" class="btn btn-secondary" @click="openEditHonorForm(item)">Edit</button>
                   <button
@@ -1331,6 +1331,66 @@ button:disabled {
 
   .header-actions {
     grid-template-columns: 1fr;
+  }
+}
+
+@media (max-width: 760px) {
+  .table-wrap {
+    overflow: visible;
+  }
+
+  table {
+    min-width: 0;
+    display: block;
+  }
+
+  thead {
+    display: none;
+  }
+
+  tbody {
+    display: grid;
+    gap: 10px;
+  }
+
+  .category-row,
+  .honor-row {
+    display: block;
+    border: 1px solid #d7e5f2;
+    border-radius: 10px;
+    background: #fff;
+    overflow: hidden;
+  }
+
+  .category-row td,
+  .honor-row td {
+    display: grid;
+    grid-template-columns: minmax(95px, 38%) minmax(0, 1fr);
+    gap: 10px;
+    align-items: start;
+    border-bottom: 1px dashed #e4edf6;
+    padding: 10px 12px;
+  }
+
+  .category-row td:last-child,
+  .honor-row td:last-child {
+    border-bottom: 0;
+  }
+
+  .category-row td::before,
+  .honor-row td::before {
+    content: attr(data-label);
+    color: #5f7a97;
+    font-size: 10px;
+    text-transform: uppercase;
+    letter-spacing: 0.1em;
+    font-weight: 700;
+    line-height: 1.4;
+    padding-top: 2px;
+  }
+
+  .actions {
+    justify-content: flex-start;
   }
 }
 </style>

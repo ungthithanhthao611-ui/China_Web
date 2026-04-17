@@ -1,5 +1,5 @@
 <script setup>
-import { computed, onMounted, reactive, ref, watch } from 'vue'
+import { computed, onBeforeUnmount, onMounted, reactive, ref, watch } from 'vue'
 
 import {
   createAdminEntityRecord,
@@ -36,6 +36,9 @@ const FIELD_GROUPS = {
   media: ['image_id', 'hero_image_id', 'thumbnail_id', 'media_id'],
 }
 
+const BANNER_MEDIA_KEYWORDS = ['banner', 'hero', 'slider', 'slide', 'cover', 'homepage']
+const MEDIA_NOISE_KEYWORDS = ['screenshot', 'screen-shot', 'screen shot', 'capture', 'tmp', 'temp']
+
 const RELATION_ENTITIES = {
   language_id: 'languages',
   category_id: null,
@@ -67,10 +70,16 @@ const uploadTitle = ref('')
 const uploadAltText = ref('')
 const uploadTargetField = ref('image_id')
 const uploading = ref(false)
+const bannerFocusDragging = ref(false)
 
 const config = computed(() => ENTITY_MANAGER_CONFIGS[props.entityKey])
 const tableColumns = computed(() => config.value?.table || ['id'])
 const formFields = computed(() => config.value?.fields || [])
+const visibleFormFields = computed(() => (
+  isBannerEntity.value
+    ? formFields.value.filter((field) => !['image_id', 'focus_x', 'focus_y'].includes(field))
+    : formFields.value
+))
 const statusOptions = computed(() => {
   const source = Array.isArray(config.value?.statusOptions) && config.value.statusOptions.length
     ? config.value.statusOptions
@@ -94,7 +103,16 @@ const standaloneUpload = computed(() => Boolean(config.value?.standaloneUpload))
 const isMediaAssetsEntity = computed(() => props.entityKey === 'media_assets')
 const isVideosEntity = computed(() => props.entityKey === 'videos')
 const isBannerEntity = computed(() => props.entityKey === 'banners')
+const isBannerEditorModalOpen = computed(() => formOpen.value && isBannerEntity.value)
 const featuredTableFields = computed(() => config.value?.featuredTableFields || [])
+const previewMediaOptions = computed(() => {
+  if (!hasMediaFields.value || !mediaOptions.value.length) return []
+  if (!isBannerEntity.value) return mediaOptions.value.slice(0, 8)
+
+  const eligible = mediaOptions.value.filter((media) => (isImageMedia(media) || isVideoMediaRecord(media)) && !isNoiseMediaAsset(media))
+  const bannerOnly = eligible.filter(isBannerRelatedMedia)
+  return bannerOnly.slice(0, 8)
+})
 
 function normalizedToken() {
   return String(props.token || '').trim()
@@ -110,6 +128,37 @@ function notifyError(message) {
 
 function clearNotify() {
   emit('clear-notify')
+}
+
+function recordDisplayName(record = null) {
+  const source = record || form
+  return String(
+    source?.[config.value?.titleField]
+    || source?.title
+    || source?.name
+    || source?.slug
+    || ''
+  ).trim()
+}
+
+function actionSuccessMessage(action, record = null) {
+  const name = recordDisplayName(record)
+  if (isBannerEntity.value) {
+    if (action === 'create') {
+      return name ? `Them banner moi thanh cong: "${name}".` : 'Them banner moi thanh cong.'
+    }
+    if (action === 'update') {
+      return name ? `Cap nhat banner thanh cong: "${name}".` : 'Cap nhat banner thanh cong.'
+    }
+    if (action === 'delete') {
+      return name ? `Xoa banner thanh cong: "${name}".` : 'Xoa banner thanh cong.'
+    }
+  }
+
+  if (action === 'create') return `Created ${config.value.label} record.`
+  if (action === 'update') return `Updated ${config.value.label} record.`
+  if (action === 'delete') return 'Record deleted.'
+  return 'Completed successfully.'
 }
 
 function fieldLabel(field) {
@@ -246,6 +295,26 @@ function isImageMedia(record) {
   return Boolean(record) && !isVideoMediaRecord(record)
 }
 
+function mediaSearchText(record) {
+  return [
+    record?.title,
+    record?.file_name,
+    record?.alt_text,
+    record?.storage_path,
+    record?.url,
+  ].filter(Boolean).join(' ').toLowerCase()
+}
+
+function isNoiseMediaAsset(record) {
+  const text = mediaSearchText(record)
+  return MEDIA_NOISE_KEYWORDS.some((keyword) => text.includes(keyword))
+}
+
+function isBannerRelatedMedia(record) {
+  const text = mediaSearchText(record)
+  return BANNER_MEDIA_KEYWORDS.some((keyword) => text.includes(keyword))
+}
+
 function bannerMediaRecord(record) {
   return record?.image || getMediaOptionById(record?.image_id) || null
 }
@@ -298,8 +367,88 @@ function bannerAdminLabel(record) {
   return `${bannerTypeLabel(record?.banner_type)} ${bannerOrdinal(record?.sort_order || record?.id)}`
 }
 
+function clampBannerFocus(value) {
+  const numeric = Number(value)
+  if (!Number.isFinite(numeric)) return 50
+  return Math.min(100, Math.max(0, numeric))
+}
+
+function bannerObjectPositionFromRecord(record) {
+  return `${clampBannerFocus(record?.focus_x)}% ${clampBannerFocus(record?.focus_y)}%`
+}
+
+function bannerObjectPositionFromForm() {
+  return `${clampBannerFocus(form.focus_x)}% ${clampBannerFocus(form.focus_y)}%`
+}
+
+function bannerImageStyle(record) {
+  return { objectPosition: bannerObjectPositionFromRecord(record) }
+}
+
+function bannerFormImageStyle() {
+  return { objectPosition: bannerObjectPositionFromForm() }
+}
+
+function canAdjustBannerFocus() {
+  const media = bannerFormMediaRecord()
+  return (
+    isBannerEntity.value
+    && Boolean(media)
+    && Boolean(bannerMediaUrl(media))
+    && !isVideoMediaRecord(media)
+    && 'focus_x' in form
+    && 'focus_y' in form
+  )
+}
+
+function bannerFocusIndicatorStyle() {
+  return {
+    left: `${clampBannerFocus(form.focus_x)}%`,
+    top: `${clampBannerFocus(form.focus_y)}%`,
+  }
+}
+
+function applyBannerFocusFromPointer(event) {
+  if (!canAdjustBannerFocus()) return
+  const card = event.currentTarget
+  if (!card || typeof card.getBoundingClientRect !== 'function') return
+
+  const rect = card.getBoundingClientRect()
+  if (!rect.width || !rect.height) return
+
+  const nextX = ((event.clientX - rect.left) / rect.width) * 100
+  const nextY = ((event.clientY - rect.top) / rect.height) * 100
+
+  form.focus_x = clampBannerFocus(nextX)
+  form.focus_y = clampBannerFocus(nextY)
+}
+
+function startBannerFocusAdjust(event) {
+  if (!canAdjustBannerFocus()) return
+  bannerFocusDragging.value = true
+  applyBannerFocusFromPointer(event)
+  event.currentTarget?.setPointerCapture?.(event.pointerId)
+}
+
+function onBannerFocusAdjust(event) {
+  if (!bannerFocusDragging.value) return
+  applyBannerFocusFromPointer(event)
+}
+
+function stopBannerFocusAdjust(event) {
+  if (!bannerFocusDragging.value) return
+  bannerFocusDragging.value = false
+  event.currentTarget?.releasePointerCapture?.(event.pointerId)
+}
+
+function resetBannerFocus() {
+  if (!isBannerEntity.value) return
+  form.focus_x = 50
+  form.focus_y = 50
+}
+
 function inputType(field) {
-  if (['sort_order', 'language_id', 'category_id', 'project_id', 'branch_id', 'page_id', 'parent_id', 'block_id', 'entity_id', 'award_year', 'project_year', 'width', 'height', 'size', 'image_id', 'hero_image_id', 'thumbnail_id', 'media_id'].includes(field)) {
+  if (['sort_order', 'language_id', 'category_id', 'project_id', 'branch_id', 'page_id', 'parent_id', 'block_id', 'entity_id', 'award_year', 'project_year', 'width', 'height', 'size', 'image_id', 'hero_image_id', 'thumbnail_id', 'media_id', 'focus_x', 'focus_y'].includes(field)) {
     return 'number'
   }
   if (field === 'email') return 'email'
@@ -371,7 +520,15 @@ function setDefaultFormValues(record = {}) {
     form[field] = ''
   })
 
-  uploadTargetField.value = config.value?.mediaUploadTargetField || mediaFieldOptions.value[0] || 'image_id'
+  uploadTargetField.value = isBannerEntity.value
+    ? 'image_id'
+    : config.value?.mediaUploadTargetField || mediaFieldOptions.value[0] || 'image_id'
+
+  if (isBannerEntity.value) {
+    form.focus_x = clampBannerFocus(form.focus_x)
+    form.focus_y = clampBannerFocus(form.focus_y)
+  }
+
   uploadTitle.value = record?.title || ''
   uploadAltText.value = record?.title || ''
   formErrors.value = []
@@ -476,7 +633,6 @@ async function loadRecords() {
   if (!token) return
 
   loading.value = true
-  clearNotify()
   try {
     const query = {
       skip: (currentPage.value - 1) * pageSize.value,
@@ -536,13 +692,15 @@ async function submitForm() {
     const payload = cleanPayload()
     if (formMode.value === 'create') {
       await createAdminEntityRecord(props.entityKey, payload, token)
-      notifySuccess(`Created ${config.value.label} record.`)
+      notifySuccess(actionSuccessMessage('create'))
+      closeForm()
+      await loadRecords()
     } else {
-      await updateAdminEntityRecord(props.entityKey, editingRecordId.value, payload, token)
-      notifySuccess(`Updated ${config.value.label} record.`)
+      const updatedRecord = await updateAdminEntityRecord(props.entityKey, editingRecordId.value, payload, token)
+      records.value = records.value.map((record) => (String(record.id) === String(updatedRecord?.id) ? updatedRecord : record))
+      notifySuccess(actionSuccessMessage('update'))
+      closeForm()
     }
-    closeForm()
-    await loadRecords()
   } catch (error) {
     notifyError(error.message || 'Failed to save record.')
   } finally {
@@ -560,7 +718,7 @@ async function deleteRecord(record) {
   deletingId.value = record.id
   try {
     await deleteAdminEntityRecord(props.entityKey, record.id, token)
-    notifySuccess('Record deleted.')
+    notifySuccess(actionSuccessMessage('delete', record))
     await loadRecords()
   } catch (error) {
     notifyError(error.message || 'Failed to delete record.')
@@ -589,8 +747,13 @@ async function uploadMedia() {
       publicIdBase: mediaUploadPublicIdBase(),
     })
     await loadMediaOptions()
+    if (!mediaOptions.value.some((item) => String(item.id) === String(media.id))) {
+      mediaOptions.value = [media, ...mediaOptions.value]
+    }
     if (standaloneUpload.value) {
       await loadRecords()
+    } else if (isBannerEntity.value && 'image_id' in form) {
+      form.image_id = media.id
     } else if (uploadTargetField.value && uploadTargetField.value in form) {
       form[uploadTargetField.value] = media.id
     }
@@ -613,6 +776,11 @@ async function uploadMedia() {
 
 function setPage(page) {
   currentPage.value = Math.min(Math.max(1, page), totalPages.value)
+}
+
+function toggleBannerEditorBodyLock(locked) {
+  if (typeof document === 'undefined') return
+  document.body.classList.toggle('banner-editor-modal-open', locked)
 }
 
 watch(
@@ -660,6 +828,18 @@ watch(
     }
   }
 )
+
+watch(
+  isBannerEditorModalOpen,
+  (open) => {
+    toggleBannerEditorBodyLock(open)
+  },
+  { immediate: true }
+)
+
+onBeforeUnmount(() => {
+  toggleBannerEditorBodyLock(false)
+})
 
 onMounted(() => {
   if (props.active && normalizedToken()) {
@@ -717,14 +897,19 @@ onMounted(() => {
             </tr>
           </thead>
           <tbody>
-            <tr v-if="loading">
+            <tr v-if="loading" class="table-empty-row">
               <td :colspan="tableColumns.length + 2">Loading records...</td>
             </tr>
-            <tr v-else-if="!records.length">
+            <tr v-else-if="!records.length" class="table-empty-row">
               <td :colspan="tableColumns.length + 2">No records found.</td>
             </tr>
-            <tr v-for="record in records" v-else :key="record.id">
-              <td v-for="column in tableColumns" :key="`${record.id}-${column}`" :class="{ 'cell-featured': featuredTableFields.includes(column) }">
+            <tr v-for="record in records" v-else :key="record.id" class="entity-row">
+              <td
+                v-for="column in tableColumns"
+                :key="`${record.id}-${column}`"
+                :data-label="fieldLabel(column)"
+                :class="{ 'cell-featured': featuredTableFields.includes(column) }"
+              >
                 <template v-if="isMediaAssetsEntity && column === 'title'">
                   <div class="media-title-cell">
                     <img
@@ -755,6 +940,7 @@ onMounted(() => {
                         v-else
                         :src="bannerMediaUrl(record)"
                         :alt="bannerMediaAlt(record)"
+                        :style="bannerImageStyle(record)"
                         loading="lazy"
                       />
                     </template>
@@ -779,7 +965,7 @@ onMounted(() => {
                   {{ formatCell(record[column]) }}
                 </template>
               </td>
-              <td>
+              <td data-label="Preview">
                 <template v-if="isBannerEntity">
                   <div class="banner-preview-card">
                     <div class="banner-preview-card__media">
@@ -796,6 +982,7 @@ onMounted(() => {
                         v-else-if="bannerMediaUrl(record)"
                         :src="bannerMediaUrl(record)"
                         :alt="bannerMediaAlt(record)"
+                        :style="bannerImageStyle(record)"
                         loading="lazy"
                       />
                       <div v-else class="banner-preview-card__empty">No banner media</div>
@@ -840,7 +1027,7 @@ onMounted(() => {
                   <span v-else>-</span>
                 </template>
               </td>
-              <td>
+              <td data-label="Actions">
                 <div class="row-actions">
                   <button type="button" class="btn btn-secondary" @click="openEditForm(record)">Edit</button>
                   <button type="button" class="btn btn-danger" :disabled="deletingId === record.id" @click="deleteRecord(record)">
@@ -866,7 +1053,8 @@ onMounted(() => {
       </div>
     </div>
 
-    <aside v-if="formOpen" class="editor-panel">
+    <div v-if="formOpen" :class="['editor-shell', { 'editor-shell--modal': isBannerEntity }]" @click.self="isBannerEntity && closeForm()">
+      <aside :class="['editor-panel', { 'editor-panel--modal': isBannerEntity }]">
       <div class="editor-head">
         <div>
           <p class="eyebrow">{{ formMode === 'create' ? 'Create' : 'Edit' }}</p>
@@ -885,12 +1073,18 @@ onMounted(() => {
             <p class="eyebrow">Direct upload</p>
             <strong>{{ isVideosEntity ? 'Thumbnail uploader' : 'Media uploader' }}</strong>
             <p class="upload-box__copy">
-              {{ isVideosEntity ? 'Upload the thumbnail directly here and it will be assigned to the Thumbnail field automatically.' : 'Upload media and assign it to the selected form field.' }}
+              {{
+                isVideosEntity
+                  ? 'Upload the thumbnail directly here and it will be assigned to the Thumbnail field automatically.'
+                  : isBannerEntity
+                    ? 'Upload banner media here. The uploaded file will be assigned automatically and shown in Live Preview.'
+                    : 'Upload media and assign it to the selected form field.'
+              }}
             </p>
           </div>
         </div>
         <div class="upload-row">
-          <select v-model="uploadTargetField" aria-label="Upload target field">
+          <select v-if="!isBannerEntity" v-model="uploadTargetField" aria-label="Upload target field">
             <option v-for="field in mediaFieldOptions" :key="field" :value="field">{{ fieldLabel(field) }}</option>
           </select>
           <input type="file" :accept="mediaUploadAccept()" @change="handleFileChange" />
@@ -905,7 +1099,7 @@ onMounted(() => {
       </div>
 
       <form class="dynamic-form" @submit.prevent="submitForm">
-        <label v-for="field in formFields" :key="field" :class="{ wide: isTextarea(field) || (isVideosEntity && (field === 'video_url' || field === 'thumbnail_id')) }">
+        <label v-for="field in visibleFormFields" :key="field" :class="{ wide: isTextarea(field) || (isVideosEntity && (field === 'video_url' || field === 'thumbnail_id')) }">
           <span>{{ fieldLabel(field) }}</span>
 
           <input v-if="isBooleanField(field)" v-model="form[field]" type="checkbox" />
@@ -974,7 +1168,15 @@ onMounted(() => {
         <div v-if="isBannerEntity" class="banner-form-preview">
           <p class="eyebrow">Live Preview</p>
           <div class="banner-preview-card banner-preview-card--editor">
-            <div class="banner-preview-card__media">
+            <div
+              class="banner-preview-card__media"
+              :class="{ 'banner-preview-card__media--interactive': canAdjustBannerFocus(), 'is-dragging': bannerFocusDragging }"
+              @pointerdown="startBannerFocusAdjust"
+              @pointermove="onBannerFocusAdjust"
+              @pointerup="stopBannerFocusAdjust"
+              @pointercancel="stopBannerFocusAdjust"
+              @pointerleave="stopBannerFocusAdjust"
+            >
               <video
                 v-if="bannerMediaUrl(bannerFormMediaRecord()) && isVideoMediaRecord(bannerFormMediaRecord())"
                 :src="bannerMediaUrl(bannerFormMediaRecord())"
@@ -988,8 +1190,10 @@ onMounted(() => {
                 v-else-if="bannerMediaUrl(bannerFormMediaRecord())"
                 :src="bannerMediaUrl(bannerFormMediaRecord())"
                 :alt="bannerMediaAlt(bannerFormMediaRecord())"
+                :style="bannerFormImageStyle()"
                 loading="lazy"
               />
+              <div v-if="canAdjustBannerFocus()" class="banner-focus-indicator" :style="bannerFocusIndicatorStyle()"></div>
               <div v-else class="banner-preview-card__empty">Select or upload banner media</div>
               <div class="banner-preview-card__overlay"></div>
             </div>
@@ -1003,10 +1207,17 @@ onMounted(() => {
               <small>{{ form.button_text || form.link || 'CTA text or link will appear here' }}</small>
             </div>
           </div>
+          <div v-if="canAdjustBannerFocus()" class="banner-focus-tools">
+            <small>Click or drag directly on preview to choose the visible crop area.</small>
+            <div class="banner-focus-tools__row">
+              <small>X: {{ Math.round(clampBannerFocus(form.focus_x)) }}% / Y: {{ Math.round(clampBannerFocus(form.focus_y)) }}%</small>
+              <button type="button" class="btn btn-secondary" @click="resetBannerFocus">Center</button>
+            </div>
+          </div>
         </div>
 
-        <div v-if="hasMediaFields && mediaOptions.length" class="media-preview-list">
-          <article v-for="media in mediaOptions.slice(0, 8)" :key="media.id">
+        <div v-if="!isBannerEntity && previewMediaOptions.length" class="media-preview-list">
+          <article v-for="media in previewMediaOptions" :key="media.id">
             <img v-if="isImageMedia(media)" :src="resolveMediaUrl(media.url)" :alt="media.alt_text || media.title || ''" />
             <video v-else-if="isVideoMediaRecord(media)" :src="resolveMediaUrl(media.url)" muted playsinline preload="metadata"></video>
             <span v-else>{{ media.asset_type }}</span>
@@ -1019,7 +1230,8 @@ onMounted(() => {
           <button type="submit" class="btn btn-primary" :disabled="saving">{{ saving ? 'Saving...' : 'Save Record' }}</button>
         </div>
       </form>
-    </aside>
+      </aside>
+    </div>
   </section>
 </template>
 
@@ -1028,6 +1240,21 @@ onMounted(() => {
   margin-top: 14px;
   display: grid;
   gap: 12px;
+}
+
+.editor-shell {
+  display: block;
+}
+
+.editor-shell--modal {
+  position: fixed;
+  inset: 0;
+  z-index: 1200;
+  display: grid;
+  place-items: center;
+  padding: 16px;
+  background: rgba(8, 22, 38, 0.54);
+  backdrop-filter: blur(2px);
 }
 
 .manager-toolbar,
@@ -1165,6 +1392,10 @@ td {
   text-align: left;
   vertical-align: top;
   font-size: 13px;
+}
+
+.table-empty-row td {
+  text-align: center;
 }
 
 th {
@@ -1322,6 +1553,15 @@ td a {
   inset: 0;
 }
 
+.banner-preview-card__media--interactive {
+  cursor: crosshair;
+  touch-action: none;
+}
+
+.banner-preview-card__media--interactive.is-dragging {
+  cursor: grabbing;
+}
+
 .banner-preview-card__media img,
 .banner-preview-card__media video {
   width: 100%;
@@ -1337,6 +1577,37 @@ td a {
   background:
     linear-gradient(180deg, rgba(2, 9, 19, 0.22) 0%, rgba(2, 10, 23, 0.16) 22%, rgba(2, 10, 23, 0.42) 100%),
     radial-gradient(circle at 72% 22%, rgba(38, 115, 208, 0.26) 0%, rgba(38, 115, 208, 0) 38%);
+  pointer-events: none;
+}
+
+.banner-focus-indicator {
+  position: absolute;
+  width: 20px;
+  height: 20px;
+  border-radius: 999px;
+  border: 2px solid rgba(255, 255, 255, 0.95);
+  box-shadow: 0 0 0 3px rgba(225, 0, 18, 0.5), 0 8px 20px rgba(0, 0, 0, 0.25);
+  transform: translate(-50%, -50%);
+  z-index: 3;
+  pointer-events: none;
+}
+
+.banner-focus-tools {
+  display: grid;
+  gap: 6px;
+  margin-top: 8px;
+}
+
+.banner-focus-tools small {
+  color: #607893;
+  font-size: 11px;
+}
+
+.banner-focus-tools__row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
 }
 
 .banner-preview-card__empty {
@@ -1361,6 +1632,7 @@ td a {
   min-height: inherit;
   padding: 16px;
   color: #f5f8fd;
+  pointer-events: none;
 }
 
 .banner-preview-card__meta {
@@ -1444,6 +1716,14 @@ td a {
 .editor-panel {
   border-radius: 8px;
   padding: 14px;
+}
+
+.editor-panel--modal {
+  width: min(1160px, calc(100vw - 32px));
+  max-height: calc(100vh - 28px);
+  overflow-y: auto;
+  border-radius: 12px;
+  box-shadow: 0 24px 48px rgba(7, 21, 36, 0.24);
 }
 
 .editor-head {
@@ -1601,5 +1881,100 @@ td a {
   .video-form-preview {
     width: 100%;
   }
+
+  .row-actions {
+    justify-content: flex-start;
+  }
+
+  .editor-shell--modal {
+    padding: 10px;
+    place-items: end center;
+  }
+
+  .editor-panel--modal {
+    max-height: calc(100vh - 20px);
+  }
+}
+
+@media (max-width: 760px) {
+  .table-wrap {
+    overflow: visible;
+  }
+
+  table {
+    min-width: 0;
+  }
+
+  thead {
+    display: none;
+  }
+
+  tbody {
+    display: grid;
+    gap: 10px;
+    padding: 10px;
+  }
+
+  .entity-row {
+    display: block;
+    border: 1px solid #d8e3f0;
+    border-radius: 10px;
+    background: #fff;
+    overflow: hidden;
+  }
+
+  .entity-row td {
+    display: grid;
+    grid-template-columns: minmax(110px, 38%) minmax(0, 1fr);
+    gap: 10px;
+    align-items: start;
+    border-bottom: 1px dashed #e2ebf5;
+    padding: 10px 12px;
+  }
+
+  .entity-row td:last-child {
+    border-bottom: 0;
+  }
+
+  .entity-row td::before {
+    content: attr(data-label);
+    color: #607893;
+    font-size: 11px;
+    text-transform: uppercase;
+    letter-spacing: 0.08em;
+    font-weight: 700;
+    line-height: 1.4;
+    padding-top: 2px;
+  }
+
+  .table-empty-row {
+    display: block;
+  }
+
+  .table-empty-row td {
+    display: block;
+    text-align: center;
+    border: 1px solid #d8e3f0;
+    border-radius: 10px;
+    background: #fff;
+    padding: 14px 12px;
+  }
+
+  .table-empty-row td::before {
+    content: none;
+  }
+
+  .banner-preview-card {
+    min-width: 0;
+  }
+
+  .row-actions {
+    width: 100%;
+    flex-wrap: wrap;
+  }
+}
+
+:global(body.banner-editor-modal-open) {
+  overflow: hidden;
 }
 </style>

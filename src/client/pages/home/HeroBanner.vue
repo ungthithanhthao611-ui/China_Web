@@ -123,6 +123,12 @@ function isVideoAsset(banner = {}) {
   return /\.(mp4|webm|ogg|mov|m4v)(\?.*)?$/i.test(String(banner?.image?.url || '').trim())
 }
 
+function clampBannerFocus(value) {
+  const numeric = Number(value)
+  if (!Number.isFinite(numeric)) return 50
+  return Math.min(100, Math.max(0, numeric))
+}
+
 const slides = computed(() => {
   const banners = bootstrapStore.heroBanners || []
 
@@ -156,6 +162,8 @@ const slides = computed(() => {
         || String(banner.body || '').trim()
         || (String(banner.button_text || '').trim() && String(banner.link || '').trim())
       ),
+      focusX: clampBannerFocus(banner.focus_x),
+      focusY: clampBannerFocus(banner.focus_y),
       fallback: fallbackSlide,
     }
   })
@@ -246,7 +254,12 @@ defineExpose({ goToSlide })
     >
       <swiper-slide v-for="(slide, index) in slides" :key="`${slide.src || 'banner'}-${index}`">
         <div class="hero-media">
-          <img v-if="slide.type === 'image'" :src="slide.src" :alt="slide.alt" />
+          <img
+            v-if="slide.type === 'image'"
+            :src="slide.src"
+            :alt="slide.alt"
+            :style="{ objectPosition: `${slide.focusX ?? 50}% ${slide.focusY ?? 50}%` }"
+          />
           <video
             v-else
             :ref="(element) => setVideoRef(element, index)"

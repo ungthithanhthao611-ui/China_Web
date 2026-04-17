@@ -275,20 +275,20 @@ function resolveStatusOptionLabel(option) {
             </tr>
           </thead>
           <tbody>
-            <tr v-if="loading">
+            <tr v-if="loading" class="table-empty-row">
               <td colspan="9" class="empty-state">Đang tải dữ liệu bài viết...</td>
             </tr>
-            <tr v-else-if="!records.length">
+            <tr v-else-if="!records.length" class="table-empty-row">
               <td colspan="9" class="empty-state">Chưa có bài viết nào phù hợp bộ lọc hiện tại.</td>
             </tr>
             <tr v-for="record in records" v-else :key="record.id" class="table-row">
-              <td>
+              <td data-label="Thumbnail">
                 <div class="thumb-box">
                   <img v-if="resolveThumbnail(record)" :src="resolveThumbnail(record)" :alt="record.title || 'thumbnail'" />
                   <div v-else class="thumb-fallback">▣</div>
                 </div>
               </td>
-              <td>
+              <td data-label="Post details">
                 <div class="post-cell">
                   <button type="button" class="post-title-button" @click="$emit('view', record)">
                     {{ record.title || `Post #${record.id}` }}
@@ -297,19 +297,19 @@ function resolveStatusOptionLabel(option) {
                   <small>{{ stripHtml(record.summary || record.body).slice(0, 70) || 'No excerpt available.' }}</small>
                 </div>
               </td>
-              <td>
+              <td data-label="Category">
                 <span class="category-chip">{{ resolveCategory(record) }}</span>
               </td>
-              <td>
+              <td data-label="Source">
                 <span class="source-icon">{{ resolveSource(record) === 'rss' ? '◔' : resolveSource(record) === 'file' ? '◫' : '✎' }}</span>
               </td>
-              <td>
+              <td data-label="Status">
                 <span class="status-pill" :class="resolveStatusClass(record.status)">
                   <span class="status-dot"></span>
                   {{ record.status || 'draft' }}
                 </span>
               </td>
-              <td>
+              <td data-label="Public">
                 <div class="public-badge-list">
                   <span
                     v-for="badge in resolvePublicBadges(record)"
@@ -321,19 +321,19 @@ function resolveStatusOptionLabel(option) {
                   </span>
                 </div>
               </td>
-              <td>
+              <td data-label="Author">
                 <div class="author-cell">
                   <div class="author-avatar">{{ resolveAuthor(record).slice(0, 2).toUpperCase() }}</div>
                   <span>{{ resolveAuthor(record) }}</span>
                 </div>
               </td>
-              <td>
+              <td data-label="Dates">
                 <div class="date-cell">
                   <strong>{{ formatDateForDisplay(record.published_at || record.updated_at || record.created_at) }}</strong>
                   <span>Updated recently</span>
                 </div>
               </td>
-              <td>
+              <td data-label="Actions">
                 <div class="row-actions">
                   <button type="button" class="icon-btn" @click="$emit('view', record)">View</button>
                   <button type="button" class="icon-btn" @click="$emit('edit', record)">Edit</button>
@@ -500,6 +500,10 @@ th {
 
 .table-row + .table-row td {
   border-top: 1px solid rgba(169, 180, 185, 0.16);
+}
+
+.table-empty-row td {
+  text-align: center;
 }
 
 .empty-state {
@@ -802,6 +806,96 @@ th {
   th,
   td {
     padding: 14px;
+  }
+}
+
+@media (max-width: 700px) {
+  .table-shell {
+    overflow: visible;
+    background: transparent;
+    box-shadow: none;
+    border-radius: 0;
+  }
+
+  .table-scroll {
+    overflow: visible;
+  }
+
+  thead {
+    display: none;
+  }
+
+  table {
+    display: block;
+  }
+
+  tbody {
+    display: grid;
+    gap: 10px;
+  }
+
+  .table-row {
+    display: block;
+    border: 1px solid #d6e2ec;
+    border-radius: 12px;
+    background: #fff;
+    overflow: hidden;
+  }
+
+  .table-row td {
+    display: grid;
+    grid-template-columns: minmax(110px, 40%) minmax(0, 1fr);
+    gap: 10px;
+    align-items: start;
+    padding: 10px 12px;
+    border-top: 0;
+    border-bottom: 1px dashed rgba(169, 180, 185, 0.24);
+  }
+
+  .table-row td:last-child {
+    border-bottom: 0;
+  }
+
+  .table-row td::before {
+    content: attr(data-label);
+    color: #566166;
+    font-size: 10px;
+    font-weight: 800;
+    text-transform: uppercase;
+    letter-spacing: 0.12em;
+    line-height: 1.4;
+    padding-top: 2px;
+  }
+
+  .table-empty-row {
+    display: block;
+  }
+
+  .table-empty-row td {
+    display: block;
+    border: 1px solid #d6e2ec;
+    border-radius: 12px;
+    background: #fff;
+  }
+
+  .table-empty-row td::before {
+    content: none;
+  }
+
+  .row-actions {
+    justify-content: flex-start;
+    flex-wrap: wrap;
+  }
+
+  .author-cell {
+    grid-template-columns: 24px 1fr;
+    gap: 8px;
+  }
+
+  .thumb-box {
+    width: 100%;
+    max-width: 120px;
+    height: 72px;
   }
 }
 </style>
