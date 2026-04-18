@@ -1,5 +1,5 @@
 <script setup>
-import { computed, onBeforeUnmount, onMounted, reactive, ref, watch } from 'vue'
+import { computed, nextTick, onBeforeUnmount, onMounted, reactive, ref, watch } from 'vue'
 
 import {
   createAdminEntityRecord,
@@ -63,6 +63,8 @@ const deletingId = ref(null)
 const formOpen = ref(false)
 const formMode = ref('create')
 const editingRecordId = ref(null)
+const inlineEditorRef = ref(null)
+const slugManuallyEdited = ref(false)
 const form = reactive({})
 const formErrors = ref([])
 const uploadFile = ref(null)
@@ -70,7 +72,19 @@ const uploadTitle = ref('')
 const uploadAltText = ref('')
 const uploadTargetField = ref('image_id')
 const uploading = ref(false)
+const videoUploadFile = ref(null)
+const videoUploading = ref(false)
+const videoFileInputRef = ref(null)
 const bannerFocusDragging = ref(false)
+const actionConfirmDialog = reactive({
+  visible: false,
+  eyebrow: 'Confirm action',
+  title: '',
+  message: '',
+  confirmText: 'Confirm',
+  tone: 'primary',
+})
+let actionConfirmResolver = null
 
 const config = computed(() => ENTITY_MANAGER_CONFIGS[props.entityKey])
 const tableColumns = computed(() => config.value?.table || ['id'])
@@ -103,7 +117,19 @@ const standaloneUpload = computed(() => Boolean(config.value?.standaloneUpload))
 const isMediaAssetsEntity = computed(() => props.entityKey === 'media_assets')
 const isVideosEntity = computed(() => props.entityKey === 'videos')
 const isBannerEntity = computed(() => props.entityKey === 'banners')
+const isConfigModalEntity = computed(() => config.value?.editorPresentation === 'modal')
+const isFormModalEntity = computed(() => isBannerEntity.value || isVideosEntity.value || isConfigModalEntity.value)
+const isFormModalOpen = computed(() => formOpen.value && isFormModalEntity.value)
 const isBannerEditorModalOpen = computed(() => formOpen.value && isBannerEntity.value)
+const showInlineEditor = computed(() => formOpen.value && !isFormModalEntity.value)
+const inlineEditorPlacement = computed(() => config.value?.inlineEditorPlacement || 'bottom')
+const slugSourceField = computed(() => {
+  if (!formFields.value.includes('slug')) return ''
+  if (formFields.value.includes('name')) return 'name'
+  if (formFields.value.includes('title')) return 'title'
+  return ''
+})
+const actionConfirmButtonClass = computed(() => (actionConfirmDialog.tone === 'danger' ? 'btn btn-danger' : 'btn btn-primary'))
 const featuredTableFields = computed(() => config.value?.featuredTableFields || [])
 const previewMediaOptions = computed(() => {
   if (!hasMediaFields.value || !mediaOptions.value.length) return []
@@ -112,6 +138,10 @@ const previewMediaOptions = computed(() => {
   const eligible = mediaOptions.value.filter((media) => (isImageMedia(media) || isVideoMediaRecord(media)) && !isNoiseMediaAsset(media))
   const bannerOnly = eligible.filter(isBannerRelatedMedia)
   return bannerOnly.slice(0, 8)
+})
+const videoLibraryOptions = computed(() => {
+  if (!mediaOptions.value.length) return []
+  return mediaOptions.value.filter((media) => isVideoMediaRecord(media))
 })
 
 function normalizedToken() {
@@ -141,6 +171,85 @@ function recordDisplayName(record = null) {
   ).trim()
 }
 
+function recordDisplayLabel(record = null) {
+  const name = recordDisplayName(record)
+  if (name) return name
+  const fallbackId = record?.id || editingRecordId.value
+  return fallbackId ? `#${fallbackId}` : '#record'
+}
+
+function entityLabelForAction(record = null) {
+  const configLabel = String(config.value?.label || 'Record').trim()
+  const singular = configLabel.endsWith('s') ? configLabel.slice(0, -1) : configLabel
+  return recordDisplayName(record) || singular || 'Record'
+}
+
+function closeActionConfirmDialog(confirmed = false) {
+  actionConfirmDialog.visible = false
+  actionConfirmDialog.eyebrow = 'Confirm action'
+  actionConfirmDialog.title = ''
+  actionConfirmDialog.message = ''
+  actionConfirmDialog.confirmText = 'Confirm'
+  actionConfirmDialog.tone = 'primary'
+
+  if (actionConfirmResolver) {
+    const resolve = actionConfirmResolver
+    actionConfirmResolver = null
+    resolve(Boolean(confirmed))
+  }
+}
+
+function openActionConfirmDialog({ eyebrow = 'Confirm action', title, message, confirmText, tone = 'primary' }) {
+  if (actionConfirmResolver) {
+    actionConfirmResolver(false)
+    actionConfirmResolver = null
+  }
+
+  actionConfirmDialog.eyebrow = eyebrow
+  actionConfirmDialog.title = title
+  actionConfirmDialog.message = message
+  actionConfirmDialog.confirmText = confirmText
+  actionConfirmDialog.tone = tone
+  actionConfirmDialog.visible = true
+
+  return new Promise((resolve) => {
+    actionConfirmResolver = resolve
+  })
+}
+
+function cancelActionConfirmDialog() {
+  closeActionConfirmDialog(false)
+}
+
+function acceptActionConfirmDialog() {
+  closeActionConfirmDialog(true)
+}
+
+async function confirmRecordAction(action, record = null) {
+  const label = entityLabelForAction(record)
+  if (action === 'update') {
+    return openActionConfirmDialog({
+      eyebrow: 'Update record',
+      title: `Update ${label}?`,
+      message: 'Confirm to save the edited information.',
+      confirmText: 'Confirm Update',
+      tone: 'primary',
+    })
+  }
+
+  if (action === 'delete') {
+    return openActionConfirmDialog({
+      eyebrow: 'Delete record',
+      title: `Delete ${label}?`,
+      message: 'This action cannot be undone.',
+      confirmText: 'Confirm Delete',
+      tone: 'danger',
+    })
+  }
+
+  return true
+}
+
 function actionSuccessMessage(action, record = null) {
   const name = recordDisplayName(record)
   if (isBannerEntity.value) {
@@ -155,9 +264,10 @@ function actionSuccessMessage(action, record = null) {
     }
   }
 
+  const label = String(config.value?.label || 'Record').trim()
   if (action === 'create') return `Created ${config.value.label} record.`
-  if (action === 'update') return `Updated ${config.value.label} record.`
-  if (action === 'delete') return 'Record deleted.'
+  if (action === 'update') return name ? `Updated ${label}: "${name}".` : `Updated ${label} record.`
+  if (action === 'delete') return name ? `Deleted ${label}: "${name}".` : `Deleted ${label} record.`
   return 'Completed successfully.'
 }
 
@@ -167,6 +277,39 @@ function fieldLabel(field) {
 
 function fieldPlaceholder(field) {
   return config.value?.placeholders?.[field] || ''
+}
+
+function slugify(value) {
+  return String(value || '')
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '')
+    .toLowerCase()
+    .replace(/đ/g, 'd')
+    .replace(/[^a-z0-9]+/g, '-')
+    .replace(/^-+|-+$/g, '')
+}
+
+function syncSlugFromSource() {
+  if (formMode.value !== 'create') return
+  if (!slugSourceField.value || !('slug' in form)) return
+  if (slugManuallyEdited.value) return
+  form.slug = slugify(form[slugSourceField.value])
+}
+
+function handleSlugSourceInput(field) {
+  if (field !== slugSourceField.value) return
+  syncSlugFromSource()
+}
+
+function handleSlugInput() {
+  const normalizedSlug = slugify(form.slug)
+  form.slug = normalizedSlug
+  slugManuallyEdited.value = Boolean(normalizedSlug)
+
+  if (!normalizedSlug) {
+    slugManuallyEdited.value = false
+    syncSlugFromSource()
+  }
 }
 
 function fieldHelpText(field) {
@@ -532,6 +675,7 @@ function setDefaultFormValues(record = {}) {
   uploadTitle.value = record?.title || ''
   uploadAltText.value = record?.title || ''
   formErrors.value = []
+  slugManuallyEdited.value = Boolean(record?.id && String(record?.slug || '').trim())
 }
 
 function cleanPayload() {
@@ -622,7 +766,7 @@ async function loadRelationOptions() {
 
 async function loadMediaOptions() {
   const token = normalizedToken()
-  if (!token || (!hasMediaFields.value && !standaloneUpload.value)) return
+  if (!token || (!hasMediaFields.value && !standaloneUpload.value && !isVideosEntity.value)) return
 
   const response = await listAdminEntityRecords('media_assets', token, { skip: 0, limit: 100, status: 'active' })
   mediaOptions.value = response.items || []
@@ -659,12 +803,27 @@ async function refreshAll() {
   await loadRecords()
 }
 
+async function revealInlineEditor() {
+  if (isFormModalEntity.value) return
+
+  await nextTick()
+
+  inlineEditorRef.value?.scrollIntoView({ behavior: 'smooth', block: 'start' })
+
+  const firstFocusableField = inlineEditorRef.value?.querySelector(
+    'input:not([type="hidden"]):not([disabled]), select:not([disabled]), textarea:not([disabled])'
+  )
+
+  firstFocusableField?.focus?.({ preventScroll: true })
+}
+
 function openCreateForm() {
   if (!canCreate.value) return
   formMode.value = 'create'
   editingRecordId.value = null
   setDefaultFormValues()
   formOpen.value = true
+  void revealInlineEditor()
 }
 
 function openEditForm(record) {
@@ -675,6 +834,7 @@ function openEditForm(record) {
     form.metadata_json = JSON.stringify(form.metadata_json, null, 2)
   }
   formOpen.value = true
+  void revealInlineEditor()
 }
 
 function closeForm() {
@@ -685,7 +845,15 @@ function closeForm() {
 
 async function submitForm() {
   const token = normalizedToken()
-  if (!token || !validateForm()) return
+  if (!token) return
+
+  syncSlugFromSource()
+  if (!validateForm()) return
+
+  if (formMode.value === 'edit') {
+    const confirmedUpdate = await confirmRecordAction('update')
+    if (!confirmedUpdate) return
+  }
 
   saving.value = true
   try {
@@ -698,7 +866,7 @@ async function submitForm() {
     } else {
       const updatedRecord = await updateAdminEntityRecord(props.entityKey, editingRecordId.value, payload, token)
       records.value = records.value.map((record) => (String(record.id) === String(updatedRecord?.id) ? updatedRecord : record))
-      notifySuccess(actionSuccessMessage('update'))
+      notifySuccess(actionSuccessMessage('update', updatedRecord))
       closeForm()
     }
   } catch (error) {
@@ -712,7 +880,7 @@ async function deleteRecord(record) {
   const token = normalizedToken()
   if (!token) return
 
-  const confirmed = window.confirm(`Delete "${record[config.value.titleField] || record.slug || record.name || `#${record.id}`}"?`)
+  const confirmed = await confirmRecordAction('delete', record)
   if (!confirmed) return
 
   deletingId.value = record.id
@@ -729,6 +897,65 @@ async function deleteRecord(record) {
 
 function handleFileChange(event) {
   uploadFile.value = event.target.files?.[0] || null
+}
+
+function handleVideoFileChange(event) {
+  videoUploadFile.value = event.target.files?.[0] || null
+}
+
+function triggerVideoUpload() {
+  if (videoUploadFile.value) {
+    uploadVideoFile()
+  } else if (videoFileInputRef.value) {
+    videoFileInputRef.value.click()
+  }
+}
+
+async function uploadVideoFile() {
+  const token = normalizedToken()
+  if (!token || !videoUploadFile.value) {
+    notifyError('Choose a video file to upload first.')
+    return
+  }
+
+  const allowedTypes = ['video/mp4', 'video/webm', 'video/ogg', 'video/quicktime', 'video/x-m4v']
+  const file = videoUploadFile.value
+  if (!allowedTypes.some((type) => file.type === type) && !/\.(mp4|webm|ogg|mov|m4v)(\?.*)?$/i.test(file.name)) {
+    notifyError('Invalid video file type. Allowed: MP4, WebM, OGG, MOV.')
+    return
+  }
+
+  videoUploading.value = true
+  try {
+    const media = await uploadAdminMediaAsset(token, videoUploadFile.value, {
+      title: uploadTitle.value || form.title || videoUploadFile.value.name,
+      altText: uploadAltText.value || form.title || videoUploadFile.value.name,
+      assetFolder: mediaUploadAssetFolder(),
+      publicIdBase: mediaUploadPublicIdBase(),
+    })
+    await loadMediaOptions()
+    if (!mediaOptions.value.some((item) => String(item.id) === String(media.id))) {
+      mediaOptions.value = [media, ...mediaOptions.value]
+    }
+    if (isVideosEntity.value && media.url) {
+      form.video_url = media.url
+    }
+    videoUploadFile.value = null
+    if (videoFileInputRef.value) {
+      videoFileInputRef.value.value = ''
+    }
+    if (media.storage_backend === 'cloudinary') {
+      notifySuccess(`Uploaded video #${media.id} to Cloudinary.`)
+    } else if (media.fallback_reason) {
+      notifySuccess(`Uploaded video #${media.id} to local storage. Cloudinary was skipped: ${media.fallback_reason}`)
+    } else {
+      notifySuccess(`Uploaded video #${media.id} to local storage.`)
+    }
+  } catch (error) {
+    notifyError(error.message || 'Failed to upload video.')
+  } finally {
+    videoUploading.value = false
+  }
 }
 
 async function uploadMedia() {
@@ -778,9 +1005,15 @@ function setPage(page) {
   currentPage.value = Math.min(Math.max(1, page), totalPages.value)
 }
 
-function toggleBannerEditorBodyLock(locked) {
+function toggleFormModalBodyLock(locked) {
   if (typeof document === 'undefined') return
-  document.body.classList.toggle('banner-editor-modal-open', locked)
+  document.body.classList.toggle('form-modal-open', locked)
+}
+
+function handleBannerConfirmEsc(event) {
+  if (event.key === 'Escape' && actionConfirmDialog.visible) {
+    cancelActionConfirmDialog()
+  }
 }
 
 watch(
@@ -790,6 +1023,7 @@ watch(
     statusFilter.value = ''
     searchKeyword.value = ''
     closeForm()
+    closeActionConfirmDialog(false)
     if (props.active && normalizedToken()) {
       await refreshAll()
     }
@@ -810,6 +1044,7 @@ watch(
       await refreshAll()
     } else {
       closeForm()
+      closeActionConfirmDialog(false)
     }
   }
 )
@@ -821,6 +1056,7 @@ watch(
       records.value = []
       totalRecords.value = 0
       closeForm()
+      closeActionConfirmDialog(false)
       return
     }
     if (props.active) {
@@ -830,18 +1066,21 @@ watch(
 )
 
 watch(
-  isBannerEditorModalOpen,
+  isFormModalOpen,
   (open) => {
-    toggleBannerEditorBodyLock(open)
+    toggleFormModalBodyLock(open)
   },
   { immediate: true }
 )
 
 onBeforeUnmount(() => {
-  toggleBannerEditorBodyLock(false)
+  closeActionConfirmDialog(false)
+  toggleFormModalBodyLock(false)
+  window.removeEventListener('keydown', handleBannerConfirmEsc)
 })
 
 onMounted(() => {
+  window.addEventListener('keydown', handleBannerConfirmEsc)
   if (props.active && normalizedToken()) {
     refreshAll()
   }
@@ -886,7 +1125,7 @@ onMounted(() => {
       </div>
     </div>
 
-    <div class="records-panel">
+    <div :class="['records-panel', { 'records-panel--after-inline-editor': showInlineEditor && inlineEditorPlacement === 'top' }]">
       <div class="table-wrap">
         <table>
           <thead>
@@ -1016,7 +1255,6 @@ onMounted(() => {
                 </template>
                 <template v-else-if="isVideosEntity">
                   <div class="video-preview-cell">
-                    <img v-if="rowThumbnailUrl(record)" class="video-preview-cell__poster" :src="rowThumbnailUrl(record)" :alt="record.title || 'Video poster'" loading="lazy" />
                     <video v-if="isDirectVideoFile(record.video_url)" class="video-preview-cell__player" :src="videoPreviewUrl(record)" muted playsinline preload="metadata" controls></video>
                     <a v-else-if="record.video_url" :href="videoPreviewUrl(record)" target="_blank" rel="noreferrer noopener">Preview Link</a>
                     <a v-if="previewUrl(record)" :href="previewUrl(record)" target="_blank" rel="noreferrer">Public Page</a>
@@ -1053,8 +1291,19 @@ onMounted(() => {
       </div>
     </div>
 
-    <div v-if="formOpen" :class="['editor-shell', { 'editor-shell--modal': isBannerEntity }]" @click.self="isBannerEntity && closeForm()">
-      <aside :class="['editor-panel', { 'editor-panel--modal': isBannerEntity }]">
+    <div
+      v-if="formOpen"
+      ref="inlineEditorRef"
+      :class="[
+        'editor-shell',
+        {
+          'editor-shell--modal': isFormModalEntity,
+          'editor-shell--inline-top': showInlineEditor && inlineEditorPlacement === 'top',
+        },
+      ]"
+      @click.self="isFormModalEntity && closeForm()"
+    >
+      <aside :class="['editor-panel', { 'editor-panel--modal': isFormModalEntity }]">
       <div class="editor-head">
         <div>
           <p class="eyebrow">{{ formMode === 'create' ? 'Create' : 'Edit' }}</p>
@@ -1150,7 +1399,33 @@ onMounted(() => {
           <textarea v-else-if="isTextarea(field)" v-model="form[field]" rows="5" :placeholder="fieldPlaceholder(field)"></textarea>
 
           <div v-else-if="isVideosEntity && field === 'video_url'" class="field-stack">
-            <input v-model="form[field]" :type="inputType(field)" :placeholder="fieldPlaceholder(field)" />
+            <div class="video-url-section">
+              <div class="video-url-row">
+                <input v-model="form[field]" :type="inputType(field)" placeholder="https://... or select from library" />
+                <button type="button" class="btn btn-secondary" :disabled="videoUploading" @click="uploadVideoFile">
+                  {{ videoUploading ? 'Uploading...' : 'Upload' }}
+                </button>
+              </div>
+              <div class="video-file-row">
+                <input
+                  ref="videoFileInputRef"
+                  type="file"
+                  accept="video/mp4,video/webm,video/ogg,video/quicktime,video/x-m4v,.mp4,.webm,.ogg,.mov,.m4v"
+                  @change="handleVideoFileChange"
+                />
+                <span class="video-file-row__name">{{ videoUploadFile?.name || 'Chưa chọn file video' }}</span>
+              </div>
+              <small class="field-help">Chọn file video từ máy tính rồi bấm Upload để tự động đưa link vào Video URL.</small>
+              <div class="video-library-select">
+                <select @change="form.video_url = $event.target.value; $event.target.value = ''">
+                  <option value="">-- Select from Media Library --</option>
+                  <option v-for="media in videoLibraryOptions" :key="media.id" :value="media.url">
+                    #{{ media.id }} - {{ media.title || media.file_name }}
+                  </option>
+                </select>
+                <small v-if="videoLibraryOptions.length">Or choose from {{ videoLibraryOptions.length }} uploaded videos</small>
+              </div>
+            </div>
             <small v-if="fieldHelpText(field)" class="field-help">{{ fieldHelpText(field) }}</small>
             <div v-if="form.video_url" class="video-url-helper" :class="{ 'is-valid': isAllowedVideoUrl(form.video_url), 'is-invalid': !isAllowedVideoUrl(form.video_url) }">
               <span>{{ isAllowedVideoUrl(form.video_url) ? 'Valid video source' : 'Invalid video source' }}</span>
@@ -1160,7 +1435,13 @@ onMounted(() => {
             <a v-else-if="isAllowedVideoUrl(form.video_url)" class="video-form-link" :href="resolveMediaUrl(form.video_url)" target="_blank" rel="noreferrer noopener">Open video source</a>
           </div>
 
-          <input v-else v-model="form[field]" :type="inputType(field)" :placeholder="fieldPlaceholder(field)" />
+          <input
+            v-else
+            v-model="form[field]"
+            :type="inputType(field)"
+            :placeholder="field === 'slug' ? (fieldPlaceholder(field) || 'auto-generated-from-name') : fieldPlaceholder(field)"
+            @input="field === 'slug' ? handleSlugInput() : handleSlugSourceInput(field)"
+          />
 
           <small v-if="!FIELD_GROUPS.media.includes(field) && fieldHelpText(field)" class="field-help">{{ fieldHelpText(field) }}</small>
         </label>
@@ -1216,7 +1497,7 @@ onMounted(() => {
           </div>
         </div>
 
-        <div v-if="!isBannerEntity && previewMediaOptions.length" class="media-preview-list">
+        <div v-if="!isBannerEntity && !isVideosEntity && previewMediaOptions.length" class="media-preview-list">
           <article v-for="media in previewMediaOptions" :key="media.id">
             <img v-if="isImageMedia(media)" :src="resolveMediaUrl(media.url)" :alt="media.alt_text || media.title || ''" />
             <video v-else-if="isVideoMediaRecord(media)" :src="resolveMediaUrl(media.url)" muted playsinline preload="metadata"></video>
@@ -1232,6 +1513,39 @@ onMounted(() => {
       </form>
       </aside>
     </div>
+
+    <transition name="confirm-fade">
+      <div
+        v-if="actionConfirmDialog.visible"
+        class="action-confirm-layer"
+        role="presentation"
+        @click="cancelActionConfirmDialog"
+      >
+        <article
+          class="action-confirm-card"
+          :class="`action-confirm-card--${actionConfirmDialog.tone}`"
+          role="dialog"
+          aria-modal="true"
+          aria-labelledby="action-confirm-title"
+          @click.stop
+        >
+          <div class="action-confirm-head">
+            <div class="action-confirm-icon">{{ actionConfirmDialog.tone === 'danger' ? '!' : '?' }}</div>
+            <div>
+              <p class="eyebrow">{{ actionConfirmDialog.eyebrow }}</p>
+              <h3 id="action-confirm-title">{{ actionConfirmDialog.title }}</h3>
+            </div>
+          </div>
+          <p class="action-confirm-copy">{{ actionConfirmDialog.message }}</p>
+          <div class="action-confirm-actions">
+            <button type="button" class="btn btn-secondary" @click="cancelActionConfirmDialog">Cancel</button>
+            <button type="button" :class="actionConfirmButtonClass" @click="acceptActionConfirmDialog">
+              {{ actionConfirmDialog.confirmText }}
+            </button>
+          </div>
+        </article>
+      </div>
+    </transition>
   </section>
 </template>
 
@@ -1246,6 +1560,10 @@ onMounted(() => {
   display: block;
 }
 
+.editor-shell--inline-top {
+  order: 3;
+}
+
 .editor-shell--modal {
   position: fixed;
   inset: 0;
@@ -1255,6 +1573,82 @@ onMounted(() => {
   padding: 16px;
   background: rgba(8, 22, 38, 0.54);
   backdrop-filter: blur(2px);
+}
+
+.action-confirm-layer {
+  position: fixed;
+  inset: 0;
+  z-index: 1450;
+  display: grid;
+  place-items: center;
+  padding: 16px;
+  background: rgba(7, 21, 36, 0.5);
+  backdrop-filter: blur(4px);
+}
+
+.action-confirm-card {
+  width: min(460px, calc(100vw - 28px));
+  display: grid;
+  gap: 12px;
+  border-radius: 16px;
+  border: 1px solid #d5e2ef;
+  background: linear-gradient(180deg, rgba(255, 255, 255, 0.97), rgba(247, 251, 255, 0.96));
+  box-shadow: 0 28px 56px rgba(7, 22, 38, 0.28);
+  padding: 16px;
+}
+
+.action-confirm-card--danger {
+  border-color: #efc1ca;
+}
+
+.action-confirm-head {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.action-confirm-icon {
+  width: 34px;
+  height: 34px;
+  border-radius: 10px;
+  display: grid;
+  place-items: center;
+  font-size: 18px;
+  font-weight: 800;
+  color: #27557a;
+  background: linear-gradient(135deg, rgba(39, 158, 208, 0.22), rgba(39, 158, 208, 0.08));
+  border: 1px solid rgba(39, 158, 208, 0.28);
+}
+
+.action-confirm-card--danger .action-confirm-icon {
+  color: #a33447;
+  background: linear-gradient(135deg, rgba(239, 188, 197, 0.34), rgba(255, 240, 242, 0.74));
+  border-color: rgba(210, 97, 120, 0.34);
+}
+
+.action-confirm-copy {
+  margin: 0;
+  color: #496582;
+  font-size: 14px;
+  line-height: 1.5;
+}
+
+.action-confirm-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.confirm-fade-enter-active,
+.confirm-fade-leave-active {
+  transition: opacity 0.2s ease, transform 0.2s ease;
+}
+
+.confirm-fade-enter-from,
+.confirm-fade-leave-to {
+  opacity: 0;
+  transform: translateY(8px) scale(0.98);
 }
 
 .manager-toolbar,
@@ -1313,6 +1707,10 @@ h3 {
 .filters {
   border-radius: 8px;
   padding: 10px;
+}
+
+.records-panel--after-inline-editor {
+  order: 4;
 }
 
 input,
@@ -1501,6 +1899,65 @@ td a {
 
 .field-stack {
   gap: 8px;
+}
+
+.video-url-section {
+  display: grid;
+  gap: 8px;
+}
+
+.video-url-row {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+}
+
+.video-url-row > :first-child {
+  flex: 1;
+  min-width: 200px;
+}
+
+.video-url-actions {
+  display: flex;
+  gap: 6px;
+  align-items: center;
+}
+
+.video-url-actions input[type='file'] {
+  display: none;
+}
+
+.video-file-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.video-file-row input[type='file'] {
+  flex: 0 1 auto;
+}
+
+.video-file-row__name {
+  min-height: 38px;
+  display: inline-flex;
+  align-items: center;
+  padding: 8px 10px;
+  border-radius: 8px;
+  border: 1px solid #d8e3f0;
+  background: #f8fbff;
+  color: #4b647f;
+  font-size: 12px;
+  overflow-wrap: anywhere;
+}
+
+.video-library-select {
+  display: grid;
+  gap: 4px;
+}
+
+.video-library-select select {
+  width: 100%;
 }
 
 .selected-media-preview {
@@ -1855,6 +2312,11 @@ td a {
   .manager-toolbar,
   .upload-panel {
     flex-direction: column;
+    padding: 12px;
+  }
+
+  .toolbar-actions {
+    width: 100%;
   }
 }
 
@@ -1893,6 +2355,10 @@ td a {
 
   .editor-panel--modal {
     max-height: calc(100vh - 20px);
+  }
+
+  .pagination {
+    justify-content: flex-start;
   }
 }
 
@@ -1974,7 +2440,37 @@ td a {
   }
 }
 
-:global(body.banner-editor-modal-open) {
+@media (max-width: 560px) {
+  .manager-toolbar,
+  .filters,
+  .pagination,
+  .editor-panel,
+  .upload-panel {
+    padding: 10px;
+  }
+
+  .editor-head,
+  .form-actions {
+    flex-direction: column;
+    align-items: stretch;
+  }
+
+  .entity-row td {
+    grid-template-columns: 1fr;
+    gap: 6px;
+  }
+
+  .pagination > * {
+    width: 100%;
+  }
+
+  .action-confirm-card,
+  .editor-panel--modal {
+    width: min(calc(100vw - 16px), 100%);
+  }
+}
+
+:global(body.form-modal-open) {
   overflow: hidden;
 }
 </style>

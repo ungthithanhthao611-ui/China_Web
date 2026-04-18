@@ -25,6 +25,10 @@ const props = defineProps({
     type: Boolean,
     default: false,
   },
+  viewMode: {
+    type: String,
+    default: 'all',
+  },
 })
 
 const emit = defineEmits(['notify-success', 'notify-error', 'clear-notify'])
@@ -138,6 +142,33 @@ const categoryParentOptions = computed(() => {
     return categories.value
   }
   return categories.value.filter((item) => item.id !== editingCategoryId.value)
+})
+const normalizedViewMode = computed(() => {
+  const mode = String(props.viewMode || '').trim().toLowerCase()
+  if (mode === 'honors' || mode === 'categories' || mode === 'all') {
+    return mode
+  }
+  return 'all'
+})
+const showCategorySection = computed(() => normalizedViewMode.value !== 'honors')
+const showHonorsSection = computed(() => normalizedViewMode.value !== 'categories')
+const headerMeta = computed(() => {
+  if (normalizedViewMode.value === 'categories') {
+    return {
+      title: 'Manage Honor Categories',
+      description: 'Category CRUD, active toggle, hierarchy, and sorting.',
+    }
+  }
+  if (normalizedViewMode.value === 'honors') {
+    return {
+      title: 'Manage Honors Records',
+      description: 'Honor CRUD, image upload, soft delete, active toggle, and sorting.',
+    }
+  }
+  return {
+    title: 'Manage Honors Taxonomy & Records',
+    description: 'Full honors module management: category CRUD + honor CRUD, image upload, soft delete, active toggle, and sorting.',
+  }
 })
 const totalPages = computed(() => Math.max(1, Math.ceil(totalRecords.value / pageSize.value)))
 
@@ -366,6 +397,7 @@ async function fetchHonorsPage() {
 }
 
 async function refreshHonorsOnly({ resetPage = false } = {}) {
+  if (!showHonorsSection.value) return
   const token = normalizedToken()
   if (!token) return
   if (resetPage) {
@@ -402,7 +434,12 @@ async function refreshAll() {
   clearNotify()
   try {
     await loadCategories()
-    await fetchHonorsPage()
+    if (showHonorsSection.value) {
+      await fetchHonorsPage()
+    } else {
+      honors.value = []
+      totalRecords.value = 0
+    }
   } catch (error) {
     notifyError(error.message || 'Failed to load honors data.')
   } finally {
@@ -541,7 +578,9 @@ async function submitCategoryForm() {
     }
     closeCategoryForm()
     await loadCategories()
-    await refreshHonorsOnly()
+    if (showHonorsSection.value) {
+      await refreshHonorsOnly()
+    }
   } catch (error) {
     notifyError(error.message || 'Failed to save category.')
   } finally {
@@ -561,7 +600,9 @@ async function removeCategory(record) {
       filters.categoryId = ''
     }
     await loadCategories()
-    await refreshHonorsOnly({ resetPage: true })
+    if (showHonorsSection.value) {
+      await refreshHonorsOnly({ resetPage: true })
+    }
   } catch (error) {
     notifyError(error.message || 'Failed to delete category.')
   }
@@ -575,7 +616,9 @@ async function onToggleCategoryActive(record, nextValue) {
     await updateHonorCategory(token, record.id, { is_active: nextValue })
     notifySuccess(nextValue ? 'Category activated.' : 'Category deactivated.')
     await loadCategories()
-    await refreshHonorsOnly()
+    if (showHonorsSection.value) {
+      await refreshHonorsOnly()
+    }
   } catch (error) {
     notifyError(error.message || 'Failed to update category status.')
   }
@@ -605,6 +648,7 @@ watch(
 
 watch(pageSize, async (nextSize, previousSize) => {
   if (nextSize === previousSize) return
+  if (!showHonorsSection.value) return
   if (!props.active || !normalizedToken()) return
   await refreshHonorsOnly({ resetPage: true })
 })
@@ -615,13 +659,12 @@ watch(pageSize, async (nextSize, previousSize) => {
     <header class="panel header-panel">
       <div>
         <p class="eyebrow">Honors Admin</p>
-        <h2>Manage Honors Taxonomy & Records</h2>
-        <p class="subtext">
-          Full honors module management: category CRUD + honor CRUD, image upload, soft delete, active toggle, and sorting.
-        </p>
+        <h2>{{ headerMeta.title }}</h2>
+        <p class="subtext">{{ headerMeta.description }}</p>
       </div>
       <div class="header-actions">
         <button
+          v-if="showHonorsSection"
           type="button"
           class="btn btn-secondary"
           :disabled="resyncingImages || loading"
@@ -629,12 +672,21 @@ watch(pageSize, async (nextSize, previousSize) => {
         >
           {{ resyncingImages ? 'Re-syncing...' : 'Re-sync Images' }}
         </button>
-        <button type="button" class="btn btn-secondary" @click="openCreateCategoryForm">Add Category</button>
-        <button type="button" class="btn btn-primary" @click="openCreateHonorForm">Add Honor</button>
+        <button v-if="showCategorySection" type="button" class="btn btn-secondary" @click="openCreateCategoryForm">Add Category</button>
+        <button v-if="showHonorsSection" type="button" class="btn btn-primary" @click="openCreateHonorForm">Add Honor</button>
+        <button
+          v-if="showCategorySection && !showHonorsSection"
+          type="button"
+          class="btn btn-secondary"
+          :disabled="loading"
+          @click="refreshAll"
+        >
+          {{ loading ? 'Loading...' : 'Refresh' }}
+        </button>
       </div>
     </header>
 
-    <section class="panel category-panel">
+    <section v-if="showCategorySection" class="panel category-panel">
       <div class="panel-head">
         <h3>Honor Categories</h3>
         <button type="button" class="btn btn-secondary" @click="openCreateCategoryForm">Create Category</button>
@@ -683,7 +735,7 @@ watch(pageSize, async (nextSize, previousSize) => {
       </div>
     </section>
 
-    <section class="panel filters-panel">
+    <section v-if="showHonorsSection" class="panel filters-panel">
       <input v-model="filters.keyword" type="search" placeholder="Search by title, issuer, description..." />
       <select v-model="filters.categoryId">
         <option value="">All categories</option>
@@ -707,7 +759,7 @@ watch(pageSize, async (nextSize, previousSize) => {
       </button>
     </section>
 
-    <section class="panel table-panel">
+    <section v-if="showHonorsSection" class="panel table-panel">
       <div class="panel-head">
         <h3>Honors</h3>
         <button type="button" class="btn btn-primary" @click="openCreateHonorForm">Create Honor</button>
@@ -781,7 +833,7 @@ watch(pageSize, async (nextSize, previousSize) => {
       </div>
     </section>
 
-    <aside v-if="honorFormOpen" class="overlay" @click.self="closeHonorForm">
+    <aside v-if="showHonorsSection && honorFormOpen" class="overlay" @click.self="closeHonorForm">
       <section class="panel form-panel">
         <div class="form-head">
           <h3>{{ honorFormMode === 'create' ? 'Create Honor' : 'Edit Honor' }}</h3>
@@ -893,7 +945,7 @@ watch(pageSize, async (nextSize, previousSize) => {
       </section>
     </aside>
 
-    <aside v-if="categoryFormOpen" class="overlay" @click.self="closeCategoryForm">
+    <aside v-if="showCategorySection && categoryFormOpen" class="overlay" @click.self="closeCategoryForm">
       <section class="panel category-form-panel">
         <div class="form-head">
           <h3>{{ categoryFormMode === 'create' ? 'Create Category' : 'Edit Category' }}</h3>
@@ -1391,6 +1443,43 @@ button:disabled {
 
   .actions {
     justify-content: flex-start;
+  }
+}
+
+@media (max-width: 560px) {
+  .panel {
+    padding: 12px;
+  }
+
+  .header-panel h2 {
+    font-size: 26px;
+  }
+
+  .table-pagination,
+  .pagination-actions {
+    display: grid;
+    grid-template-columns: 1fr;
+  }
+
+  .pagination-actions > *,
+  .header-actions > *,
+  .form-actions > * {
+    width: 100%;
+  }
+
+  .category-row td,
+  .honor-row td {
+    grid-template-columns: 1fr;
+    gap: 6px;
+  }
+
+  .overlay {
+    padding: 12px;
+  }
+
+  .form-panel,
+  .category-form-panel {
+    max-height: calc(100vh - 24px);
   }
 }
 </style>

@@ -1,5 +1,5 @@
 <script setup>
-import { ref } from 'vue'
+import { reactive } from 'vue'
 import AddNavigationMenu from './AddNavigationMenu.vue'
 import DeleteNavigationMenu from './DeleteNavigationMenu.vue'
 import EditNavigationMenu from './EditNavigationMenu.vue'
@@ -17,6 +17,45 @@ const props = defineProps({
 })
 
 const emit = defineEmits(['notify-success', 'notify-error', 'clear-notify', 'menus-count'])
+
+const confirmDialog = reactive({
+  open: false,
+  title: '',
+  message: '',
+  confirmText: 'Xac nhan',
+  tone: 'primary',
+  resolver: null,
+})
+
+function closeConfirmDialog(confirmed = false) {
+  if (!confirmDialog.open) {
+    return
+  }
+
+  confirmDialog.open = false
+  const resolve = confirmDialog.resolver
+  confirmDialog.resolver = null
+  if (typeof resolve === 'function') {
+    resolve(Boolean(confirmed))
+  }
+}
+
+function openConfirmDialog({ title, message, confirmText, tone = 'primary' } = {}) {
+  if (typeof confirmDialog.resolver === 'function') {
+    confirmDialog.resolver(false)
+    confirmDialog.resolver = null
+  }
+
+  confirmDialog.title = String(title || 'Xac nhan thao tac')
+  confirmDialog.message = String(message || 'Ban co chac muon tiep tuc?')
+  confirmDialog.confirmText = String(confirmText || 'Xac nhan')
+  confirmDialog.tone = tone === 'danger' ? 'danger' : 'primary'
+  confirmDialog.open = true
+
+  return new Promise((resolve) => {
+    confirmDialog.resolver = resolve
+  })
+}
 
 const {
   languages,
@@ -55,27 +94,25 @@ const {
   removeNode,
   handleDeleteMenu,
   handleSaveTree,
-} = useNavigationMenusManager(props, emit)
+} = useNavigationMenusManager(props, emit, {
+  confirmAction: openConfirmDialog,
+})
 
-const deleteConfirmOpen = ref(false)
-
-function openDeleteConfirm() {
+async function openDeleteConfirm() {
   if (!selectedMenu.value || savingNavigation.value) {
     return
   }
-  deleteConfirmOpen.value = true
-}
 
-function closeDeleteConfirm() {
-  if (savingNavigation.value) {
+  const confirmed = await openConfirmDialog({
+    title: 'Xac nhan xoa menu',
+    message: `Ban co chac muon xoa menu "${selectedMenu.value?.name || 'this menu'}" va toan bo menu item ben trong khong?`,
+    confirmText: 'Xac nhan xoa',
+    tone: 'danger',
+  })
+  if (!confirmed) {
     return
   }
-  deleteConfirmOpen.value = false
-}
-
-async function confirmDeleteMenu() {
   await handleDeleteMenu()
-  deleteConfirmOpen.value = false
 }
 
 defineExpose({
@@ -221,25 +258,35 @@ defineExpose({
       </footer>
     </section>
 
-    <div v-if="deleteConfirmOpen" class="confirm-overlay" @click="closeDeleteConfirm"></div>
-    <div v-if="deleteConfirmOpen" class="confirm-modal" role="dialog" aria-modal="true" aria-labelledby="delete-menu-title">
-      <div class="confirm-modal__icon">!</div>
-      <h3 id="delete-menu-title">Delete menu?</h3>
-      <p>
-        Bạn có chắc muốn xóa menu
-        <strong>{{ selectedMenu?.name || 'this menu' }}</strong>
-        và toàn bộ menu item bên trong không?
-      </p>
-      <div class="confirm-modal__actions">
-        <button type="button" class="btn btn-ghost" :disabled="savingNavigation" @click="closeDeleteConfirm">
-          Cancel
-        </button>
-        <button type="button" class="btn btn-danger" :disabled="savingNavigation" @click="confirmDeleteMenu">
-          {{ savingNavigation ? 'Deleting...' : 'Delete now' }}
-        </button>
+    <transition name="confirm-fade">
+      <div v-if="confirmDialog.open" class="confirm-overlay" @click="closeConfirmDialog(false)"></div>
+    </transition>
+    <transition name="confirm-pop">
+      <div
+        v-if="confirmDialog.open"
+        class="confirm-modal"
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby="confirm-dialog-title"
+      >
+        <div class="confirm-modal__icon" :class="`confirm-modal__icon--${confirmDialog.tone}`">
+          {{ confirmDialog.tone === 'danger' ? '!' : '?' }}
+        </div>
+        <h3 id="confirm-dialog-title">{{ confirmDialog.title }}</h3>
+        <p>{{ confirmDialog.message }}</p>
+        <div class="confirm-modal__actions">
+          <button type="button" class="btn btn-ghost" @click="closeConfirmDialog(false)">Huy</button>
+          <button
+            type="button"
+            class="btn"
+            :class="confirmDialog.tone === 'danger' ? 'btn-danger' : 'btn-primary'"
+            @click="closeConfirmDialog(true)"
+          >
+            {{ confirmDialog.confirmText }}
+          </button>
+        </div>
       </div>
-    </div>
-
+    </transition>
     <div v-if="drawerOpen" class="drawer-overlay" @click="closeDrawer"></div>
     <aside class="drawer" :class="{ open: drawerOpen }">
       <button type="button" class="drawer-toggle" @click="closeDrawer">&lt;</button>
@@ -923,8 +970,8 @@ button:disabled {
   position: fixed;
   inset: 0;
   z-index: 41;
-  background: rgba(16, 24, 40, 0.46);
-  backdrop-filter: blur(4px);
+  background: rgba(10, 18, 35, 0.54);
+  backdrop-filter: blur(6px);
 }
 
 .confirm-modal {
@@ -933,10 +980,14 @@ button:disabled {
   left: 50%;
   z-index: 42;
   width: min(440px, calc(100vw - 32px));
-  padding: 28px;
+  padding: 28px 24px 24px;
   border-radius: 24px;
-  background: linear-gradient(180deg, #ffffff 0%, #f8fbff 100%);
-  box-shadow: 0 30px 80px rgba(22, 38, 70, 0.24);
+  border: 1px solid #d9e4f5;
+  background:
+    radial-gradient(circle at top left, rgba(82, 167, 237, 0.14), transparent 48%),
+    radial-gradient(circle at top right, rgba(115, 105, 234, 0.12), transparent 50%),
+    #ffffff;
+  box-shadow: 0 30px 80px rgba(22, 38, 70, 0.3);
   transform: translate(-50%, -50%);
   text-align: center;
 }
@@ -948,10 +999,18 @@ button:disabled {
   border-radius: 999px;
   display: grid;
   place-items: center;
-  background: linear-gradient(135deg, #ffe3e8 0%, #ffd2db 100%);
-  color: #c43b57;
   font-size: 28px;
   font-weight: 800;
+}
+
+.confirm-modal__icon--primary {
+  background: linear-gradient(135deg, #d6ebff 0%, #c7e2ff 100%);
+  color: #205f9d;
+}
+
+.confirm-modal__icon--danger {
+  background: linear-gradient(135deg, #ffe3e8 0%, #ffd2db 100%);
+  color: #c43b57;
 }
 
 .confirm-modal h3 {
@@ -990,6 +1049,27 @@ button:disabled {
   box-shadow: 0 12px 20px rgba(217, 59, 89, 0.28);
 }
 
+.confirm-fade-enter-active,
+.confirm-fade-leave-active {
+  transition: opacity 0.18s ease;
+}
+
+.confirm-fade-enter-from,
+.confirm-fade-leave-to {
+  opacity: 0;
+}
+
+.confirm-pop-enter-active,
+.confirm-pop-leave-active {
+  transition: opacity 0.22s ease, transform 0.22s ease;
+}
+
+.confirm-pop-enter-from,
+.confirm-pop-leave-to {
+  opacity: 0;
+  transform: translate(-50%, -46%) scale(0.96);
+}
+
 @media (max-width: 680px) {
   .confirm-modal {
     padding: 22px 18px;
@@ -1010,6 +1090,40 @@ button:disabled {
 
   .confirm-modal__actions .btn {
     width: 100%;
+  }
+}
+
+@media (max-width: 560px) {
+  .nav-manager {
+    padding: 12px;
+  }
+
+  .title-wrap h2 {
+    font-size: 28px;
+  }
+
+  .head-actions,
+  .footer-actions,
+  .pagination {
+    display: grid;
+    grid-template-columns: 1fr;
+    width: 100%;
+  }
+
+  .head-actions .btn,
+  .footer-actions .btn,
+  .page-btn {
+    width: 100%;
+  }
+
+  .nav-row td {
+    grid-template-columns: 1fr;
+    gap: 6px;
+  }
+
+  .drawer {
+    width: 100vw;
+    border-left-width: 0;
   }
 }
 </style>

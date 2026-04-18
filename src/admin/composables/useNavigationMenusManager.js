@@ -16,7 +16,7 @@ import {
 } from '@/admin/utils/treeUtils'
 import { publishNavigationMenusUpdated } from '@/utils/navigationSync'
 
-export function useNavigationMenusManager(props, emit) {
+export function useNavigationMenusManager(props, emit, options = {}) {
   const { hydrateTree, serializeTree, createEmptyNode } = createNavigationTreeHelpers()
 
   const languages = ref([])
@@ -122,6 +122,13 @@ export function useNavigationMenusManager(props, emit) {
 
   function clearNotifications() {
     emit('clear-notify')
+  }
+
+  async function requestConfirm(payload) {
+    if (typeof options.confirmAction === 'function') {
+      return Boolean(await options.confirmAction(payload))
+    }
+    return window.confirm(payload?.message || 'Are you sure?')
   }
 
   function findNodeContext(cid) {
@@ -354,6 +361,16 @@ export function useNavigationMenusManager(props, emit) {
         return
       }
 
+      const confirmed = await requestConfirm({
+        title: 'Xac nhan cap nhat menu',
+        message: `Ban co chac muon cap nhat menu "${menuForm.name.trim()}"?`,
+        confirmText: 'Xac nhan cap nhat',
+        tone: 'primary',
+      })
+      if (!confirmed) {
+        return
+      }
+
       savingNavigation.value = true
       try {
         await updateNavigationMenu(selectedMenu.value.id, token, {
@@ -416,6 +433,17 @@ export function useNavigationMenusManager(props, emit) {
         return
       }
 
+      const currentTitle = context.node.title || nodeForm.title.trim() || 'item'
+      const confirmed = await requestConfirm({
+        title: 'Xac nhan cap nhat menu item',
+        message: `Ban co chac muon cap nhat menu item "${currentTitle}"?`,
+        confirmText: 'Xac nhan cap nhat',
+        tone: 'primary',
+      })
+      if (!confirmed) {
+        return
+      }
+
       context.node.title = nodeForm.title.trim()
       context.node.url = nodeForm.url.trim() || '/'
       context.node.target = nodeForm.target.trim()
@@ -428,9 +456,20 @@ export function useNavigationMenusManager(props, emit) {
     }
   }
 
-  function removeNode(cid) {
+  async function removeNode(cid) {
     const context = findNodeContext(cid)
     if (!context) return
+
+    const nodeTitle = context.node.title || `#${context.index + 1}`
+    const confirmed = await requestConfirm({
+      title: 'Xac nhan xoa menu item',
+      message: `Ban co chac muon xoa menu item "${nodeTitle}"?`,
+      confirmText: 'Xac nhan xoa',
+      tone: 'danger',
+    })
+    if (!confirmed) {
+      return
+    }
 
     context.nodes.splice(context.index, 1)
     notifySuccess('Navigation entry removed locally. Click "Save Changes" to persist.')
@@ -440,8 +479,10 @@ export function useNavigationMenusManager(props, emit) {
     const token = normalizedToken()
     if (!token || !selectedMenu.value) {
       notifyError('Select a menu first.')
-      return
+      return false
     }
+
+    const deletedMenuLabel = selectedMenu.value.name || `#${selectedMenu.value.id}`
 
     savingNavigation.value = true
     try {
@@ -450,8 +491,11 @@ export function useNavigationMenusManager(props, emit) {
       clearNotifications()
       await loadNavigationMenus()
       publishNavigationMenusUpdated()
+      notifySuccess(`Deleted menu "${deletedMenuLabel}" successfully.`)
+      return true
     } catch (error) {
       notifyError(error.message || 'Failed to delete menu.')
+      return false
     } finally {
       savingNavigation.value = false
     }

@@ -4,7 +4,7 @@ import { useRoute } from 'vue-router'
 import { ArrowLeft } from 'lucide-vue-next'
 import Breadcrumb from '@/client/components/shared/common/Breadcrumb.vue'
 import { uiState } from '@/utils/uiState'
-import { getPosts, getPostDetail } from '@/client/services/publicApi'
+import { getPublicNews, getPublicNewsDetail } from '@/client/services/publicApi'
 
 const route = useRoute()
 
@@ -35,23 +35,26 @@ const formatDate = (value) => {
   }).format(new Date(value))
 }
 
-const imageUrl = (item) => item?.image?.url || item?.image || ''
+const imageUrl = (item) => item?.thumbnail_url || item?.image?.url || item?.image || ''
 
 async function loadArticle(slug) {
   loading.value = true
   error.value = null
   try {
-    article.value = await getPostDetail(slug)
-    const catSlug = article.value?.category?.slug
+    article.value = await getPublicNewsDetail(slug)
+    const catSlug = article.value?.category?.slug || article.value?.categories?.[0]?.slug
     if (catSlug) {
-      const res = await getPosts({ categorySlug: catSlug, skip: 0, limit: 6 })
+      const res = await getPublicNews({ categorySlug: catSlug, skip: 0, limit: 6 })
       relatedNews.value = (res?.items || [])
         .filter((item) => item.slug !== slug)
         .slice(0, 3)
+    } else {
+      relatedNews.value = []
     }
   } catch (err) {
     error.value = err?.message || 'Failed to load article'
     article.value = null
+    relatedNews.value = []
   } finally {
     loading.value = false
   }
@@ -120,7 +123,11 @@ onMounted(() => {
             <div class="article-content">
               <p v-if="article.summary" class="lead">{{ article.summary }}</p>
               <!-- eslint-disable-next-line vue/no-v-html -->
-              <div v-if="article.body" class="article-body" v-html="article.body"></div>
+              <div
+                v-if="article.content_html || article.body"
+                class="article-body"
+                v-html="article.content_html || article.body"
+              ></div>
             </div>
           </article>
 

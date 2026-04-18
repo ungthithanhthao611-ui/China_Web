@@ -5,19 +5,24 @@ import { useRoute, useRouter } from 'vue-router'
 import { ADMIN_TOKEN_STORAGE_KEY, ADMIN_USER_STORAGE_KEY } from '@/admin/constants/auth'
 import { ADMIN_SECTION_GROUPS, ADMIN_SECTION_INDEX } from '@/admin/config/entityConfigs'
 import { getCurrentAdminUser, listAdminEntityRecords, listNavigationMenus } from '@/admin/services/adminApi'
+import { listAdminNews } from '@/admin/news-workflow/services/newsWorkflowApi'
 import { uiState } from '@/utils/uiState'
 import EntityManager from './components/entity-manager/EntityManager.vue'
 import HonorsManager from './components/honors-manager/HonorsManager.vue'
 import NavigationMenusManager from './components/navigation-manager/NavigationMenusManager.vue'
-import PostsManager from './components/posts-manager/PostsManager.vue'
+import NewsWorkflowListPage from '@/admin/news-workflow/pages/NewsWorkflowListPage.vue'
 
 const router = useRouter()
 const route = useRoute()
 
 const availableSectionKeys = ['dashboard', 'navigation', ...Object.keys(ADMIN_SECTION_INDEX).filter((key) => key !== 'dashboard' && key !== 'navigation')]
+const LEGACY_SECTION_REDIRECTS = {
+}
 
 function resolveSection(value) {
-  return availableSectionKeys.includes(String(value || '')) ? String(value) : 'dashboard'
+  const normalized = String(value || '').trim()
+  const redirected = LEGACY_SECTION_REDIRECTS[normalized] || normalized
+  return availableSectionKeys.includes(redirected) ? redirected : 'dashboard'
 }
 
 function readStoredUser() {
@@ -42,8 +47,6 @@ const summary = reactive({
 })
 
 const loadingSummary = ref(false)
-const errorMessage = ref('')
-const successMessage = ref('')
 const isSidebarOpen = ref(false)
 const toast = reactive({
   visible: false,
@@ -121,20 +124,14 @@ const statCards = computed(() => [
 ])
 
 function setSuccess(message) {
-  successMessage.value = message
-  errorMessage.value = ''
   showToast('success', message)
 }
 
 function setError(message) {
-  errorMessage.value = message
-  successMessage.value = ''
   showToast('error', message)
 }
 
 function clearMessages() {
-  errorMessage.value = ''
-  successMessage.value = ''
   clearToast()
 }
 
@@ -204,10 +201,10 @@ async function loadDashboardSummary() {
 
   loadingSummary.value = true
   try {
-    const [me, menus, posts, videos, honors, mediaAssets] = await Promise.all([
+    const [me, menus, newsPosts, videos, honors, mediaAssets] = await Promise.all([
       getCurrentAdminUser(normalizedToken),
       listNavigationMenus(normalizedToken),
-      listAdminEntityRecords('posts', normalizedToken, { skip: 0, limit: 1 }),
+      listAdminNews({ page: 1, limit: 1 }),
       listAdminEntityRecords('videos', normalizedToken, { skip: 0, limit: 1 }),
       listAdminEntityRecords('honors', normalizedToken, { skip: 0, limit: 1 }),
       listAdminEntityRecords('media_assets', normalizedToken, { skip: 0, limit: 1 }),
@@ -216,7 +213,7 @@ async function loadDashboardSummary() {
     currentUser.value = me
     localStorage.setItem(ADMIN_USER_STORAGE_KEY, JSON.stringify(me))
     navMenuCount.value = (menus.items || []).length
-    summary.posts = posts.pagination?.total || 0
+    summary.posts = newsPosts.pagination?.total || 0
     summary.videos = videos.pagination?.total || 0
     summary.honors = honors.pagination?.total || 0
     summary.media_assets = mediaAssets.pagination?.total || 0
@@ -276,7 +273,19 @@ watch(activeSection, async (section) => {
 
 watch(
   () => route.query.section,
-  (value) => {
+  async (value) => {
+    const rawSection = String(value || '').trim()
+    const redirectedSection = LEGACY_SECTION_REDIRECTS[rawSection]
+    if (redirectedSection && redirectedSection !== rawSection) {
+      await router.replace({
+        query: {
+          ...route.query,
+          section: redirectedSection,
+        },
+      })
+      return
+    }
+
     const nextSection = resolveSection(value)
     if (nextSection !== activeSection.value) {
       activeSection.value = nextSection
@@ -345,7 +354,7 @@ onBeforeUnmount(() => {
                 :class="{ active: activeSection === child.key }"
                 @click="handleSectionChange(child.key)"
               >
-                {{ child.label }}
+                - {{ child.label }}
               </button>
             </div>
           </div>
@@ -356,9 +365,7 @@ onBeforeUnmount(() => {
     <main class="workspace">
       <header class="topbar card-shell">
         <div class="title-panel">
-          <button class="sidebar-toggle" type="button" aria-label="Open sidebar" @click="isSidebarOpen = true">
-            ?
-          </button>
+          <button class="sidebar-toggle" type="button" aria-label="Open sidebar" @click="isSidebarOpen = true">Menu</button>
           <div>
             <p class="eyebrow">{{ currentSectionMeta.eyebrow }}</p>
             <h1>{{ currentTitle }}</h1>
@@ -378,8 +385,6 @@ onBeforeUnmount(() => {
         </div>
       </header>
 
-      <div v-if="errorMessage" class="notice error">{{ errorMessage }}</div>
-      <div v-else-if="successMessage" class="notice success">{{ successMessage }}</div>
       <transition name="toast-pop">
         <div v-if="toast.visible" class="admin-toast" :class="`admin-toast--${toast.type}`" role="status" aria-live="polite">
           {{ toast.message }}
@@ -389,11 +394,13 @@ onBeforeUnmount(() => {
       <section v-if="activeSection === 'dashboard'" class="dashboard-panel">
         <div class="hero-card card-shell">
           <p class="hero-eyebrow">Admin overview</p>
-          <h2>Quản lý nội dung theo từng module</h2>
+          <h2>Manage content by module</h2>
           <p class="hero-copy">
-            Chọn đúng module bên trái để quản lý từng loại dữ liệu — Pages, Posts, Projects, Media Library,
-            Contacts hoặc Inquiries — và thao tác trực tiếp trên danh sách thật từ database.
+            Choose a module from the sidebar to manage each data type directly from database-backed records.
           </p>
+          <router-link class="btn btn-primary hero-link" :to="{ name: 'AdminNewsWorkflowList' }">
+            Open News Workflow Editor
+          </router-link>
         </div>
 
         <div class="stats">
@@ -404,7 +411,6 @@ onBeforeUnmount(() => {
           </article>
         </div>
       </section>
-
       <NavigationMenusManager
         v-else-if="activeSection === 'navigation'"
         ref="navigationManagerRef"
@@ -419,18 +425,25 @@ onBeforeUnmount(() => {
         v-else-if="activeSection === 'honors'"
         :token="token"
         :active="true"
+        view-mode="honors"
         @notify-success="setSuccess"
         @notify-error="setError"
         @clear-notify="clearMessages"
       />
 
-      <PostsManager
-        v-else-if="activeSection === 'posts'"
+      <HonorsManager
+        v-else-if="activeSection === 'honor_categories'"
         :token="token"
         :active="true"
+        view-mode="categories"
         @notify-success="setSuccess"
         @notify-error="setError"
         @clear-notify="clearMessages"
+      />
+
+      <NewsWorkflowListPage
+        v-else-if="activeSection === 'posts'"
+        embedded
       />
 
       <EntityManager
@@ -445,7 +458,6 @@ onBeforeUnmount(() => {
     </main>
   </div>
 </template>
-
 <style scoped>
 :global(body) {
   background:
@@ -518,6 +530,10 @@ onBeforeUnmount(() => {
   letter-spacing: 0.06em;
 }
 
+.nav-item-shell {
+  min-width: 0;
+}
+
 .nav-item {
   width: 100%;
   border: 1px solid transparent;
@@ -530,6 +546,8 @@ onBeforeUnmount(() => {
   font-size: 15px;
   font-weight: 600;
   cursor: pointer;
+  min-width: 0;
+  overflow-wrap: anywhere;
   transition: background 0.2s ease, border-color 0.2s ease, transform 0.2s ease;
 }
 
@@ -566,6 +584,8 @@ onBeforeUnmount(() => {
   font-size: 13px;
   font-weight: 600;
   cursor: pointer;
+  min-width: 0;
+  overflow-wrap: anywhere;
   transition: background 0.2s ease, border-color 0.2s ease;
 }
 
@@ -581,7 +601,7 @@ onBeforeUnmount(() => {
 }
 
 .workspace {
-  padding: 18px;
+  padding: clamp(12px, 1.8vw, 18px);
   min-width: 0;
 }
 
@@ -605,6 +625,7 @@ onBeforeUnmount(() => {
   display: flex;
   align-items: center;
   gap: 14px;
+  min-width: 0;
 }
 
 .eyebrow {
@@ -696,26 +717,6 @@ onBeforeUnmount(() => {
   box-shadow: 0 10px 20px rgba(34, 146, 190, 0.22);
 }
 
-.notice {
-  margin: 12px 0 0;
-  border-radius: 8px;
-  border: 1px solid transparent;
-  padding: 10px 12px;
-  font-size: 13px;
-}
-
-.notice.error {
-  background: #ffecef;
-  border-color: #f4bfca;
-  color: #a73447;
-}
-
-.notice.success {
-  background: #e9f9ee;
-  border-color: #bde7ca;
-  color: #1d7740;
-}
-
 .admin-toast {
   position: fixed;
   top: 18px;
@@ -787,6 +788,11 @@ onBeforeUnmount(() => {
   color: #567089;
   font-size: 14px;
   line-height: 1.6;
+}
+
+.hero-link {
+  display: inline-flex;
+  margin-top: 14px;
 }
 
 .stats {
@@ -881,7 +887,7 @@ button:disabled {
     position: fixed;
     top: 0;
     left: 0;
-    width: min(320px, 84vw);
+    width: min(340px, 90vw);
     height: 100vh;
     overflow-y: auto;
     transform: translateX(-100%);
@@ -904,7 +910,8 @@ button:disabled {
     border-radius: 8px;
     background: #fff;
     color: #244260;
-    font-size: 18px;
+    font-size: 13px;
+    font-weight: 700;
     cursor: pointer;
   }
 }
@@ -927,12 +934,21 @@ button:disabled {
   }
 
   .session-panel {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
     justify-content: stretch;
+    width: 100%;
   }
 
-  .session-card,
+  .session-card {
+    grid-column: 1 / -1;
+    width: 100%;
+    min-width: 0;
+  }
+
   .session-panel .btn {
     width: 100%;
+    min-width: 0;
   }
 }
 
@@ -953,7 +969,8 @@ button:disabled {
   }
 
   .sidebar {
-    width: min(300px, 92vw);
+    width: min(320px, 100vw);
+    padding: 18px 14px 24px;
   }
 
   .brand-row {
@@ -963,5 +980,66 @@ button:disabled {
   .sidebar h2 {
     font-size: 36px;
   }
+
+  .nav-groups {
+    margin-top: 22px;
+    gap: 16px;
+  }
+
+  .nav-item {
+    padding: 10px 11px;
+    font-size: 14px;
+  }
+
+  .nav-subitems {
+    padding-left: 12px;
+  }
+
+  .topbar {
+    padding: 12px;
+    gap: 12px;
+  }
+
+  .title-panel {
+    align-items: flex-start;
+  }
+
+  .title-panel > div {
+    min-width: 0;
+  }
+
+  .session-panel {
+    grid-template-columns: 1fr;
+  }
+
+  .hero-card {
+    padding: 14px;
+  }
+}
+
+@media (max-width: 420px) {
+  .workspace {
+    padding: 10px;
+  }
+
+  .sidebar {
+    width: 100vw;
+  }
+
+  .sidebar-close,
+  .sidebar-toggle {
+    width: 36px;
+    height: 36px;
+    padding: 0;
+    font-size: 11px;
+  }
+
+  .topbar h1 {
+    font-size: 24px;
+  }
 }
 </style>
+
+
+
+

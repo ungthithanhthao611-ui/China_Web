@@ -29,19 +29,20 @@ export function getPageDetail(slug, query = {}) {
   return fetchJson(`/public/pages/${slug}`, { query: withLanguage(query) })
 }
 
-export function getPosts({ categorySlug, skip, limit, ...query } = {}) {
-  return fetchJson('/public/posts', {
+export function getPublicNews({ categorySlug, skip, limit, page, ...query } = {}) {
+  return fetchJson('/public/news', {
     query: withLanguage({
       category_slug: categorySlug,
       skip,
       limit,
+      page,
       ...query,
     }),
   })
 }
 
-export function getPostDetail(slug, query = {}) {
-  return fetchJson(`/public/posts/${slug}`, { query: withLanguage(query) })
+export function getPublicNewsDetail(slug, query = {}) {
+  return fetchJson(`/public/news/${slug}`, { query: withLanguage(query) })
 }
 
 export function getProjects({ categorySlug, year, skip, limit, ...query } = {}) {
@@ -89,4 +90,3 @@ export function getContacts(query = {}) {
 export function getVideos(query = {}) {
   return fetchJson('/public/videos', { query: withLanguage(query) })
 }
-

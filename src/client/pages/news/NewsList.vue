@@ -7,7 +7,7 @@ import AOS from 'aos'
 import { ChevronLeft, ChevronRight, Home } from 'lucide-vue-next'
 import { uiState } from '@/utils/uiState'
 import { newsCategoryMeta, newsHero } from './newsData'
-import { getPosts } from '@/client/services/publicApi'
+import { getPublicNews } from '@/client/services/publicApi'
 
 const route = useRoute()
 const router = useRouter()
@@ -36,7 +36,7 @@ const pagedItems = computed(() => items.value)
 const displayTotalPages = computed(() => Math.max(1, Math.ceil(total.value / pageSize)))
 
 /** Trả về URL ảnh dù API trả object hay string */
-const imageUrl = (item) => item?.image?.url || item?.image || ''
+const imageUrl = (item) => item?.thumbnail_url || item?.image?.url || item?.image || ''
 
 const paginationItems = computed(() => {
   const t = displayTotalPages.value
@@ -72,7 +72,7 @@ async function fetchFeatured() {
     return
   }
   try {
-    const res = await getPosts({ categorySlug: 'corporate-news', skip: 0, limit: 2 })
+    const res = await getPublicNews({ categorySlug: 'corporate-news', skip: 0, limit: 2 })
     featured.value = res?.items || []
   } catch {
     featured.value = []
@@ -83,7 +83,7 @@ async function fetchPage() {
   loading.value = true
   error.value = null
   try {
-    const res = await getPosts({
+    const res = await getPublicNews({
       categorySlug: activeCategoryKey.value,
       skip: (currentPage.value - 1) * pageSize,
       limit: pageSize
