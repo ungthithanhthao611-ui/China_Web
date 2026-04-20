@@ -5,197 +5,40 @@ import { ChevronLeft, ChevronRight, Play, X } from "lucide-vue-next";
 import { Swiper, SwiperSlide } from "swiper/vue";
 import "swiper/css";
 import { Autoplay } from "swiper/modules";
+import { useAboutPage } from "./composables/useAboutPage";
 
 const route = useRoute();
 const router = useRouter();
 
-const imageBase = "https://en.sinodecor.com/portal-local/ngc202304190002/cms/image";
+// ── API data ──────────────────────────────────────────────────────────────
+const { loading, error, aboutView, refresh } = useAboutPage();
+
+// ── Static decoration assets (not CMS-managed) ───────────────────────────
 const repositoryImageBase = "https://en.sinodecor.com/repository/portal-local/ngc202304190002/cms/image";
-const imgSrc = (file) => `${imageBase}/${file}`;
 const repoImg = (file) => `${repositoryImageBase}/${file}`;
-const localImg = (file) => `/images/${file}`;
-const speechPortrait = localImg("4e3ee279-9a2c-4021-8fbf-ce7c9aefc218.jpg");
-const speechSignature = localImg("5ea063cc-18de-4c5c-8e82-3fb04d11f038.png");
-const speechTitleSeal = localImg("about/chairman-speech-seal.png");
+const speechTitleSeal = "/images/about/chairman-speech-seal.png";
 const timelineTitleIcon = repoImg("bd97f2ca-79a8-43ee-8efa-5b6056d5b1c1.png");
 const timelineHoverBefore = repoImg("e012bd80-11a1-4e5c-b5fa-2eda75b67d66.png");
 const timelineHoverAfter = repoImg("dfc20891-e902-474e-8c93-c374b583041d.png");
 
-const sectionMeta = [
-  { id: "page1", title: "About Hero", route: "/about/company-introduction", hash: "#page1" },
-  { id: "page2", title: "Company Introduction", route: "/about/company-introduction", hash: "#page2" },
-  { id: "page3", title: "Chairman's Speech", route: "/about/chairman-speech", hash: "#page3" },
-  { id: "page4", title: "Organization Chart", route: "/about/organization-chart", hash: "#page4" },
-  { id: "page5", title: "Corporate Culture", route: "/about/corporate-culture", hash: "#page5" },
-  { id: "page6", title: "Development Course", route: "/about/development-course", hash: "#page6" },
-  { id: "page7", title: "Leadership Care", route: "/about/leadership-care", hash: "#page7" },
-  { id: "page8", title: "Cooperative Partner", route: "/about/cooperative-partner", hash: "#page8" }
-];
-
-const aboutTabs = sectionMeta.slice(1);
-
-const companyIntroduction = [
-  "China National Decoration Co., LTD. (hereinafter referred to as 'China Decoration') was established in 1984 with the approval of the State Economic Commission and the Ministry of Light Industry. It is the first batch of large-scale and high-grade decoration enterprises with Grade A qualification of indoor and outdoor building decoration construction and design. Large-scale cross-regional, cross-industry digital assembly type construction joint-stock decoration backbone enterprises.",
-  "China decoration takes 'innovative industry model, leading green development, and decorating a better life' as the enterprise mission. Adhere to the development path of meeting market demand, highlighting the characteristics of the company, and gathering force to innovate and build. The company now has architectural decoration engineering professional contracting level I, architectural decoration engineering professional design Grade A, exhibition exhibition engineering design and construction integration level I, exhibition engineering level I, museum exhibition exhibition design grade A, museum exhibition exhibition construction level I, building curtain wall, electronics and intelligence, building mechanical and electrical installation, steel structure, ancient buildings, building engineering construction general contracting, special engineering (structural reinforcement) and other professional qualifications.",
-  "Forty years of development, China Decoration has always adhered to the deep cultivation of architectural decoration design and construction of the decoration industry. Through years of business practice, China Decoration has set up a dual headquarters development base in Beijing and East China, set up a 'design research institute and ten management centers' and a structure model of multiple functional departments, and set up 7 design branches, 7 branches and 9 subsidiaries nationwide, with a large number of industry experts and technical talents.",
-  "Under the leadership of the Party committee and the board of directors of the company, China Decoration adheres to the corporate values of 'winning respect by character, improving happiness by quality, creating value by brand', and has always been in a leading position in the architectural decoration industry with strong professional strength and innovation ability. It has successively been rated as 'Top 100 enterprises in China's building decoration industry', 'National Building Decoration Award Star Enterprise', 'quality and trustworthy enterprise', 'enterprise credit evaluation AAA level credit enterprise', 'Top Ten most influential brands in China's decoration industry', 'Best design Enterprise of the Year' and 'National high-tech Enterprise'.",
-  "In the process of development, China Decoration insists on fulfilling its corporate social responsibility, devoting itself to charity undertakings for a long time, continuously donating money to various public welfare organizations, including Beihang Education Foundation, Beijing Red Cross Society, Beijing New Sunshine Charity Foundation, China Children and Youth Foundation, and carrying out activities such as claiming green space and earthquake donations, with a total donation amount of more than 30 million yuan.",
-  "In the new era of opportunities, China Decoration takes building domestic first-class intelligent technology, digital design, assembly and construction enterprises as the starting point and goal. It has formed a layout plan of 'building decoration design and construction as the core, digital design as the technical support, vocational education as the talent support, ecological environment, intelligent construction, assembly integration, green new energy materials four plates go hand in hand', creating the development pattern of China's decoration industry chain and promoting the transformation and upgrading of the company."
-];
-
-const chairmanSpeech = [
-  "Forty years of trials and hardships is a magnificent history of struggle, but also a song of vigorous development. China Decoration Co., Ltd. from the early establishment of the reform and opening up to the growth and growth of the new century, all the way difficult, all the way bumpy, through an extraordinary development process. However, we always maintain the enthusiasm and reverence for the industry, uphold the quality concept of 'artisan spirit, the pursuit of quality', and cast quality models, which has won wide recognition and high praise from all walks of life.",
-  "We have always been convinced that 'excellence, pioneering and innovation' is the fundamental way for enterprises to occupy a leading position in the market, 'let every project become a high-quality project' is our ultimate pursuit of technological achievements, but also hidden in the quality of the company's profound brand. After years of precipitation and accumulation, China Decoration has developed into a cross-regional, cross-industry large-scale joint-stock building decoration enterprise, in the design technology, industrial structure, service mode, management ideas, brand quality, personnel training and other aspects of continuous innovation, continue to stimulate the new vitality of the industry, input new momentum for the market, and cultivate a large number of new professionals.",
-  "New quality productivity, leading the development of science and technology for China's building decoration industry to open the door of digitalization and intelligence. In the process of transformation and upgrading of the company, we firmly implement the new development concept, open the journey of high-quality development, focus on the application of new technologies, new materials, new processes and new equipment, practice the concept of innovation and green, promote the integration of industry and technology, and help China achieve the goal of 'double carbon', in order to create the greatest value for customers. Return the support and trust of the community to us.",
-  "The ancient great event, not only exceptional talent, but also perseverance. In the face of opportunities and challenges in the new era, China Decoration will continue to carry the mission of the times, break through the inherent barriers of the industry, open up a broader space for development, and keep up with the pace of the times. It will further promote the low-carbon transformation in the field of building decoration, digital transformation, intelligent assembly interior integrated decoration, intelligent construction, and the rapid development of new building industrialization, and become the leader and developer of China's building decoration industry.",
-  "We sincerely invite all partners to pursue their dreams, create a better space, and write a new chapter for the development of the field of architectural decoration in our country."
-];
-
-const cultureBlocks = [
-  {
-    title: "Corporate Purpose",
-    items: [
-      { label: "Customer satisfaction", text: "All the value of China Decoration comes from customers; without customers, there is nothing." },
-      { label: "Make employees proud", text: "Employee growth is the realistic foundation of the company's value." },
-      { label: "Let the world recognize", text: "Excellent enterprises must have a deep global strategic vision and international thinking, keep an open mind, and promote enterprises to internationalization." }
-    ]
-  },
-  {
-    title: "Corporate Mission",
-    items: [
-      { label: "Innovative industry model", text: "The company welcomes change with a positive attitude, regards change as the biggest development opportunity, embraces the trend of digitalization, industrialization and intelligence, and innovates the industry development model." },
-      { label: "Leading the green development", text: "Actively explore the ecological science and technology business field, promote the development of circular economy, promote the construction of ecological civilization and high-level protection of the ecological environment, and help achieve the goal of carbon peak and carbon neutrality." },
-      { label: "Decorate a better life", text: "We are committed to making every member of society learn, work and live in an elegant and comfortable environment, and enjoy the fun of life." }
-    ]
-  },
-  {
-    title: "Enterprise Spirit",
-    items: [
-      { label: "Creating value", text: "Creating value is fundamental to the survival and development of China Decoration." },
-      { label: "Innovation and development", text: "Innovation and development is the core of the overall development of China Decoration. It is the first driving force for the development of China Decoration, advocating and practicing design technology, industrial structure, service mode, management ideas, brand quality and talent training innovation." },
-      { label: "Entrepreneurship is more than", text: "The best defense is offense, the best defense is entrepreneurship." }
-    ]
-  },
-  {
-    title: "Value",
-    items: [
-      { label: "Character to win respect", text: "People have quality, the root in the lattice, the emphasis on virtue." },
-      { label: "Quality to improve happiness", text: "To create diversified products and create a high quality of life is the meaning and value of people in China Decoration." },
-      { label: "Brand creation value", text: "The Chinese decorative national-name golden signboard condensed generations of people in 40 years of painstaking efforts, operations and management and value accumulation." }
-    ]
-  }
-];
-
-const timelineEntries = [
-  { year: "1984", month: "09", title: 'The company was approved to be established as "China Indoor Complete Sets Corporation"', image: "" },
-  { year: "1985", month: "11", title: "The company undertook the first five-star hotel decoration project - Friendship Hotel project", image: imgSrc("6d13d208-48e9-4b73-aee5-c356fa97ca03.jpg") },
-  { year: "1989", month: "12", title: "The company held the first interior decoration exhibition in Beijing", image: imgSrc("610aa7c0-9b72-44a2-bda2-48afb495ee95.jpg") },
-  { year: "1992", month: "12", title: "Held the inauguration meeting of China Interior Decoration Complete Sets Group in the Great Hall of the People", image: imgSrc("a481f2e2-5e24-4f0f-90d0-ef1a93986f03.jpg") },
-  { year: "1995", month: "12", title: "The Party committee of the company held a party member meeting", image: imgSrc("50808b66-5056-4c17-9ce9-c9fe80f31ca6.jpg") },
-  { year: "1996", month: "12", title: "The company's office building has been completed", image: "" },
-  { year: "1997", month: "09", title: "The company was renamed China Decoration (Group) Company", image: "" },
-  { year: "2003", month: "01", title: "The first reform of China Decoration, registered by the State Administration for Industry and Commerce as China Decoration Co., LTD", image: "" },
-  { year: "2009", month: "06", title: "The Henan Art Center project that the company participated in won the Luban Award of China Construction Engineering", image: "" },
-  { year: "2009", month: "10", title: "The company presents to the 60th birthday of the motherland through the Tian'anmen LED display system", image: imgSrc("3b800d78-091f-41b3-a57f-a6584ab2c64a.jpg") },
-  { year: "2010", month: "12", title: "The company name is changed to China Decoration Co., LTD", image: "" },
-  { year: "2011", month: "12", title: "Established Yangzhou Yangzijiang China Decoration Building Decoration Engineering Co., LTD., a joint venture with Yangzhou Yangzijiang Group", image: "" },
-  { year: "2014", month: "12", title: 'The company held the 30th anniversary celebration of "Collection Glory Flying Dream" at the National Convention Center', image: imgSrc("c6e0ed19-2885-4752-a334-9255baa8257b.jpg") },
-  { year: "2015", month: "05", title: "Li Jiefeng, the former chairman of the company, was elected president and secretary-general of Beijing Architectural Decoration Association", image: "" },
-  { year: "2016", month: "06", title: "The company passed the national high-tech enterprise identification", image: imgSrc("f031b874-f982-4b1b-9ec2-9060a03e18a6.jpg") },
-  { year: "2020", month: "06", title: "Xin Jianlin, the third chairman of the company, took over from China Decoration and set up a new executive team", image: imgSrc("0f422b10-759a-4f1c-9ca7-43f739047ed8.jpg") },
-  { year: "2025", month: "01", title: 'The Company Held a "Create and Fight for the Future" 40th Anniversary Celebration at the Beijing International Hotel Conference Center', image: imgSrc("238a2ef1-f15e-4758-bd09-8167e7a86216.jpg") }
-];
-
-const leadershipItems = [
-  {
-    year: "1985",
-    image: imgSrc("6aafd3c9-4a3a-41d5-a585-5dd2a437a92f.png"),
-    text: "The former minister of light industry Yang Bo (right fourth) in early 1985 personally visited my company to undertake the completion of the friendship hotel decoration site market condolences."
-  },
-  {
-    year: "1995",
-    image: imgSrc("227db1de-3a33-435f-8a68-6e4a10c7ac85.png"),
-    text: "The former president of the National Light Industry Federation Yu Zhen (left) and the relevant leaders of the ministries and commissions visited the company in person and guided the work in the conference room of the original rented office building."
-  },
-  {
-    year: "2001",
-    image: imgSrc("63c5ff0a-119e-4573-864a-e45630fa1185.png"),
-    text: "The former president of the National Light Industry Association Chen Shineng (fourth from right) visited the company to inspect and guide the work, accompanied by the former company leader Wei Kun (third from right)."
-  },
-  {
-    year: "2011",
-    image: imgSrc("4dcf4307-673a-4386-b351-7dcdbf31dc05.png"),
-    text: "Ma Tinggui, President of China Building Decoration Association (second from left) visited the company to inspect and guide the work."
-  },
-  {
-    year: "2011",
-    image: imgSrc("e40a3fbe-4ba1-434c-9ae3-11f28e77e7ab.png"),
-    text: "China Light Industry Federation President Bo Zhengfa, Vice President Tao Xiaonian, China Interior Decoration Association President Liu Yu, Secretary General Zhang Li and other leading comrades visited the company to inspect and guide the work."
-  }
-];
-
-const partnerCategories = [
-  {
-    key: "strategic",
-    name: "Strategic Cooperation",
-    logos: [
-      { href: "http://www.shlinli.com/", image: imgSrc("6370e615-d83c-43d2-ac61-da5d37ef3a23.jpg") },
-      { href: "https://www.avic.com/", image: imgSrc("b7dfe5e0-0484-44e2-8f1c-7ed1cf732672.jpg") },
-      { href: "http://www.ntscid.com/", image: imgSrc("b09df614-1954-45d7-9e72-2b943e91e032.jpg") },
-      { href: "https://www.chinaso.com/", image: imgSrc("bd7988af-2dda-4fc4-ba81-0aa2c46e1138.png") },
-      { href: "https://www.bucg.com/", image: imgSrc("5b360838-195b-417c-b9f5-c2729c6963b0.gif") },
-      { href: "http://www.ccd.com.hk/", image: imgSrc("5ef29600-187a-45e8-9990-5bc337249164.png") },
-      { href: "http://www.hxwy.com.cn/", image: imgSrc("79e2da0c-9570-4450-8766-303eb9d872c6.png") },
-      { href: "https://www.az.com.cn/", image: imgSrc("fd157699-2f31-43c8-a27d-f7bb51c050ca.png") },
-      { href: "http://www.ideapool.tv/", image: imgSrc("502cf951-2835-4ce4-97c7-e9dcc0b6cd87.png") },
-      { href: "http://www.jiusi.net/", image: imgSrc("2417ee26-0ef5-4c04-bc30-d8fdd9fc22f3.png") }
-    ]
-  },
-  {
-    key: "business",
-    name: "Business Cooperation",
-    logos: [
-      { href: "http://www.10086.cn/bj/", image: imgSrc("c07f7c3b-4b9c-49a7-add4-d6b7d5311c1e.png") },
-      { href: "https://www.chd.com.cn/", image: imgSrc("0829ee1d-40be-48bb-8add-3b20cc94f11f.png") },
-      { href: "https://www.cnooc.com.cn/", image: imgSrc("7bdcdf66-291d-48b7-8ad4-25b5e67ad981.png") },
-      { href: "https://www.fosun.com/", image: imgSrc("f144ac96-87d3-4a3d-b0fa-7e031dca7f5b.png") },
-      { href: "http://www.cnpc.com.cn/", image: imgSrc("58260315-6796-4d66-b84f-f655415b62fd.png") },
-      { href: "http://www.cofco.com/cn/", image: imgSrc("072c99df-dc7f-4363-9bec-272c60402238.png") },
-      { href: "http://www.wanda.cn/", image: imgSrc("4127f235-c134-4c81-96d8-356a23257058.png") },
-      { href: "https://www.cfldcn.com/", image: imgSrc("df21f2d8-be81-48da-899a-4cd1c087f94c.png") },
-      { href: "http://www.spic.com.cn/", image: imgSrc("5ecfab36-8675-40c8-a47e-84a3a4086d89.png") },
-      { href: "https://www.gemdale.com/", image: imgSrc("54310c5d-720a-4910-8d78-1662f39d508c.png") },
-      { href: "https://www.sunac.com.cn/", image: imgSrc("00ab262b-eacb-4eaf-9c94-af6f9c7cfd43.png") },
-      { href: "http://www.bankofbeijing.com.cn", image: imgSrc("bfd1c647-ea0d-4f7c-9eea-fdf1ff06c17f.png") },
-      { href: "http://www.ccb.com/cn/home/indexv3.html", image: imgSrc("ac28702e-28fd-4476-979b-70bc431bd038.png") },
-      { href: "http://www.abchina.com/cn/", image: imgSrc("86ed3568-8b26-4355-8738-a1606647c10d.png") },
-      { href: "http://www.icbc.com.cn/icbc/", image: imgSrc("c89e54dc-54d9-433b-86ea-12daedd33f46.png") }
-    ]
-  },
-  {
-    key: "institutional",
-    name: "Institutional Cooperation",
-    logos: [
-      { href: "https://www.tsinghua.edu.cn/", image: imgSrc("3967f2e4-4b28-4f06-8fed-d83b00787f43.png") },
-      { href: "https://www.sg.pku.edu.cn/", image: imgSrc("d89e4819-0071-4bf4-be69-3381c6027929.png") },
-      { href: "http://www.buaa.edu.cn/", image: imgSrc("f2325055-bddd-41df-a965-da871f0f78d7.png") },
-      { href: "http://www.neu.edu.cn/", image: imgSrc("fcc283b9-dd76-4103-84a0-602c1190eba4.png") },
-      { href: "https://www.yzjsxy.com/", image: imgSrc("5b670d41-92f8-44db-947b-78944ebcc82a.png") }
-    ]
-  },
-  {
-    key: "association",
-    name: "Industry Associations",
-    logos: [
-      { href: "http://www.cida.org.cn/", image: imgSrc("adb7b287-e16d-447b-a130-4bafc4b1d371.png") },
-      { href: "http://www.cbda.cn/", image: imgSrc("a93c78ed-bb1f-4f89-94d4-ddb8cb1cbbfe.gif") },
-      { href: "https://www.chinamuseum.org.cn/", image: imgSrc("57325a61-ee56-490a-b89c-90e2c56f647e.png") },
-      { href: "http://www.bcda.org.cn/", image: imgSrc("9ee5b030-ea8b-4887-9244-186dd43a50ef.png") },
-      { href: "http://www.caec.org.cn/", image: imgSrc("8ee0eaaf-d284-4cdc-914b-8c77f7732e49.png") },
-      { href: "http://www.jszszx.com.cn/", image: imgSrc("339748f8-51e2-4090-8873-2ebb97fa0c29.png") }
-    ]
-  }
-];
+// ── Computed data from API ────────────────────────────────────────────────
+const sectionMeta = computed(() => aboutView.value?.sectionMeta ?? []);
+const aboutTabs = computed(() => aboutView.value?.aboutTabs ?? []);
+const companyIntroduction = computed(() => aboutView.value?.companyIntroduction?.paragraphs ?? []);
+const chairmanSpeech = computed(() => aboutView.value?.chairmanSpeech?.paragraphs ?? []);
+const cultureBlocks = computed(() => aboutView.value?.cultureBlocks ?? []);
+const timelineEntries = computed(() => aboutView.value?.timelineEntries ?? []);
+const leadershipItems = computed(() => aboutView.value?.leadershipItems ?? []);
+const partnerCategories = computed(() => aboutView.value?.partnerCategories ?? []);
+const speechPortrait = computed(() => aboutView.value?.chairmanSpeech?.portrait ?? "");
+const speechSignature = computed(() => aboutView.value?.chairmanSpeech?.signatureImage ?? "");
+const introImage = computed(() => aboutView.value?.companyIntroduction?.coverImage ?? "");
+const introVideoUrl = computed(() => aboutView.value?.companyIntroduction?.videoUrl ?? "");
+const orgChartImage = computed(() => aboutView.value?.organizationChart?.chartImage ?? "");
+const heroHeadline = computed(() => aboutView.value?.hero?.headline ?? "ABOUT US");
+const heroDescription = computed(() => aboutView.value?.hero?.description ?? "");
+const speechSignTitle = computed(() => aboutView.value?.chairmanSpeech?.signTitle ?? "");
+const speechSignName = computed(() => aboutView.value?.chairmanSpeech?.signName ?? "");
 
 const activeSection = ref("page1");
 const activePartnerCategory = ref("strategic");
@@ -213,16 +56,31 @@ const syncingRouteFromSection = ref(false);
 
 let observer;
 
+// Dynamically set initial active partner category from API data
+const activePartnerCategoryInit = computed(() => partnerCategories.value?.[0]?.key ?? "strategic_cooperation");
+watch(activePartnerCategoryInit, (val) => {
+  if (val && activePartnerCategory.value === "strategic") {
+    activePartnerCategory.value = val;
+  }
+}, { immediate: true });
+
+const activeCultureTitleInit = computed(() => cultureBlocks.value?.[0]?.title ?? "");
+watch(activeCultureTitleInit, (val) => {
+  if (val && !cultureBlocks.value.some((item) => item.title === activeCultureTitle.value)) {
+    activeCultureTitle.value = val;
+  }
+}, { immediate: true });
+
 const currentPartnerLogos = computed(
-  () => partnerCategories.find((item) => item.key === activePartnerCategory.value)?.logos ?? []
+  () => partnerCategories.value.find((item) => item.key === activePartnerCategory.value)?.logos ?? []
 );
 
 const currentCultureBlock = computed(
-  () => cultureBlocks.find((item) => item.title === activeCultureTitle.value) ?? cultureBlocks[0]
+  () => cultureBlocks.value.find((item) => item.title === activeCultureTitle.value) ?? cultureBlocks.value[0] ?? { title: '', items: [] }
 );
 
 const timelineSlides = computed(() =>
-  timelineEntries.map((item) => ({
+  timelineEntries.value.map((item) => ({
     ...item,
     type: item.image ? "ad-image" : "no-image"
   }))
@@ -279,7 +137,7 @@ const getTargetSectionId = () => {
     return route.hash.replace("#", "");
   }
 
-  const matched = sectionMeta.find((item) => item.route === route.path && item.id !== "page1");
+  const matched = sectionMeta.value.find((item) => item.route === route.path && item.id !== "page1");
   if (matched && route.path !== "/about/company-introduction") {
     return matched.id;
   }
@@ -325,7 +183,7 @@ const navigateToSection = async (meta) => {
 };
 
 const syncActiveSectionToRoute = async (id) => {
-  const matched = sectionMeta.find((item) => item.id === id);
+  const matched = sectionMeta.value.find((item) => item.id === id);
   if (!matched) {
     return;
   }
@@ -376,12 +234,13 @@ const updateVisibleSections = (entries) => {
 };
 
 const setupObserver = () => {
+  observer?.disconnect();
   observer = new IntersectionObserver(updateVisibleSections, {
     threshold: [0.2, 0.35, 0.55, 0.75],
     rootMargin: "-12% 0px -18% 0px"
   });
 
-  sectionMeta.forEach((section) => {
+  sectionMeta.value.forEach((section) => {
     const element = document.getElementById(section.id);
     if (element) {
       observer.observe(element);
@@ -404,9 +263,20 @@ watch(
   { immediate: true }
 );
 
+// Re-setup observer when API data arrives (sections now exist in DOM)
+watch(aboutView, async (val) => {
+  if (val) {
+    await nextTick();
+    setupObserver();
+    syncRouteToScroll();
+  }
+});
+
 onMounted(async () => {
   await nextTick();
-  setupObserver();
+  if (aboutView.value) {
+    setupObserver();
+  }
 });
 
 onBeforeUnmount(() => {
@@ -416,6 +286,25 @@ onBeforeUnmount(() => {
 
 <template>
   <div class="about-page">
+    <!-- Loading state -->
+    <div v-if="loading" class="about-loading">
+      <div class="about-loading-spinner" />
+      <p>Loading...</p>
+    </div>
+
+    <div v-else-if="error" class="about-error">
+      <p>{{ error }}</p>
+      <button type="button" class="about-retry" @click="refresh">Retry</button>
+    </div>
+
+    <!-- Empty state -->
+    <div v-else-if="!aboutView" class="about-empty">
+      <p>About page content is currently unavailable.</p>
+      <button type="button" class="about-retry" @click="refresh">Reload</button>
+    </div>
+
+    <!-- Main content -->
+    <template v-else>
     <div class="about-dots">
       <button
         v-for="dot in sectionMeta"
@@ -429,18 +318,17 @@ onBeforeUnmount(() => {
 
     <section id="page1" class="about-hero">
       <img class="hero-image hero-image-pc" src="/images/banner/banner3.jpg" alt="About us banner" />
-      <img class="hero-image hero-image-mobile" :src="imgSrc('56ead49a-6cdb-449f-8b43-704d1c75d1f6.jpeg')" alt="About us mobile banner" />
+      <img class="hero-image hero-image-mobile" src="https://en.sinodecor.com/portal-local/ngc202304190002/cms/image/56ead49a-6cdb-449f-8b43-704d1c75d1f6.jpeg" alt="About us mobile banner" />
       <div class="hero-overlay" />
 
       <div :class="['hero-content', { 'is-visible': isSectionVisible('page1') }]">
         <div class="hero-title-row">
-          <h1>ABOUT US</h1>
+          <h1>{{ heroHeadline }}</h1>
           <img src="/images/daumoc.png" alt="Seal" />
         </div>
         <div class="hero-line" />
         <p class="hero-description">
-          This golden signboard - China Decoration embodies the efforts and
-          accumulation of several generations of people from China Decoration.
+          {{ heroDescription }}
         </p>
       </div>
 
@@ -465,7 +353,7 @@ onBeforeUnmount(() => {
 
         <div class="intro-layout">
           <div class="intro-visual">
-            <img class="intro-main" :src="imgSrc('f1225086-4996-4f1d-88f9-08f4228a378e.png')" alt="Company introduction" />
+            <img class="intro-main" :src="introImage" alt="Company introduction" />
             <div class="intro-watermark" />
             <div class="intro-bottom">
               <button class="video-trigger" type="button" @click="videoOpen = true">
@@ -498,17 +386,13 @@ onBeforeUnmount(() => {
         <div class="split-layout reverse speech-layout">
           <div class="speech-copy-panel">
             <div ref="speechScroller" class="split-copy speech-scroller">
-              <div class="speech-intro">
-                <p>Ladies and Gentlemen:</p>
-                <p>Thank leaders, colleagues and partners for their long-term support and love!</p>
-              </div>
-              <p v-for="paragraph in chairmanSpeech" :key="paragraph">
+              <p v-for="(paragraph, idx) in chairmanSpeech" :key="idx">
                 {{ paragraph }}
               </p>
               <div class="speech-signoff">
                 <div class="signature-block">
-                  <span>Chairman of China Decoration Co., LTD.</span>
-                  <strong>Xin Jianlin</strong>
+                  <span>{{ speechSignTitle }}</span>
+                  <strong>{{ speechSignName }}</strong>
                 </div>
               </div>
             </div>
@@ -533,7 +417,7 @@ onBeforeUnmount(() => {
         </div>
 
         <button class="chart-card" type="button" @click="chartOpen = true">
-          <img :src="imgSrc('bcb4ff12-813e-43ef-9669-e5ed2da9a123.png')" alt="Organization chart" />
+          <img :src="orgChartImage" alt="Organization chart" />
         </button>
       </div>
     </section>
@@ -547,7 +431,7 @@ onBeforeUnmount(() => {
 
         <div class="culture-layout">
           <div class="culture-image">
-            <img :src="imgSrc('3f9cf9fc-c3f2-4cd5-a6e7-6c1f19a596b0.jpg')" alt="Corporate culture" />
+            <img src="https://en.sinodecor.com/portal-local/ngc202304190002/cms/image/3f9cf9fc-c3f2-4cd5-a6e7-6c1f19a596b0.jpg" alt="Corporate culture" />
           </div>
 
           <div class="culture-panel">
@@ -746,15 +630,16 @@ onBeforeUnmount(() => {
       <button class="close-button" type="button" @click="videoOpen = false">
         <X :size="22" />
       </button>
-      <video controls autoplay playsinline src="/images/vd/1fb59345-a995-4408-b03b-e8e38ff258e7.web.mp4" />
+      <video controls autoplay playsinline :src="introVideoUrl" />
     </div>
 
     <div v-if="chartOpen" class="about-modal light" @click.self="chartOpen = false">
       <button class="close-button" type="button" @click="chartOpen = false">
         <X :size="22" />
       </button>
-      <img class="chart-modal-image" :src="imgSrc('bcb4ff12-813e-43ef-9669-e5ed2da9a123.png')" alt="Organization chart large" />
+      <img class="chart-modal-image" :src="orgChartImage" alt="Organization chart large" />
     </div>
+    </template>
   </div>
 </template>
 
@@ -3230,4 +3115,47 @@ onBeforeUnmount(() => {
     right: 14px;
   }
 }
+
+.about-loading,
+.about-error,
+.about-empty {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  min-height: 60vh;
+  gap: 16px;
+  color: #555;
+  font-size: 15px;
+}
+
+.about-loading-spinner {
+  width: 36px;
+  height: 36px;
+  border: 3px solid #ddd;
+  border-top-color: #ba9d76;
+  border-radius: 50%;
+  animation: about-spin 0.8s linear infinite;
+}
+
+@keyframes about-spin {
+  to { transform: rotate(360deg); }
+}
+
+.about-retry {
+  padding: 8px 24px;
+  border: 1px solid #ba9d76;
+  border-radius: 4px;
+  background: transparent;
+  color: #ba9d76;
+  font-size: 14px;
+  cursor: pointer;
+  transition: background 0.2s, color 0.2s;
+
+  &:hover {
+    background: #ba9d76;
+    color: #fff;
+  }
+}
 </style>
+

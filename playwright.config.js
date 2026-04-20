@@ -2,8 +2,11 @@ import { defineConfig } from '@playwright/test'
 
 const backendCommand = [
   "Set-Location '..\\China_BE'",
-  'python scripts\\seed_project_case_star_hotel.py',
-  'python -m uvicorn app.main:app --host 127.0.0.1 --port 18000',
+  "$env:DATABASE_URL='sqlite:///./playwright_project_case.db'",
+  "$env:ENVIRONMENT='development'",
+  "if (Test-Path '.\\playwright_project_case.db') { Remove-Item '.\\playwright_project_case.db' -Force }",
+  ".\\.venv\\Scripts\\python.exe scripts\\seed_project_case_catalog.py",
+  ".\\.venv\\Scripts\\python.exe -m uvicorn app.main:app --host 127.0.0.1 --port 18000",
 ].join('; ')
 
 const frontendCommand = [
@@ -14,6 +17,7 @@ const frontendCommand = [
 export default defineConfig({
   testDir: './e2e',
   timeout: 60_000,
+  workers: 1,
   expect: {
     timeout: 10_000,
   },

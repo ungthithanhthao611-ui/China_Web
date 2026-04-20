@@ -7,14 +7,14 @@ import {
   listNavigationMenus,
   replaceNavigationMenuTree,
   updateNavigationMenu,
-} from '@/admin/services/adminApi'
+} from '@/admin/api/adminApi.js'
 import {
   createNavigationTreeHelpers,
   findNodeContextByCid,
   itemSlugFromUrl,
   toIntOrUndefined,
 } from '@/admin/utils/treeUtils'
-import { publishNavigationMenusUpdated } from '@/utils/navigationSync'
+import { publishNavigationMenusUpdated } from '@/shared/utils/navigationSync'
 
 export function useNavigationMenusManager(props, emit, options = {}) {
   const { hydrateTree, serializeTree, createEmptyNode } = createNavigationTreeHelpers()

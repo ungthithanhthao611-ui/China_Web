@@ -1,8 +1,8 @@
 import { defineStore } from 'pinia'
 
-import { env } from '@/config/env'
+import { env } from '@/shared/config/env'
 import { getBootstrap, getHealth } from '@/client/services/publicApi'
-import { readNavigationMenusRevision } from '@/utils/navigationSync'
+import { readNavigationMenusRevision } from '@/shared/utils/navigationSync'
 
 export const useBootstrapStore = defineStore('bootstrap', {
   state: () => ({

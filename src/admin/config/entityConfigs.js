@@ -30,7 +30,7 @@ export const ENTITY_MANAGER_CONFIGS = {
   pages: {
     label: 'Pages',
     eyebrow: 'CMS page records',
-    description: 'Manage CMS page slugs, summary, SEO fields, language, and publish order for public pages such as the About group.',
+    description: 'Manage canonical CMS pages. For the About flow, this table should keep the single parent page record `about`, while the detailed sub-sections are managed in Page Sections and Content Blocks.',
     titleField: 'title',
     table: ['id', 'title', 'slug', 'page_type', 'status', 'language_id', 'sort_order'],
     required: ['slug', 'language_id'],
@@ -52,18 +52,18 @@ export const ENTITY_MANAGER_CONFIGS = {
       sort_order: 'Display Order',
     },
     placeholders: {
-      slug: 'Example: company-introduction',
-      title: 'Example: Company Introduction',
-      summary: 'Short summary shown to users and reusable by CMS sections.',
-      body: 'Optional long-form body content for simple CMS pages.',
+      slug: 'Example: about',
+      title: 'Example: About Us',
+      summary: 'Short summary of the canonical page used by SEO and public API.',
+      body: 'Optional long-form body content for simple standalone pages.',
       page_type: 'Example: about',
       meta_title: 'SEO title for browser tab and search result.',
       meta_description: 'Short SEO description for the selected page.',
     },
     helpText: {
-      slug: 'For About CMS, use route-aligned slugs such as company-introduction, chairman-speech, organization-chart, corporate-culture, development-course, leadership-care, and cooperative-partner.',
+      slug: 'For the About CMS currently in use, keep this record as the canonical parent slug `about`. Do not create separate page rows for company-introduction, chairman-speech, or the other About tabs.',
       page_type: 'Use a stable group name such as about, legal, or contact so frontend and reporting can filter related pages consistently.',
-      parent_id: 'Optional. Use only when this page belongs under another page in the CMS hierarchy.',
+      parent_id: 'Usually empty for canonical top-level pages. About currently acts as the parent page, while its detailed tabs are modeled as Page Sections.',
       status: 'Only published pages should be consumed by the public API.',
       meta_title: 'Recommended for SEO. If empty, frontend may fall back to the page title.',
       meta_description: 'Recommended for SEO and social previews.',
@@ -73,11 +73,36 @@ export const ENTITY_MANAGER_CONFIGS = {
   page_sections: {
     label: 'Page Sections',
     eyebrow: 'CMS page sections',
-    description: 'Manage structural sections inside a CMS page, including hero, rich text, timeline intro, partner intro, anchors, and display order.',
+    description: 'Manage the structural child sections inside a canonical CMS page. For About, this table should contain the 8 real sections shown on the public page: hero, company introduction, chairman\'s speech, organization chart, corporate culture, development course, leadership care, and cooperative partner.',
     titleField: 'title',
     table: ['id', 'page_id', 'title', 'anchor', 'section_type', 'sort_order'],
     required: ['page_id'],
     fields: ['page_id', 'anchor', 'title', 'content', 'image_id', 'section_type', 'sort_order'],
+    preview: (record) => {
+      if (record.preview_href) {
+        return record.preview_href
+      }
+
+      if (record.page_slug === 'about') {
+        const aboutRouteMap = {
+          hero: '/about/company-introduction#page1',
+          company_introduction: '/about/company-introduction#page2',
+          chairman_speech: '/about/chairman-speech#page3',
+          organization_chart: '/about/organization-chart#page4',
+          corporate_culture: '/about/corporate-culture#page5',
+          development_course: '/about/development-course#page6',
+          leadership_care: '/about/leadership-care#page7',
+          cooperative_partner: '/about/cooperative-partner#page8',
+        }
+        return aboutRouteMap[record.anchor] || '/about/company-introduction#page1'
+      }
+
+      if (record.page_slug) {
+        return `/${record.page_slug}${record.anchor ? `#${record.anchor}` : ''}`
+      }
+
+      return ''
+    },
     fieldLabels: {
       page_id: 'Parent Page',
       anchor: 'Section Anchor',
@@ -88,17 +113,18 @@ export const ENTITY_MANAGER_CONFIGS = {
       sort_order: 'Display Order',
     },
     placeholders: {
-      anchor: 'Example: hero, intro, timeline, partners',
-      title: 'Example: Company Introduction Hero',
-      content: 'Optional text intro for this section.',
-      section_type: 'Example: hero or rich_text',
+      anchor: 'Example: hero, company_introduction, chairman_speech',
+      title: 'Example: Company Introduction',
+      content: 'Optional section-level intro text used for mapping or short summaries.',
+      section_type: 'Example: hero, content, media, timeline, gallery, partners',
     },
     helpText: {
-      page_id: 'Choose the page this section belongs to. For About CMS, each About slug should have its own page record first.',
-      anchor: 'Used as a stable section key for internal mapping. Keep it lowercase and consistent, for example hero, intro, timeline, partners.',
-      image_id: 'Optional section-level image. Use this for hero banners, chart visuals, or supporting section artwork.',
-      section_type: 'Recommended About values: hero, rich_text, timeline, partners, media, or chart. Keep naming stable across pages.',
-      sort_order: 'Use 10, 20, 30... to control render order inside the selected page.',
+      page_id: 'Choose the canonical parent page this section belongs to. For the current About CMS, all 8 sections should belong to the single page slug `about`.',
+      anchor: 'Stable technical key used by frontend mapping and route/hash sync. For About, use anchors such as hero, company_introduction, chairman_speech, organization_chart, corporate_culture, development_course, leadership_care, cooperative_partner.',
+      image_id: 'Optional section-level image. Use this only when the section itself needs a representative visual; detailed content media should usually live in Content Blocks or Content Block Items.',
+      section_type: 'Recommended About values: hero, content, media, timeline, gallery, partners. Keep these stable because they describe the structural role of the section, not the detailed data block.',
+      sort_order: 'Use 10, 20, 30... to control render order inside the selected page. For About, this should match the public top-to-bottom sequence.',
+      content: 'Use this as a short admin-facing note describing which public section this record controls. The preview link should point editors to the mapped public route for quick verification.',
     },
   },
   content_blocks: {
@@ -109,6 +135,9 @@ export const ENTITY_MANAGER_CONFIGS = {
     table: ['id', 'entity_type', 'entity_id', 'block_key', 'block_type', 'sort_order'],
     required: ['entity_type', 'entity_id', 'block_key', 'block_type'],
     fields: ['entity_type', 'entity_id', 'language_id', 'block_key', 'title', 'subtitle', 'content', 'block_type', 'sort_order'],
+    relationEntities: {
+      entity_id: 'pages',
+    },
     fieldLabels: {
       entity_type: 'Entity Type',
       entity_id: 'Entity Record ID',
@@ -250,6 +279,7 @@ export const ENTITY_MANAGER_CONFIGS = {
     eyebrow: 'Project taxonomy',
     description: 'Manage public Project Case categories, legacy category ids, status, and hero media bindings.',
     titleField: 'name',
+    pageSize: 25,
     table: ['id', 'name', 'slug', 'status', 'sort_order'],
     required: ['name', 'slug'],
     fields: ['name', 'slug', 'description', 'parent_id', 'sort_order', 'status'],
@@ -313,6 +343,7 @@ export const ENTITY_MANAGER_CONFIGS = {
     eyebrow: 'Category to project mapping',
     description: 'Manage Project Case ordering, anchors, layout pattern, and featured state inside each category.',
     titleField: 'anchor',
+    pageSize: 25,
     table: ['id', 'category_id', 'project_id', 'anchor', 'sort_order', 'layout_variant', 'is_featured'],
     required: ['category_id', 'project_id', 'anchor', 'sort_order'],
     fields: ['category_id', 'project_id', 'sort_order', 'anchor', 'is_featured', 'layout_variant'],
@@ -346,18 +377,47 @@ export const ENTITY_MANAGER_CONFIGS = {
     eyebrow: 'Entity media binding',
     description: 'Bind hero and gallery media to Project Categories and Projects through entity_media groups.',
     titleField: 'group_name',
+    pageSize: 25,
     table: ['id', 'entity_type', 'entity_id', 'group_name', 'media_id', 'sort_order'],
     required: ['entity_type', 'entity_id', 'media_id', 'group_name', 'sort_order'],
     fields: ['entity_type', 'entity_id', 'media_id', 'group_name', 'sort_order', 'caption'],
+    defaultValues: {
+      entity_type: 'project_category',
+      group_name: 'hero_desktop',
+    },
     selectOptions: {
       entity_type: [
         { value: 'project_category', label: 'Project Category' },
         { value: 'project', label: 'Project' },
       ],
+      group_name: [
+        { value: 'hero_desktop', label: 'Hero Desktop' },
+        { value: 'hero_mobile', label: 'Hero Mobile' },
+        { value: 'left_gallery', label: 'Left Gallery' },
+        { value: 'right_gallery', label: 'Right Gallery' },
+      ],
+    },
+    selectOptionsByEntityType: {
+      group_name: {
+        project_category: [
+          { value: 'hero_desktop', label: 'Hero Desktop' },
+          { value: 'hero_mobile', label: 'Hero Mobile' },
+        ],
+        project: [
+          { value: 'left_gallery', label: 'Left Gallery' },
+          { value: 'right_gallery', label: 'Right Gallery' },
+        ],
+      },
     },
     preview: (record) => {
+      if (record.preview_href) {
+        return record.preview_href
+      }
       if (record.entity_type === 'project_category') {
         return `/project_list/${record.entity_id}.html`
+      }
+      if (record.entity_type === 'project' && record.entity_slug) {
+        return `/project/${record.entity_slug}`
       }
       return ''
     },
@@ -370,14 +430,14 @@ export const ENTITY_MANAGER_CONFIGS = {
       caption: 'Caption',
     },
     placeholders: {
-      entity_id: 'Numeric id of the category or project record',
+      entity_id: 'Select a category or project record from the dropdown',
       group_name: 'hero_desktop, hero_mobile, left_gallery, right_gallery',
       caption: 'Optional caption for future use',
     },
     helpText: {
       entity_type: 'Use project_category for category hero images, project for case galleries.',
-      entity_id: 'For project_category use the category id. For project use the project id.',
-      group_name: 'Supported Project Case groups: hero_desktop, hero_mobile, left_gallery, right_gallery.',
+      entity_id: 'The dropdown updates automatically based on Entity Type so you can bind media without copying numeric ids manually. Use the inline preview link to verify the target before saving.',
+      group_name: 'Group options are filtered by Entity Type: project categories use hero_desktop/hero_mobile, projects use left_gallery/right_gallery.',
       sort_order: 'Controls image order inside the selected media group.',
     },
   },

@@ -1,11 +1,11 @@
-<script setup>
+﻿<script setup>
 import { computed, onMounted, ref } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 
-import OnlyOfficeEditor from '@/admin/components/onlyoffice/OnlyOfficeEditor.vue'
+import OnlyOfficeEditor from '@/admin/modules/onlyoffice/OnlyOfficeEditor.vue'
 import { ADMIN_TOKEN_STORAGE_KEY } from '@/admin/constants/auth'
-import { getAdminEntityRecord } from '@/admin/services/adminApi'
-import { convertPostDocumentToHtml, getOnlyOfficeConfig, getPostDocument, uploadPostDocument } from '@/admin/services/onlyofficeApi'
+import { getAdminEntityRecord } from '@/admin/api/adminApi.js'
+import { convertPostDocumentToHtml, getOnlyOfficeConfig, getPostDocument, uploadPostDocument } from '@/admin/api/onlyofficeApi.js'
 
 const route = useRoute()
 const router = useRouter()
@@ -389,3 +389,5 @@ onMounted(() => {
   }
 }
 </style>
+
+

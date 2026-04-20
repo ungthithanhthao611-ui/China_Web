@@ -1,17 +1,17 @@
-<script setup>
+﻿<script setup>
 import { computed } from 'vue'
-import { useProjectCasePage } from './project-case/useProjectCasePage'
-import ProjectCaseFeatureSection from './project-case/components/ProjectCaseFeatureSection.vue'
-import ProjectCaseHeroSection from './project-case/components/ProjectCaseHeroSection.vue'
-import ProjectCaseSidebar from './project-case/components/ProjectCaseSidebar.vue'
-import ProjectCaseStandardSection from './project-case/components/ProjectCaseStandardSection.vue'
+import { useProjectCasePage } from './composables/useProjectCasePage'
+import ProjectCaseFeatureSection from './sections/components/ProjectCaseFeatureSection.vue'
+import ProjectCaseHeroSection from './sections/components/ProjectCaseHeroSection.vue'
+import ProjectCaseSidebar from './sections/components/ProjectCaseSidebar.vue'
+import ProjectCaseStandardSection from './sections/components/ProjectCaseStandardSection.vue'
 
 const {
   sidebarOpen,
   activeCategoryId,
   activeCategoryIndex,
   activeSectionId,
-  orderedCategories,
+  sidebarCategories,
   heroSlides,
   activeSections,
   expandedCategoryIds,
@@ -36,7 +36,7 @@ function isVisible(sectionId) {
 <template>
   <div class="project-case-page">
     <ProjectCaseSidebar
-      :categories="orderedCategories"
+      :categories="sidebarCategories"
       :active-category-id="activeCategoryId"
       :active-section-id="activeSectionId"
       :expanded-category-ids="expandedCategoryIds"
@@ -137,10 +137,5 @@ function isVisible(sectionId) {
     --case-sidebar-width: 170px;
   }
 }
-
-@media (max-width: 768px) {
-  .project-case-page {
-    --case-sidebar-width: 0px;
-  }
-}
 </style>
+

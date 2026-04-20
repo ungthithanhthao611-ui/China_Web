@@ -1,5 +1,5 @@
-import { env } from '@/config/env'
-import { fetchJson } from '@/lib/http'
+import { env } from '@/shared/config/env'
+import { fetchJson } from '@/shared/lib/http'
 
 function withLanguage(query = {}) {
   return {
@@ -30,19 +30,37 @@ export function getPageDetail(slug, query = {}) {
 }
 
 export function getPublicNews({ categorySlug, skip, limit, page, ...query } = {}) {
-  return fetchJson('/public/news', {
-    query: withLanguage({
+  return fetchJson('/news', {
+    query: {
       category_slug: categorySlug,
       skip,
       limit,
       page,
       ...query,
-    }),
+    },
+  }).then((payload) => {
+    // News workflow public API wraps data as { success, data, message }.
+    if (payload && payload.success && payload.data) {
+      return payload.data
+    }
+    return payload
   })
 }
 
 export function getPublicNewsDetail(slug, query = {}) {
-  return fetchJson(`/public/news/${slug}`, { query: withLanguage(query) })
+  return fetchJson(`/news/${slug}`, {
+    query,
+  }).then((payload) => {
+    // Keep backward-compatible shape for current NewsDetail page.
+    const data = payload && payload.success && payload.data ? payload.data : payload
+    if (data && !data.category && Array.isArray(data.categories) && data.categories.length) {
+      return {
+        ...data,
+        category: data.categories[0],
+      }
+    }
+    return data
+  })
 }
 
 export function getProjects({ categorySlug, year, skip, limit, ...query } = {}) {
@@ -59,6 +77,22 @@ export function getProjects({ categorySlug, year, skip, limit, ...query } = {}) 
 
 export function getProjectDetail(slug, query = {}) {
   return fetchJson(`/public/projects/${slug}`, { query: withLanguage(query) })
+}
+
+export function getProjectCasePage(categoryId, query = {}) {
+  const normalizedCategoryId = String(categoryId || '').trim()
+  const isNumericCategoryId = /^\d+$/.test(normalizedCategoryId)
+
+  const path = isNumericCategoryId
+    ? `/public/project-case/${normalizedCategoryId}`
+    : '/public/project-case'
+
+  return fetchJson(path, {
+    query: withLanguage({
+      ...(isNumericCategoryId ? {} : {}),
+      ...query,
+    }),
+  })
 }
 
 export function getHonors({ awardYear, ...query } = {}) {

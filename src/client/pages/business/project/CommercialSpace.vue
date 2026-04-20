@@ -1,1 +1,0 @@
-<template><div class='project-gallery'><h2>CommercialSpace Projects</h2><p>Coming soon...</p></div></template><style scoped>.project-gallery { padding: 40px; text-align: center; color: #888; }</style>
