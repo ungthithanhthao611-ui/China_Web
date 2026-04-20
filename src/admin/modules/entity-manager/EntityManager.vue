@@ -87,8 +87,16 @@ const actionConfirmDialog = reactive({
   tone: "primary",
 });
 let actionConfirmResolver = null;
+let isComponentAlive = true;
+let relationLoadRequestId = 0;
+let mediaLoadRequestId = 0;
+let recordsLoadRequestId = 0;
+let refreshCycleRequestId = 0;
 
 const config = computed(() => ENTITY_MANAGER_CONFIGS[props.entityKey]);
+const previewRecordUrl = computed(() =>
+  typeof config.value?.preview === "function" ? config.value.preview : () => "",
+);
 const tableColumns = computed(() => config.value?.table || ["id"]);
 const formFields = computed(() => config.value?.fields || []);
 const visibleFormFields = computed(() =>
@@ -419,6 +427,23 @@ function normalizedToken() {
   return String(props.token || "").trim();
 }
 
+function entityRequestKey() {
+  return `${props.entityKey}::${normalizedToken()}::${String(props.active)}`;
+}
+
+function clearRelationOptions() {
+  Object.keys(relationOptions).forEach((key) => delete relationOptions[key]);
+}
+
+function resetEntityState() {
+  records.value = [];
+  mediaOptions.value = [];
+  totalRecords.value = 0;
+  loading.value = false;
+  deletingId.value = null;
+  clearRelationOptions();
+}
+
 function configuredPageSize() {
   const rawValue = Number(config.value?.pageSize || 10);
   return Number.isFinite(rawValue) && rawValue > 0 ? rawValue : 10;
@@ -471,9 +496,17 @@ function stopBannerFocusAdjust(event) {
 
 async function loadRelationOptions() {
   const token = normalizedToken();
-  if (!token) return;
+  const requestId = ++relationLoadRequestId;
+  const requestKey = entityRequestKey();
 
-  Object.keys(relationOptions).forEach((key) => delete relationOptions[key]);
+  if (!token) {
+    if (requestId === relationLoadRequestId && requestKey === entityRequestKey()) {
+      clearRelationOptions();
+    }
+    return;
+  }
+
+  clearRelationOptions();
 
   const relationMap = resolveRelationMap();
 
@@ -502,51 +535,112 @@ async function loadRelationOptions() {
     return items;
   };
 
-  await Promise.all(
-    Object.entries(relationMap)
-      .filter(
-        ([field, entityName]) => formFields.value.includes(field) && entityName,
-      )
-      .map(async ([field, entityName]) => {
-        relationOptions[field] = await loadRelationRecords(entityName);
-      }),
-  );
-
-  if (
-    formFields.value.includes("entity_id") &&
-    form.entity_id !== "" &&
-    form.entity_id !== null &&
-    form.entity_id !== undefined
-  ) {
-    const hasCurrentEntity = (relationOptions.entity_id || []).some(
-      (option) => String(option.id) === String(form.entity_id),
+  try {
+    const relationEntries = await Promise.all(
+      Object.entries(relationMap)
+        .filter(
+          ([field, entityName]) => formFields.value.includes(field) && entityName,
+        )
+        .map(async ([field, entityName]) => [field, await loadRelationRecords(entityName)]),
     );
-    if (!hasCurrentEntity) {
-      form.entity_id = null;
+
+    if (
+      !isComponentAlive ||
+      requestId !== relationLoadRequestId ||
+      requestKey !== entityRequestKey()
+    ) {
+      return;
     }
+
+    relationEntries.forEach(([field, items]) => {
+      relationOptions[field] = items;
+    });
+
+    if (
+      formFields.value.includes("entity_id") &&
+      form.entity_id !== "" &&
+      form.entity_id !== null &&
+      form.entity_id !== undefined
+    ) {
+      const hasCurrentEntity = (relationOptions.entity_id || []).some(
+        (option) => String(option.id) === String(form.entity_id),
+      );
+      if (!hasCurrentEntity) {
+        form.entity_id = null;
+      }
+    }
+  } catch (error) {
+    if (
+      !isComponentAlive ||
+      requestId !== relationLoadRequestId ||
+      requestKey !== entityRequestKey()
+    ) {
+      return;
+    }
+    notifyError(error.message || "Failed to load relation options.");
   }
 }
 
 async function loadMediaOptions() {
   const token = normalizedToken();
+  const requestId = ++mediaLoadRequestId;
+  const requestKey = entityRequestKey();
+
   if (
     !token ||
     (!hasMediaFields.value && !standaloneUpload.value && !isVideosEntity.value)
-  )
+  ) {
+    if (requestId === mediaLoadRequestId && requestKey === entityRequestKey()) {
+      mediaOptions.value = [];
+    }
     return;
+  }
 
-  const response = await listAdminEntityRecords("media_assets", token, {
-    skip: 0,
-    limit: 100,
-    status: "active",
-  });
-  mediaOptions.value = response.items || [];
+  try {
+    const response = await listAdminEntityRecords("media_assets", token, {
+      skip: 0,
+      limit: 100,
+      status: "active",
+    });
+
+    if (
+      !isComponentAlive ||
+      requestId !== mediaLoadRequestId ||
+      requestKey !== entityRequestKey()
+    ) {
+      return;
+    }
+
+    mediaOptions.value = response.items || [];
+  } catch (error) {
+    if (
+      !isComponentAlive ||
+      requestId !== mediaLoadRequestId ||
+      requestKey !== entityRequestKey()
+    ) {
+      return;
+    }
+    mediaOptions.value = [];
+    notifyError(error.message || "Failed to load media options.");
+  }
 }
 
 async function loadRecords() {
   const token = normalizedToken();
-  if (!token) return;
+  const requestId = ++recordsLoadRequestId;
+  const requestKey = entityRequestKey();
 
+  if (!token) {
+    if (requestId === recordsLoadRequestId && requestKey === entityRequestKey()) {
+      records.value = [];
+      totalRecords.value = 0;
+      loading.value = false;
+    }
+    return;
+  }
+
+  records.value = [];
+  totalRecords.value = 0;
   loading.value = true;
   try {
     const query = {
@@ -563,29 +657,79 @@ async function loadRecords() {
       token,
       query,
     );
+
+    if (
+      !isComponentAlive ||
+      requestId !== recordsLoadRequestId ||
+      requestKey !== entityRequestKey()
+    ) {
+      return;
+    }
+
     records.value = response.items || [];
     totalRecords.value = response.pagination?.total || 0;
   } catch (error) {
+    if (
+      !isComponentAlive ||
+      requestId !== recordsLoadRequestId ||
+      requestKey !== entityRequestKey()
+    ) {
+      return;
+    }
+    records.value = [];
+    totalRecords.value = 0;
     notifyError(error.message || "Failed to load content records.");
   } finally {
-    loading.value = false;
+    if (
+      isComponentAlive &&
+      requestId === recordsLoadRequestId &&
+      requestKey === entityRequestKey()
+    ) {
+      loading.value = false;
+    }
   }
 }
 
 async function refreshAll() {
+  const requestId = ++refreshCycleRequestId;
+  const requestKey = entityRequestKey();
+
   await loadRelationOptions();
+  if (
+    !isComponentAlive ||
+    requestId !== refreshCycleRequestId ||
+    requestKey !== entityRequestKey()
+  ) {
+    return;
+  }
+
   await loadMediaOptions();
+  if (
+    !isComponentAlive ||
+    requestId !== refreshCycleRequestId ||
+    requestKey !== entityRequestKey()
+  ) {
+    return;
+  }
+
   await loadRecords();
 }
 
 async function revealInlineEditor() {
-  if (isFormModalEntity.value) return;
+  if (isFormModalEntity.value || !isComponentAlive) return;
 
   await nextTick();
 
-  inlineEditorRef.value?.scrollIntoView({ behavior: "smooth", block: "start" });
+  if (!isComponentAlive) return;
 
-  const firstFocusableField = inlineEditorRef.value?.querySelector(
+  const editorElement = inlineEditorRef.value;
+  if (!editorElement || !editorElement.isConnected) {
+    return;
+  }
+
+  editorElement.scrollIntoView({ behavior: "smooth", block: "start" });
+
+  const firstFocusableField = editorElement.querySelector(
     'input:not([type="hidden"]):not([disabled]), select:not([disabled]), textarea:not([disabled])',
   );
 
@@ -827,6 +971,7 @@ watch(
     searchKeyword.value = "";
     closeForm();
     closeActionConfirmDialog(false);
+    resetEntityState();
     if (props.active && normalizedToken()) {
       await refreshAll();
     }
@@ -844,6 +989,7 @@ watch(
   () => props.active,
   async (active) => {
     if (active && normalizedToken()) {
+      resetEntityState();
       await refreshAll();
     } else {
       closeForm();
@@ -856,13 +1002,13 @@ watch(
   () => props.token,
   async (value) => {
     if (!String(value || "").trim()) {
-      records.value = [];
-      totalRecords.value = 0;
+      resetEntityState();
       closeForm();
       closeActionConfirmDialog(false);
       return;
     }
     if (props.active) {
+      resetEntityState();
       await refreshAll();
     }
   },
@@ -900,6 +1046,12 @@ watch(
 );
 
 onBeforeUnmount(() => {
+  isComponentAlive = false;
+  relationLoadRequestId += 1;
+  mediaLoadRequestId += 1;
+  recordsLoadRequestId += 1;
+  refreshCycleRequestId += 1;
+  bannerFocusDragging.value = false;
   closeActionConfirmDialog(false);
   toggleFormModalBodyLock(false);
   window.removeEventListener("keydown", handleBannerConfirmEsc);
@@ -908,9 +1060,6 @@ onBeforeUnmount(() => {
 onMounted(() => {
   window.addEventListener("keydown", handleBannerConfirmEsc);
   pageSize.value = configuredPageSize();
-  if (props.active && normalizedToken()) {
-    refreshAll();
-  }
 });
 </script>
 
@@ -978,7 +1127,7 @@ onMounted(() => {
         :video-preview-url="videoPreviewUrl"
         :video-url-hint="videoUrlHint"
         :is-direct-video-file="isDirectVideoFile"
-        :preview-record-url="config.preview"
+        :preview-record-url="previewRecordUrl"
         :has-rich-preview="hasRichPreview"
         :preview-card="previewCard"
         :preview-media="previewMedia"

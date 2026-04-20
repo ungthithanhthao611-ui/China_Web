@@ -52,6 +52,8 @@ const toast = reactive({
   message: '',
 })
 let toastTimerId = null
+let isDashboardAlive = true
+let dashboardSummaryRequestId = 0
 
 const currentSectionMeta = computed(() => {
   if (activeSection.value === 'dashboard') {
@@ -82,6 +84,18 @@ const currentTitle = computed(() => currentSectionMeta.value.label)
 const currentBreadcrumb = computed(() => `Home / Admin / ${currentSectionMeta.value.label}`)
 const userLabel = computed(() => currentUser.value?.full_name || currentUser.value?.username || 'Admin user')
 const userRole = computed(() => currentUser.value?.role || 'admin')
+const isUnsupportedSection = computed(() => activeSection.value === 'inquiry_submissions')
+const unsupportedSectionMeta = computed(() => {
+  if (!isUnsupportedSection.value) {
+    return null
+  }
+
+  return {
+    title: 'Yêu Cầu Gửi Đến đang tạm ẩn',
+    description:
+      'Module này chưa có entity/backend tương ứng trong hệ thống hiện tại. Tôi đã chặn lỗi loading vô hạn để admin không còn bị treo khi truy cập. Nếu cần dùng mục này, bước tiếp theo là bổ sung model, schema và API cho inquiry submissions ở backend.',
+  }
+})
 
 const statCards = computed(() => [
   {
@@ -193,7 +207,12 @@ function handleViewportChange() {
 
 async function loadDashboardSummary() {
   const normalizedToken = String(token.value || '').trim()
+  const requestId = ++dashboardSummaryRequestId
+
   if (!normalizedToken) {
+    if (requestId === dashboardSummaryRequestId && isDashboardAlive) {
+      loadingSummary.value = false
+    }
     return
   }
 
@@ -208,6 +227,10 @@ async function loadDashboardSummary() {
       listAdminEntityRecords('media_assets', normalizedToken, { skip: 0, limit: 1 }),
     ])
 
+    if (!isDashboardAlive || requestId !== dashboardSummaryRequestId) {
+      return
+    }
+
     currentUser.value = me
     localStorage.setItem(ADMIN_USER_STORAGE_KEY, JSON.stringify(me))
     navMenuCount.value = (menus.items || []).length
@@ -216,6 +239,10 @@ async function loadDashboardSummary() {
     summary.honors = honors.pagination?.total || 0
     summary.media_assets = mediaAssets.pagination?.total || 0
   } catch (error) {
+    if (!isDashboardAlive || requestId !== dashboardSummaryRequestId) {
+      return
+    }
+
     const message = error?.message || 'Failed to load admin summary.'
 
     if (message.toLowerCase().includes('unauthorized') || message.toLowerCase().includes('invalid') || message.toLowerCase().includes('token')) {
@@ -229,7 +256,9 @@ async function loadDashboardSummary() {
 
     setError(message)
   } finally {
-    loadingSummary.value = false
+    if (isDashboardAlive && requestId === dashboardSummaryRequestId) {
+      loadingSummary.value = false
+    }
   }
 }
 
@@ -307,6 +336,8 @@ onMounted(async () => {
 })
 
 onBeforeUnmount(() => {
+  isDashboardAlive = false
+  dashboardSummaryRequestId += 1
   window.removeEventListener('resize', handleViewportChange)
   clearToast()
   uiState.isNavHidden = false
@@ -436,8 +467,17 @@ onBeforeUnmount(() => {
         @clear-notify="clearMessages"
       />
 
+      <section v-else-if="isUnsupportedSection" class="unsupported-panel card-shell">
+        <p class="hero-eyebrow">Module unavailable</p>
+        <h2>{{ unsupportedSectionMeta?.title }}</h2>
+        <p class="hero-copy">
+          {{ unsupportedSectionMeta?.description }}
+        </p>
+      </section>
+
       <EntityManager
         v-else
+        :key="activeSection"
         :token="token"
         :entity-key="activeSection"
         :active="true"
@@ -1105,6 +1145,18 @@ button:disabled {
   .topbar h1 {
     font-size: 24px;
   }
+}
+
+.unsupported-panel {
+  display: grid;
+  gap: 16px;
+  padding: 28px;
+}
+
+.unsupported-panel h2 {
+  margin: 0;
+  color: #15314d;
+  font-size: clamp(26px, 3vw, 34px);
 }
 </style>
 
