@@ -69,11 +69,7 @@ const fallbackNavItems = computed(() => [
   },
   {
     name: 'Tin Tức',
-    path: '/news/corporate-news',
-    children: [
-      { name: 'Tin Tức Công Ty', path: '/news/corporate-news' },
-      { name: 'Tin Tức Ngành', path: '/news/industry-dynamics' },
-    ],
+    path: '/news',
   },
   { name: 'Liên Hệ', path: '/contact' },
 ])

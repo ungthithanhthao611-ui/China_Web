@@ -413,6 +413,36 @@ export const ENTITY_MANAGER_CONFIGS = {
       project_id: 'projects',
     },
   },
+  project_products: {
+    label: 'Mapping Dự Án - Sản Phẩm',
+    eyebrow: 'Project to product mapping',
+    description: 'Liên kết sản phẩm sử dụng trong từng dự án để section public "Sản phẩm sử dụng" render hoàn toàn từ CMS.',
+    titleField: 'id',
+    pageSize: 25,
+    table: ['id', 'project_id', 'product_id', 'sort_order', 'note'],
+    required: ['project_id', 'product_id'],
+    fields: ['project_id', 'product_id', 'sort_order', 'note'],
+    preview: () => '',
+    fieldLabels: {
+      project_id: 'Dự Án',
+      product_id: 'Sản Phẩm',
+      sort_order: 'Thứ Tự Hiển Thị',
+      note: 'Ghi Chú Ứng Dụng',
+    },
+    placeholders: {
+      note: 'Ví dụ: Dùng cho khu vực sảnh chính, vách trang trí, trần hành lang...',
+    },
+    helpText: {
+      project_id: 'Chọn dự án cần gắn sản phẩm.',
+      product_id: 'Chọn sản phẩm thực tế đã sử dụng trong dự án này.',
+      sort_order: 'Dùng 10, 20, 30... để kiểm soát thứ tự card ở trang chi tiết dự án.',
+      note: 'Ghi chú ngắn để mô tả ngữ cảnh ứng dụng của sản phẩm trong công trình.',
+    },
+    relationEntities: {
+      project_id: 'projects',
+      product_id: 'products',
+    },
+  },
   entity_media: {
     label: 'Project Media Groups',
     eyebrow: 'Entity media binding',
@@ -635,42 +665,16 @@ export const ENTITY_MANAGER_CONFIGS = {
       admin_response: 'Thông tin này hiện chỉ hiển thị trong quản trị để bạn theo dõi lịch sử xử lý yêu cầu.',
     },
   },
-  // ─── News ─────────────────────────────────────────────────────────────────
-  news_categories: {
-    label: 'Danh Mục Tin Tức',
-    eyebrow: 'News taxonomy',
-    description: 'Quản lý danh mục tin tức.',
-    titleField: 'name',
-    editorPresentation: 'modal',
-    table: ['id', 'name', 'slug', 'sort_order', 'status'],
-    required: ['name', 'slug'],
-    fields: ['name', 'slug', 'description', 'parent_id', 'sort_order', 'status'],
-    statusOptions: CATEGORY_STATUS_OPTIONS,
-    defaultStatus: 'active',
-    fieldLabels: {
-      name: 'Tên Danh Mục',
-      slug: 'Slug (URL)',
-      description: 'Mô Tả',
-      parent_id: 'Danh Mục Cha',
-      sort_order: 'Thứ Tự',
-      status: 'Trạng Thái',
-    },
-    placeholders: {
-      name: 'Ví dụ: Tin Công Ty',
-      slug: 'Ví dụ: corporate-news',
-      description: 'Mô tả ngắn cho danh mục.',
-    },
-  },
   news_posts: {
     label: 'Quản Lý Bài Viết',
     eyebrow: 'News management',
-    description: 'Quản lý bài viết tin tức. Có thể tạo, chỉnh sửa, xuất bản, và xóa bài viết.',
+    description: 'Quản lý bài viết tin tức theo mô hình danh sách + chi tiết, không sử dụng category ở website public.',
     titleField: 'title',
     table: ['id', 'title', 'slug', 'status', 'is_featured', 'published_at', 'created_at'],
     required: ['title', 'slug'],
     fields: [
       'title', 'slug', 'summary', 'content', 'content_json',
-      'thumbnail_url', 'image_id', 'category_id', 'author',
+      'thumbnail_url', 'image_id', 'author',
       'status', 'is_featured', 'published_at',
       'meta_title', 'meta_description', 'sort_order',
     ],
@@ -684,7 +688,6 @@ export const ENTITY_MANAGER_CONFIGS = {
       content_json: 'Nội Dung (Block Editor)',
       thumbnail_url: 'Ảnh Thumbnail (URL)',
       image_id: 'Ảnh Thumbnail (Media)',
-      category_id: 'Danh Mục',
       author: 'Tác Giả',
       status: 'Trạng Thái',
       is_featured: 'Nổi Bật',
@@ -798,16 +801,17 @@ export const ENTITY_MANAGER_CONFIGS = {
 
 export const ADMIN_SECTION_GROUPS = [
   { title: 'TỔNG QUAN', items: [{ key: 'dashboard', label: 'Bảng Điều Khiển' }] },
-  { title: 'CẤU HÌNH HỆ THỐNG', items: [
-    { key: 'navigation', label: 'Menu Điều Hướng' },
-    { key: 'site_settings', label: 'Cài Đặt Website (Tên, Logo, Slogan)' },
-    { key: 'banners', label: 'Banner & Slider' },
-  ]},
+  {
+    title: 'CẤU HÌNH HỆ THỐNG',
+    items: [
+      { key: 'navigation', label: 'Menu Điều Hướng' },
+      { key: 'site_settings', label: 'Cài Đặt Website (Tên, Logo, Slogan)' },
+      { key: 'banners', label: 'Banner & Slider' },
+    ],
+  },
   {
     title: 'GIỚI THIỆU CÔNG TY (ABOUT)',
-    items: [
-      { key: 'content_block_items', label: 'Quản lý toàn bộ trang Giới thiệu' },
-    ],
+    items: [{ key: 'content_block_items', label: 'Quản lý toàn bộ trang Giới thiệu' }],
   },
   {
     title: 'NĂNG LỰC',
@@ -816,9 +820,7 @@ export const ADMIN_SECTION_GROUPS = [
         key: 'honors',
         label: 'Chứng Nhận & Năng Lực',
         description: 'Quản lý Chứng nhận (ISO, CE), Hình ảnh nhà máy, Công nghệ, Công suất.',
-        children: [
-          { key: 'media_assets', label: 'Thư Viện Ảnh Nhà Máy' },
-        ],
+        children: [{ key: 'media_assets', label: 'Thư Viện Ảnh Nhà Máy' }],
       },
     ],
   },
@@ -839,6 +841,7 @@ export const ADMIN_SECTION_GROUPS = [
         children: [
           { key: 'project_categories', label: 'Danh Mục Dự Án' },
           { key: 'project_category_items', label: 'Phân Loại Dự Án' },
+          { key: 'project_products', label: 'Sản Phẩm Sử Dụng' },
           { key: 'entity_media', label: 'Thư Viện Ảnh Dự Án' },
         ],
       },
@@ -857,9 +860,6 @@ export const ADMIN_SECTION_GROUPS = [
       {
         key: 'news_posts',
         label: 'Quản Lý Bài Viết',
-        children: [
-          { key: 'news_categories', label: 'Danh Mục Tin Tức' },
-        ],
       },
     ],
   },

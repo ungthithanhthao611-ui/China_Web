@@ -93,13 +93,12 @@ export function getVideos(query = {}) {
 
 // ─── News ─────────────────────────────────────────────────────────────────
 
-export function getNewsList({ skip, limit, keyword, categorySlug, ...query } = {}) {
+export function getNewsList({ skip, limit, keyword, ...query } = {}) {
   return fetchJson('/public/news', {
     query: withLanguage({
       skip,
       limit,
       keyword,
-      category_slug: categorySlug,
       ...query,
     }),
   })
@@ -107,8 +106,4 @@ export function getNewsList({ skip, limit, keyword, categorySlug, ...query } = {
 
 export function getNewsDetail(slug, query = {}) {
   return fetchJson(`/public/news/${slug}`, { query: withLanguage(query) })
-}
-
-export function getNewsCategories(query = {}) {
-  return fetchJson('/public/news/categories', { query: withLanguage(query) })
 }

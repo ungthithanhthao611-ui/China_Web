@@ -95,18 +95,6 @@ const clientRoutes = [
     path: 'news',
     name: 'News',
     component: () => import('@/views/user/news/NewsListPage.vue'),
-    children: [
-      {
-        path: 'corporate-news',
-        name: 'CorporateNews',
-        component: () => import('@/views/user/news/NewsListPage.vue'),
-      },
-      {
-        path: 'industry-dynamics',
-        name: 'IndustryNews',
-        component: () => import('@/views/user/news/NewsListPage.vue'),
-      },
-    ],
   },
   {
     path: 'news/:slug',

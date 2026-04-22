@@ -79,7 +79,7 @@ const defaultSlides = [
     subtitle: 'Cái nhìn rõ nét hơn về những gì đội ngũ đang xây dựng.',
     body: 'Theo dõi các mốc quan trọng của dự án, sự phát triển của công ty và các thông báo ngành từ THIÊN ĐỒNG VIỆT NAM.',
     buttonText: 'Đọc Tin Tức',
-    link: '/news/corporate-news',
+    link: '/news',
   },
   {
     type: 'video',

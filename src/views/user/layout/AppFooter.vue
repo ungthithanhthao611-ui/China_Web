@@ -52,10 +52,9 @@ const fallbackFooterGroups = [
   },
   {
     title: 'Tin Tức',
-    titlePath: '/news/corporate-news',
+    titlePath: '/news',
     links: [
-      { name: 'Tin Tức Công Ty', path: '/news/corporate-news' },
-      { name: 'Tin Tức Ngành', path: '/news/industry-dynamics' },
+      { name: 'Tin Tức Mới Nhất', path: '/news' },
     ],
   },
   {

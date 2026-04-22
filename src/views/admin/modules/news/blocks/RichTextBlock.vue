@@ -5,7 +5,7 @@
 </template>
 
 <script setup>
-import { computed, onBeforeUnmount, watch } from 'vue'
+import { computed, nextTick, onBeforeUnmount, onMounted, watch } from 'vue'
 import { Editor, EditorContent } from '@tiptap/vue-3'
 import { createBlockEditorExtensions } from '../editor/newsEditorHelpers'
 
@@ -26,6 +26,20 @@ const props = defineProps({
 
 const emit = defineEmits(['update'])
 
+function measureContentHeight(instance) {
+  const dom = instance?.view?.dom
+  if (!dom) return 0
+  return Math.ceil(dom.scrollHeight)
+}
+
+function emitEditorPayload(instance) {
+  if (!instance) return
+  emit('update', {
+    html: instance.getHTML(),
+    contentHeight: measureContentHeight(instance),
+  })
+}
+
 const editor = new Editor({
   extensions: createBlockEditorExtensions(),
   content: props.block.content || '<p></p>',
@@ -35,7 +49,7 @@ const editor = new Editor({
     },
   },
   onUpdate: ({ editor: instance }) => {
-    emit('update', instance.getHTML())
+    emitEditorPayload(instance)
   },
 })
 
@@ -44,6 +58,9 @@ const content = computed(() => props.block.content || '<p></p>')
 watch(content, (value) => {
   if (value !== editor.getHTML()) {
     editor.commands.setContent(value, false)
+    nextTick(() => {
+      emitEditorPayload(editor)
+    })
   }
 })
 
@@ -62,8 +79,17 @@ watch(
     if (content.value !== editor.getHTML()) {
       editor.commands.setContent(content.value, false)
     }
+    nextTick(() => {
+      emitEditorPayload(editor)
+    })
   },
 )
+
+onMounted(() => {
+  nextTick(() => {
+    emitEditorPayload(editor)
+  })
+})
 
 onBeforeUnmount(() => {
   editor.destroy()
@@ -77,23 +103,24 @@ defineExpose({
 <style scoped>
 .rich-text-block {
   width: 100%;
-  height: 100%;
+  min-height: 100%;
 }
 
 .rich-text-block__content {
   width: 100%;
-  height: 100%;
+  min-height: 100%;
 }
 
 :deep(.ProseMirror) {
   width: 100%;
-  height: 100%;
-  min-height: 100%;
+  height: auto;
+  min-height: 90px;
   padding: 12px 14px;
   outline: none;
   color: #0f172a;
-  overflow: auto;
+  overflow: hidden;
   box-sizing: border-box;
+  word-break: break-word;
 }
 
 :deep(.ProseMirror p) {

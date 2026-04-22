@@ -1,7 +1,7 @@
 <script setup>
-import { onMounted, ref, watch } from 'vue'
+import { computed, onMounted, ref, watch } from 'vue'
 import { useRoute } from 'vue-router'
-import { ArrowLeft, MapPin, CalendarDays } from 'lucide-vue-next'
+import { ArrowLeft, MapPin, CalendarDays, Package2, ArrowUpRight } from 'lucide-vue-next'
 import { getProjectDetail } from '@/views/user/services/publicApi'
 import { uiState } from '@/shared/utils/uiState'
 
@@ -13,6 +13,7 @@ const error = ref(null)
 
 const imageUrl = (media) => media?.url || ''
 const galleryUrl = (item) => item?.media?.url || ''
+const usedProducts = computed(() => project.value?.used_products || [])
 
 const formatYear = (value) => {
   if (!value) return ''
@@ -139,13 +140,67 @@ onMounted(() => {
           </article>
 
           <aside class="project-side-card">
-            <h2>Overview</h2>
+            <div class="project-side-card__header">
+              <span class="project-side-card__eyebrow">Project Overview</span>
+              <h2>Tổng quan dự án</h2>
+            </div>
             <p>
-              This project detail is now loaded directly from the backend public API by slug,
-              so the page can be managed from CMS instead of hard-coded mock data.
+              Nội dung dự án được tải trực tiếp từ CMS/public API. Khi dữ liệu mapping được khai báo,
+              phần sản phẩm sử dụng bên dưới sẽ hiển thị hoàn toàn động theo từng dự án.
             </p>
             <router-link to="/projects" class="project-back-link">Explore all projects</router-link>
           </aside>
+        </div>
+      </section>
+
+      <section class="project-products">
+        <div class="container">
+          <div class="project-products__heading">
+            <div>
+              <span class="project-products__eyebrow">Mapping Product</span>
+              <h2>Sản phẩm sử dụng</h2>
+              <p>
+                Theo requirement, mỗi dự án cần thể hiện rõ các sản phẩm đã ứng dụng trong công trình.
+              </p>
+            </div>
+          </div>
+
+          <div v-if="usedProducts.length" class="project-products__grid">
+            <article v-for="item in usedProducts" :key="item.id" class="used-product-card">
+              <div class="used-product-card__media">
+                <img v-if="item.image_url" :src="item.image_url" :alt="item.name" />
+                <div v-else class="used-product-card__placeholder">
+                  <Package2 :size="28" />
+                  <span>CMS image pending</span>
+                </div>
+              </div>
+
+              <div class="used-product-card__body">
+                <div class="used-product-card__meta">
+                  <span class="used-product-card__order">#{{ item.sort_order ?? 0 }}</span>
+                </div>
+                <h3>{{ item.name }}</h3>
+                <p v-if="item.short_desc">{{ item.short_desc }}</p>
+                <p v-else class="used-product-card__fallback">
+                  Chưa có mô tả ngắn cho sản phẩm này trong CMS.
+                </p>
+                <p v-if="item.note" class="used-product-card__note">{{ item.note }}</p>
+                <router-link :to="item.href || `/products/${item.slug}`" class="used-product-card__link">
+                  Xem chi tiết sản phẩm
+                  <ArrowUpRight :size="16" />
+                </router-link>
+              </div>
+            </article>
+          </div>
+
+          <div v-else class="project-products__empty">
+            <Package2 :size="30" />
+            <h3>Chưa có dữ liệu mapping sản phẩm</h3>
+            <p>
+              File Excel hiện chưa có dữ liệu dự án thực tế, nên section này đang chờ business bổ sung
+              mapping Project → Product trong CMS.
+            </p>
+          </div>
         </div>
       </section>
 
@@ -353,62 +408,176 @@ onMounted(() => {
   color: #18274b;
 }
 
-.project-side-card {
-  position: sticky;
-  top: 120px;
-  padding: 26px 22px;
+.project-side-card__header {
+  margin-bottom: 14px;
 }
 
-.project-side-card h2 {
-  margin: 0 0 16px;
-  color: #1d273a;
-  font-size: 1.45rem;
-}
-
-.project-side-card p {
-  color: #667085;
-  line-height: 1.8;
-}
-
-.project-back-link {
-  display: inline-flex;
-  align-items: center;
-  gap: 8px;
-  margin-top: 18px;
+.project-side-card__eyebrow {
+  display: inline-block;
+  margin-bottom: 8px;
   color: #ce0021;
-  font-weight: 600;
+  font-size: 0.78rem;
+  font-weight: 700;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
 }
 
-.project-back-link--hero {
-  margin-top: 0;
-  margin-bottom: 24px;
-  color: rgba(255, 255, 255, 0.9);
+.project-products {
+  padding: 0 0 64px;
 }
 
-.project-gallery {
-  padding: 0 0 88px;
-}
-
-.project-gallery__heading {
+.project-products__heading {
+  display: flex;
+  justify-content: space-between;
+  gap: 24px;
   margin-bottom: 26px;
-  text-align: center;
 }
 
-.project-gallery__heading h2 {
+.project-products__eyebrow {
+  display: inline-block;
+  margin-bottom: 10px;
+  color: #ce0021;
+  font-size: 0.8rem;
+  font-weight: 700;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+}
+
+.project-products__heading h2 {
   margin: 0 0 10px;
   color: #1d273a;
   font-size: clamp(1.8rem, 3vw, 2.6rem);
 }
 
-.project-gallery__heading p {
+.project-products__heading p {
+  max-width: 720px;
   margin: 0;
   color: #667085;
+  line-height: 1.8;
 }
 
-.project-gallery__grid {
+.project-products__grid {
   display: grid;
   grid-template-columns: repeat(3, minmax(0, 1fr));
   gap: 22px;
+}
+
+.used-product-card {
+  overflow: hidden;
+  border: 1px solid rgba(24, 39, 75, 0.08);
+  border-radius: 22px;
+  background: rgba(255, 255, 255, 0.96);
+  box-shadow: 0 24px 60px rgba(14, 26, 52, 0.08);
+  transition:
+    transform 0.28s ease,
+    box-shadow 0.28s ease,
+    border-color 0.28s ease;
+}
+
+.used-product-card:hover {
+  transform: translateY(-6px);
+  border-color: rgba(206, 0, 33, 0.18);
+  box-shadow: 0 30px 70px rgba(14, 26, 52, 0.12);
+}
+
+.used-product-card__media {
+  position: relative;
+  aspect-ratio: 4 / 3;
+  background: linear-gradient(180deg, #f8fafc 0%, #eef2f6 100%);
+}
+
+.used-product-card__media img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.used-product-card__placeholder {
+  display: flex;
+  height: 100%;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+  color: #667085;
+}
+
+.used-product-card__body {
+  display: flex;
+  min-height: 220px;
+  flex-direction: column;
+  padding: 22px;
+}
+
+.used-product-card__meta {
+  margin-bottom: 10px;
+}
+
+.used-product-card__order {
+  display: inline-flex;
+  align-items: center;
+  border-radius: 999px;
+  background: rgba(206, 0, 33, 0.08);
+  color: #b21734;
+  padding: 6px 10px;
+  font-size: 0.8rem;
+  font-weight: 700;
+}
+
+.used-product-card h3 {
+  margin: 0 0 12px;
+  color: #1d273a;
+  font-size: 1.2rem;
+}
+
+.used-product-card p {
+  margin: 0 0 12px;
+  color: #667085;
+  line-height: 1.75;
+}
+
+.used-product-card__fallback {
+  font-style: italic;
+}
+
+.used-product-card__note {
+  padding: 12px 14px;
+  border-radius: 14px;
+  background: linear-gradient(180deg, #fff7f8 0%, #fff1f3 100%);
+  color: #7a2231;
+}
+
+.used-product-card__link {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  margin-top: auto;
+  color: #ce0021;
+  font-weight: 700;
+}
+
+.project-products__empty {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 12px;
+  padding: 32px 24px;
+  border: 1px dashed rgba(24, 39, 75, 0.16);
+  border-radius: 22px;
+  background: rgba(255, 255, 255, 0.72);
+  text-align: center;
+}
+
+.project-products__empty h3 {
+  margin: 0;
+  color: #1d273a;
+}
+
+.project-products__empty p {
+  max-width: 700px;
+  margin: 0;
+  color: #667085;
+  line-height: 1.8;
 }
 
 .gallery-card {
@@ -441,6 +610,7 @@ onMounted(() => {
     position: static;
   }
 
+  .project-products__grid,
   .project-gallery__grid {
     grid-template-columns: repeat(2, minmax(0, 1fr));
   }
@@ -461,8 +631,18 @@ onMounted(() => {
     flex-direction: column;
   }
 
+  .project-products__heading {
+    display: block;
+  }
+
+  .project-products__grid,
   .project-gallery__grid {
     grid-template-columns: 1fr;
   }
+
+  .used-product-card__body {
+    min-height: auto;
+  }
 }
 </style>
+

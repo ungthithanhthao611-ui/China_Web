@@ -42,22 +42,6 @@
         @indent-up="liftListItem"
       />
 
-      <div v-if="crawlNotice" class="news-editor-notice" :class="`news-editor-notice--${crawlNotice.type}`">
-        <div class="news-editor-notice__icon">{{ crawlNotice.type === 'warning' ? '⚠' : 'ℹ' }}</div>
-        <div class="news-editor-notice__content">
-          <p class="news-editor-notice__title">{{ crawlNotice.title }}</p>
-          <p class="news-editor-notice__description">{{ crawlNotice.description }}</p>
-        </div>
-        <button
-          type="button"
-          class="news-editor-notice__close"
-          aria-label="Đóng thông báo crawl"
-          @click="crawlNotice = null"
-        >
-          <X :size="16" />
-        </button>
-      </div>
-
       <div class="news-editor-body">
         <div class="news-editor-canvas" @click="clearSelection">
           <div class="news-editor-stage">
@@ -153,6 +137,15 @@
                   <option value="draft">Draft</option>
                   <option value="published">Published</option>
                 </select>
+              </label>
+
+              <label class="sidebar-field">
+                <span>Published At</span>
+                <input
+                  :value="store.post.publishedAt || ''"
+                  type="datetime-local"
+                  @input="store.setPost({ publishedAt: $event.target.value })"
+                />
               </label>
             </div>
 
@@ -335,7 +328,6 @@ const API_BASE = import.meta.env.VITE_API_BASE_URL || ''
 const isEdit = computed(() => !!route.params.id)
 const isCrawling = ref(false)
 const saveStatus = ref('idle')
-const crawlNotice = ref(null)
 const postImageInputRef = ref(null)
 const blockImageInputRef = ref(null)
 const uploadedImages = ref([])
@@ -372,6 +364,7 @@ const canvasHeight = computed(() => {
   const maxBottom = Math.max(...store.blocks.map((block) => block.y + block.h))
   return Math.max(1400, maxBottom + 280)
 })
+const BLOCK_FLOW_GAP = 24
 
 function clampNumber(value, min, max, fallback) {
   const numeric = Number(value)
@@ -379,12 +372,25 @@ function clampNumber(value, min, max, fallback) {
   return Math.min(max, Math.max(min, numeric))
 }
 
+function getBlockMinHeight(type) {
+  if (type === 'heading') return 110
+  if (type === 'text') return 130
+  if (type === 'image') return 220
+  if (type === 'gallery') return 240
+  return 100
+}
+
+function getNextBlockY() {
+  if (!store.blocks.length) return 80
+  const maxBottom = Math.max(...store.blocks.map((block) => block.y + block.h))
+  return maxBottom + BLOCK_FLOW_GAP
+}
+
 function createBaseBlock(type, overrides = {}) {
-  const index = store.blocks.length
   const defaults = {
     text: {
       w: 760,
-      h: 180,
+      h: getBlockMinHeight('text'),
       content: '<p>Start writing here...</p>',
       props: {
         fontSize: 16,
@@ -392,11 +398,12 @@ function createBaseBlock(type, overrides = {}) {
         fontFamily: FONT_FAMILIES[0].value,
         textAlign: 'left',
         lineHeight: 1.7,
+        autoHeight: true,
       },
     },
     heading: {
       w: 760,
-      h: 140,
+      h: getBlockMinHeight('heading'),
       content: '<h1>Heading</h1>',
       props: {
         fontSize: 36,
@@ -405,6 +412,7 @@ function createBaseBlock(type, overrides = {}) {
         textAlign: 'left',
         lineHeight: 1.25,
         fontWeight: '700',
+        autoHeight: true,
       },
     },
     image: {
@@ -437,20 +445,20 @@ function createBaseBlock(type, overrides = {}) {
     id: `block-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
     type,
     x: 80,
-    y: 80 + index * 60,
+    y: getNextBlockY(),
     ...defaults[type],
     ...overrides,
   }
 }
 
 function normalizeLoadedBlocks(blocks = []) {
-  return (blocks || []).map((block, index) => {
+  const normalized = (blocks || []).map((block, index) => {
     const base = createBaseBlock(block.type || 'text', {
       id: block.id || `block-loaded-${index}`,
       x: block.x ?? 80,
-      y: block.y ?? 80 + index * 40,
+      y: block.y ?? getNextBlockY(),
       w: block.w ?? 760,
-      h: block.h ?? 180,
+      h: block.h ?? getBlockMinHeight(block.type || 'text'),
       content: block.content ?? '',
       props: {
         ...(createBaseBlock(block.type || 'text').props || {}),
@@ -462,6 +470,31 @@ function normalizeLoadedBlocks(blocks = []) {
       ...block,
       props: base.props,
     }
+  })
+  return compactBlocksLayout(normalized)
+}
+
+function compactBlocksLayout(blocks = []) {
+  const pageWidth = Number(store.pageConfig.width || 1000)
+  const sortedBlocks = [...(blocks || [])]
+    .sort((a, b) => (Number(a?.y || 0) - Number(b?.y || 0)) || (Number(a?.x || 0) - Number(b?.x || 0)))
+
+  let cursorY = 80
+  return sortedBlocks.map((block) => {
+    const minHeight = getBlockMinHeight(block.type)
+    const width = clampNumber(block.w, 180, Math.max(180, pageWidth - 40), 760)
+    const maxX = Math.max(20, pageWidth - width - 20)
+    const safeX = clampNumber(block.x, 20, maxX, 20)
+    const height = Math.max(minHeight, Number(block.h) || minHeight)
+    const nextBlock = {
+      ...block,
+      x: safeX,
+      w: width,
+      h: height,
+      y: cursorY,
+    }
+    cursorY += height + BLOCK_FLOW_GAP
+    return nextBlock
   })
 }
 
@@ -526,8 +559,51 @@ function closeToolbarMenus() {
   })
 }
 
-function updateBlockContent(id, html) {
-  store.updateBlock(id, { content: html }, true)
+function shiftFollowingBlocks(anchorId, oldBottom, deltaHeight) {
+  if (Math.abs(deltaHeight) < 2) return
+  const followingBlocks = store.blocks
+    .filter((item) => item.id !== anchorId && item.y >= oldBottom - 2)
+    .sort((a, b) => a.y - b.y)
+
+  for (const block of followingBlocks) {
+    store.updateBlock(block.id, { y: Math.max(0, block.y + deltaHeight) }, true)
+  }
+}
+
+function updateBlockContent(id, payload) {
+  const block = store.blocks.find((item) => item.id === id)
+  if (!block) return
+
+  const html = typeof payload === 'string'
+    ? payload
+    : (payload?.html ?? block.content ?? '<p></p>')
+  const measuredHeight = Number(payload?.contentHeight)
+  const shouldAutoFit = isRichTextBlock(block) && block?.props?.autoHeight !== false
+
+  let nextHeight = block.h
+  if (shouldAutoFit && Number.isFinite(measuredHeight) && measuredHeight > 0) {
+    nextHeight = clampNumber(
+      Math.ceil(measuredHeight + 8),
+      getBlockMinHeight(block.type),
+      2600,
+      getBlockMinHeight(block.type),
+    )
+  }
+
+  const contentChanged = html !== block.content
+  const heightChanged = Math.abs(nextHeight - block.h) >= 2
+  if (!contentChanged && !heightChanged) return
+
+  const oldBottom = block.y + block.h
+  const updates = { content: html }
+  if (heightChanged) {
+    updates.h = nextHeight
+  }
+  store.updateBlock(id, updates, true)
+
+  if (heightChanged) {
+    shiftFollowingBlocks(id, oldBottom, nextHeight - block.h)
+  }
 }
 
 function updateBlockProps(id, props) {
@@ -653,10 +729,11 @@ function addTextBlock() {
 }
 
 function addImageBlock(src) {
+  const baseImageBlock = createBaseBlock('image')
   const block = createBaseBlock('image', {
     props: {
-      ...createBaseBlock('image').props,
-      src: src || createBaseBlock('image').props.src,
+      ...baseImageBlock.props,
+      src: src || baseImageBlock.props.src,
     },
   })
   store.addBlock(block)
@@ -820,6 +897,7 @@ let resizeState = null
 function startResize(event, block) {
   resizeState = {
     id: block.id,
+    type: block.type,
     startX: event.clientX,
     startY: event.clientY,
     width: block.w,
@@ -833,9 +911,10 @@ function onResize(event) {
   if (!resizeState) return
   const deltaX = event.clientX - resizeState.startX
   const deltaY = event.clientY - resizeState.startY
+  const minHeight = getBlockMinHeight(resizeState.type)
   store.updateBlock(resizeState.id, {
     w: Math.max(180, resizeState.width + deltaX),
-    h: Math.max(100, resizeState.height + deltaY),
+    h: Math.max(minHeight, resizeState.height + deltaY),
   }, true)
 }
 
@@ -869,6 +948,81 @@ function handleRedo() {
   }, 10)
 }
 
+function toDatetimeLocal(value) {
+  if (!value) return ''
+  const date = new Date(value)
+  if (Number.isNaN(date.getTime())) return ''
+  const offsetMinutes = date.getTimezoneOffset()
+  const localDate = new Date(date.getTime() - offsetMinutes * 60 * 1000)
+  return localDate.toISOString().slice(0, 16)
+}
+
+function toApiDatetime(value) {
+  if (!value) return null
+  const date = new Date(value)
+  if (Number.isNaN(date.getTime())) return null
+  return date.toISOString()
+}
+
+function escapeHtml(value) {
+  return String(value || '')
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+    .replace(/'/g, '&#39;')
+}
+
+function renderBlocksToHtml(blocks = []) {
+  const normalizedBlocks = Array.isArray(blocks)
+    ? [...blocks].sort((a, b) => (Number(a?.y || 0) - Number(b?.y || 0)) || (Number(a?.x || 0) - Number(b?.x || 0)))
+    : []
+
+  if (!normalizedBlocks.length) return ''
+
+  const fragments = []
+  for (const block of normalizedBlocks) {
+    const type = String(block?.type || '').toLowerCase()
+    const props = block?.props || {}
+
+    if (type === 'text' || type === 'heading') {
+      if (block?.content) fragments.push(String(block.content))
+      continue
+    }
+
+    if (type === 'image') {
+      const src = String(props.src || '').trim()
+      if (!src) continue
+      const alt = escapeHtml(props.alt || '')
+      const caption = String(props.captionText || '').trim()
+      const figcaption = caption ? `<figcaption>${escapeHtml(caption)}</figcaption>` : ''
+      fragments.push(`<figure class="news-block-image"><img src="${escapeHtml(src)}" alt="${alt}" />${figcaption}</figure>`)
+      continue
+    }
+
+    if (type === 'gallery') {
+      const images = Array.isArray(props.images)
+        ? props.images
+        : (Array.isArray(props.items) ? props.items : [])
+      const items = images
+        .map((item) => {
+          const src = String(item?.src || '').trim()
+          if (!src) return ''
+          const alt = escapeHtml(item?.alt || '')
+          const caption = String(item?.caption || '').trim()
+          const figcaption = caption ? `<figcaption>${escapeHtml(caption)}</figcaption>` : ''
+          return `<figure class="news-block-gallery-item"><img src="${escapeHtml(src)}" alt="${alt}" />${figcaption}</figure>`
+        })
+        .filter(Boolean)
+      if (items.length) {
+        fragments.push(`<section class="news-block-gallery">${items.join('')}</section>`)
+      }
+    }
+  }
+
+  return fragments.length ? `<article class="news-workflow-content">${fragments.join('')}</article>` : ''
+}
+
 async function loadPost() {
   if (!isEdit.value) return
   try {
@@ -879,6 +1033,7 @@ async function loadPost() {
       summary: data.summary || '',
       thumbnailUrl: data.thumbnail_url || '',
       status: data.status || 'draft',
+      publishedAt: toDatetimeLocal(data.published_at),
     })
     if (data.content_json) {
       const contentJson = typeof data.content_json === 'string'
@@ -949,15 +1104,6 @@ async function handleCrawl(url) {
 
     if (json?.success && json?.data) {
       const blocks = normalizeLoadedBlocks(json.data.blocks || [])
-      const fallbackReason = json?.debug?.readability_error || ''
-      const usedFallback = Boolean(json?.debug?.used_fallback || fallbackReason)
-      crawlNotice.value = usedFallback
-        ? {
-            type: 'warning',
-            title: 'Đang dùng fallback parser',
-            description: `Nguồn này không parse bằng readability nên editor đang dùng bộ phân tích HTML dự phòng.${fallbackReason ? ` (${fallbackReason})` : ''}`,
-          }
-        : null
 
       store.setPost({
         title: json.data.title || 'Untitled',
@@ -965,6 +1111,7 @@ async function handleCrawl(url) {
         summary: json.data.excerpt || '',
         thumbnailUrl: json.data.thumbnail_url || '',
         status: 'draft',
+        publishedAt: '',
       })
       store.setBlocks(blocks, true)
 
@@ -979,13 +1126,13 @@ async function handleCrawl(url) {
       ? buildFetchFailureMessage(error)
       : (error?.message || 'Failed to fetch or parse URL.')
 
-    crawlNotice.value = null
     store.setPost({
       title: 'Failed to Crawl',
       slug: `error-${Date.now()}`,
       summary: message,
       thumbnailUrl: '',
       status: 'draft',
+      publishedAt: '',
     })
     store.setBlocks([])
     console.error('Crawl error:', error)
@@ -997,14 +1144,23 @@ async function handleCrawl(url) {
 
 async function handleSave() {
   saveStatus.value = 'saving'
+  let publishedAt = toApiDatetime(store.post.publishedAt)
+  if (store.post.status === 'published' && !publishedAt) {
+    const now = new Date().toISOString()
+    store.setPost({ publishedAt: toDatetimeLocal(now) })
+    publishedAt = now
+  }
+
+  const renderedContent = renderBlocksToHtml(store.blocks)
   const payload = {
     title: store.post.title,
     slug: store.post.slug,
     summary: store.post.summary,
     thumbnail_url: store.post.thumbnailUrl,
     status: store.post.status,
+    published_at: publishedAt,
     content_json: JSON.stringify({ page: store.pageConfig, blocks: store.blocks }),
-    content: '<p>Generated from block editor</p>',
+    content: renderedContent || '<p></p>',
   }
   try {
     if (isEdit.value) {
@@ -1064,7 +1220,6 @@ onMounted(async () => {
   store.setPageConfig({ width: 1000, background: '#ffffff' })
 
   if (isEdit.value) {
-    crawlNotice.value = null
     await loadPost()
   } else {
     const crawlUrl = route.query.crawl
@@ -1072,13 +1227,13 @@ onMounted(async () => {
     if (crawlUrl) {
       await handleCrawl(crawlUrl)
     } else {
-      crawlNotice.value = null
       store.setPost({
         title: 'Untitled',
         slug: `untitled-${Date.now()}`,
         summary: '',
         thumbnailUrl: '',
         status: 'draft',
+        publishedAt: '',
       })
       store.setBlocks([])
     }

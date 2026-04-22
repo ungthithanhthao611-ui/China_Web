@@ -1,175 +1,153 @@
 <script setup>
-import { computed, nextTick, onBeforeUnmount, onMounted, ref, watch } from 'vue'
-import { useRoute, useRouter } from 'vue-router'
-import { Swiper, SwiperSlide } from 'swiper/vue'
-import { Pagination } from 'swiper/modules'
-import AOS from 'aos'
-import { ChevronLeft, ChevronRight, Home } from 'lucide-vue-next'
-import { uiState } from '@/shared/utils/uiState'
-import { getNewsList } from '@/views/user/services/publicApi'
-import { newsCategoryMeta, newsHero } from './data/newsData'
+import { computed, nextTick, onBeforeUnmount, onMounted, ref } from "vue";
+import { Swiper, SwiperSlide } from "swiper/vue";
+import { Pagination } from "swiper/modules";
+import AOS from "aos";
+import { ChevronLeft, ChevronRight, Home } from "lucide-vue-next";
+import { uiState } from "@/shared/utils/uiState";
+import { getNewsList } from "@/views/user/services/publicApi";
+import { newsHero } from "./data/newsData";
 
-const route = useRoute()
-const router = useRouter()
+const pageSize = 6;
+const featuredSize = 2;
+const currentPage = ref(1);
+const listSection = ref(null);
 
-const pageSize = 6
-const featuredSize = 2
-const currentPage = ref(1)
-const breadcrumbSection = ref(null)
-const listSection = ref(null)
+const items = ref([]);
+const featured = ref([]);
+const total = ref(0);
+const loading = ref(false);
+const error = ref(null);
 
-const items = ref([])
-const featured = ref([])
-const total = ref(0)
-const loading = ref(false)
-const error = ref(null)
+const sliderModules = [Pagination];
+const featuredItems = computed(() => featured.value);
+const pagedItems = computed(() => items.value);
+const displayTotalPages = computed(() =>
+  Math.max(1, Math.ceil(total.value / pageSize)),
+);
 
-const activeCategoryKey = computed(() => (route.path.includes('/industry-dynamics') ? 'industry-dynamics' : 'corporate-news'))
-const activeCategory = computed(() => newsCategoryMeta[activeCategoryKey.value])
-const isEnterprise = computed(() => activeCategoryKey.value === 'corporate-news')
-const isIndustry = computed(() => activeCategoryKey.value === 'industry-dynamics')
-const sliderModules = [Pagination]
-
-const featuredItems = computed(() => featured.value)
-const pagedItems = computed(() => items.value)
-const displayTotalPages = computed(() => Math.max(1, Math.ceil(total.value / pageSize)))
-
-const imageUrl = (item) => item?.thumbnail_url || item?.image?.url || item?.image || ''
+const imageUrl = (item) =>
+  item?.thumbnail_url || item?.image?.url || item?.image || "";
 
 const paginationItems = computed(() => {
-  const t = displayTotalPages.value
-  const current = currentPage.value
+  const t = displayTotalPages.value;
+  const current = currentPage.value;
 
   if (t <= 6) {
-    return Array.from({ length: t }, (_, index) => index + 1)
+    return Array.from({ length: t }, (_, index) => index + 1);
   }
 
   if (current <= 4) {
-    return [1, 2, 3, 4, 'ellipsis-end', t]
+    return [1, 2, 3, 4, "ellipsis-end", t];
   }
 
   if (current >= t - 3) {
-    return [1, 'ellipsis-start', t - 3, t - 2, t - 1, t]
+    return [1, "ellipsis-start", t - 3, t - 2, t - 1, t];
   }
 
-  return [1, 'ellipsis-start', current - 1, current, current + 1, 'ellipsis-end', t]
-})
+  return [
+    1,
+    "ellipsis-start",
+    current - 1,
+    current,
+    current + 1,
+    "ellipsis-end",
+    t,
+  ];
+});
 
 const formatDate = (value) => {
-  if (!value) return ''
-  return new Intl.DateTimeFormat('en-CA', {
-    year: 'numeric',
-    month: '2-digit',
-    day: '2-digit'
-  }).format(new Date(value))
-}
+  if (!value) return "";
+  return new Intl.DateTimeFormat("en-CA", {
+    year: "numeric",
+    month: "2-digit",
+    day: "2-digit",
+  }).format(new Date(value));
+};
 
 function normalizeNewsItem(item = {}) {
   return {
     ...item,
-    category: item?.category || null,
-    content_html: item?.content_html || item?.content || '',
-    body: item?.body || item?.content || '',
-  }
+    content_html: item?.content_html || item?.content || "",
+    body: item?.body || item?.content || "",
+  };
 }
 
 async function fetchFeatured() {
   try {
-    const res = await getNewsList({ skip: 0, limit: featuredSize })
-    featured.value = Array.isArray(res?.items) ? res.items.map(normalizeNewsItem) : []
+    const res = await getNewsList({ skip: 0, limit: featuredSize });
+    featured.value = Array.isArray(res?.items)
+      ? res.items.map(normalizeNewsItem)
+      : [];
   } catch {
-    featured.value = []
+    featured.value = [];
   }
 }
 
 async function fetchPage() {
-  loading.value = true
-  error.value = null
+  loading.value = true;
+  error.value = null;
 
   try {
-    const skip = (currentPage.value - 1) * pageSize
-    const res = await getNewsList({ skip, limit: pageSize })
-    items.value = Array.isArray(res?.items) ? res.items.map(normalizeNewsItem) : []
-    total.value = Number(res?.total || 0)
+    const skip = (currentPage.value - 1) * pageSize;
+    const res = await getNewsList({ skip, limit: pageSize });
+    items.value = Array.isArray(res?.items)
+      ? res.items.map(normalizeNewsItem)
+      : [];
+    total.value = Number(res?.total || 0);
   } catch (err) {
-    error.value = err?.message || 'Failed to load news'
-    items.value = []
-    total.value = 0
+    error.value = err?.message || "Failed to load news";
+    items.value = [];
+    total.value = 0;
   } finally {
-    loading.value = false
+    loading.value = false;
   }
 }
 
 const refreshAnimations = async () => {
-  await nextTick()
-  AOS.refreshHard()
-}
+  await nextTick();
+  AOS.refreshHard();
+};
 
 const scrollToSection = (target) => {
-  if (!target) return
-  const top = target.getBoundingClientRect().top + window.scrollY - 16
-  window.scrollTo({ top, behavior: 'smooth' })
-}
-
-const activateCategory = async (key) => {
-  if (key === activeCategoryKey.value) {
-    scrollToSection(breadcrumbSection.value)
-    return
-  }
-
-  currentPage.value = 1
-  await router.push(newsCategoryMeta[key].route)
-  await refreshAnimations()
-  scrollToSection(breadcrumbSection.value)
-}
+  if (!target) return;
+  const top = target.getBoundingClientRect().top + window.scrollY - 16;
+  window.scrollTo({ top, behavior: "smooth" });
+};
 
 const goToPage = async (page) => {
-  if (page < 1 || page > displayTotalPages.value || page === currentPage.value) return
-  currentPage.value = page
-  await fetchPage()
-  await refreshAnimations()
-  scrollToSection(listSection.value)
-}
+  if (page < 1 || page > displayTotalPages.value || page === currentPage.value)
+    return;
+  currentPage.value = page;
+  await fetchPage();
+  await refreshAnimations();
+  scrollToSection(listSection.value);
+};
 
-const animationDelay = (index) => `${index * 100}`
-
-const syncHeaderVisibility = () => {
-  if (isIndustry.value) {
-    uiState.isHeaderHidden = window.scrollY > 100
-    return
-  }
-  uiState.isHeaderHidden = false
-}
-
-watch(
-  activeCategoryKey,
-  async () => {
-    currentPage.value = 1
-    syncHeaderVisibility()
-    await Promise.all([fetchFeatured(), fetchPage()])
-    await refreshAnimations()
-  },
-  { immediate: true }
-)
+const animationDelay = (index) => `${index * 100}`;
 
 onMounted(async () => {
-  uiState.isHeaderHovered = false
-  uiState.isFooterHidden = false
-  syncHeaderVisibility()
-  window.addEventListener('scroll', syncHeaderVisibility, { passive: true })
-})
+  uiState.isHeaderHovered = false;
+  uiState.isHeaderHidden = false;
+  uiState.isFooterHidden = false;
+  await Promise.all([fetchFeatured(), fetchPage()]);
+  await refreshAnimations();
+});
 
 onBeforeUnmount(() => {
-  window.removeEventListener('scroll', syncHeaderVisibility)
-  uiState.isHeaderHidden = false
-})
+  uiState.isHeaderHidden = false;
+});
 </script>
 
 <template>
   <div class="news-center-page">
     <section class="news-hero">
       <div class="hero-media">
-        <img class="hero-banner hero-banner--pc" :src="newsHero.bannerImage" :alt="newsHero.title" />
+        <img
+          class="hero-banner hero-banner--pc"
+          :src="newsHero.bannerImage"
+          :alt="newsHero.title"
+        />
         <img
           class="hero-banner hero-banner--mobile"
           :src="newsHero.mobileBannerImage"
@@ -191,28 +169,7 @@ onBeforeUnmount(() => {
       </div>
     </section>
 
-    <section class="hero-tabs-bar">
-      <div class="news-shell">
-        <nav class="hero-tabs">
-          <button
-            type="button"
-            :class="{ active: isEnterprise }"
-            @click="activateCategory('corporate-news')"
-          >
-            {{ newsCategoryMeta['corporate-news'].label }}
-          </button>
-          <button
-            type="button"
-            :class="{ active: !isEnterprise }"
-            @click="activateCategory('industry-dynamics')"
-          >
-            {{ newsCategoryMeta['industry-dynamics'].label }}
-          </button>
-        </nav>
-      </div>
-    </section>
-
-    <section ref="breadcrumbSection" class="news-breadcrumb">
+    <section class="news-breadcrumb">
       <div class="news-shell breadcrumb-shell">
         <div class="breadcrumb-list">
           <router-link to="/">
@@ -220,23 +177,13 @@ onBeforeUnmount(() => {
             <span>Home</span>
           </router-link>
           <span class="separator">></span>
-          <template v-if="isEnterprise">
-            <button type="button" @click="activateCategory('corporate-news')">News</button>
-          </template>
-          <template v-else>
-            <router-link :to="newsCategoryMeta['industry-dynamics'].breadcrumbParentRoute">
-              {{ newsCategoryMeta['industry-dynamics'].breadcrumbParentLabel }}
-            </router-link>
-          </template>
-          <span class="separator">></span>
-          <span class="current">{{ activeCategory.label }}</span>
+          <span class="current">News</span>
         </div>
       </div>
 
-      <div v-if="isEnterprise" class="breadcrumb-decoration">
+      <div class="breadcrumb-decoration">
         <img :src="newsHero.breadcrumbImage" alt="News decoration" />
       </div>
-      <div v-else class="industry-strip"></div>
     </section>
 
     <section
@@ -247,10 +194,10 @@ onBeforeUnmount(() => {
       <div class="news-shell featured-shell">
         <header class="section-heading" data-aos="fade-down">
           <div class="section-heading-top">
-            <h2>{{ activeCategory.heading }}</h2>
+            <h2>News Center</h2>
             <img :src="newsHero.sectionDecoration" alt="Section decoration" />
           </div>
-          <p>{{ activeCategory.label }}</p>
+          <p>Latest updates</p>
           <div class="section-line"></div>
         </header>
 
@@ -267,7 +214,9 @@ onBeforeUnmount(() => {
               </router-link>
 
               <div class="featured-copy">
-                <span class="featured-date">{{ formatDate(item.published_at) }}</span>
+                <span class="featured-date">{{
+                  formatDate(item.published_at || item.created_at)
+                }}</span>
                 <router-link :to="`/news/${item.slug}`" class="featured-title">
                   {{ item.title }}
                 </router-link>
@@ -282,23 +231,10 @@ onBeforeUnmount(() => {
 
     <section
       ref="listSection"
-      :class="['news-list-section', { 'news-list-section--industry': isIndustry }]"
+      class="news-list-section"
       :style="{ backgroundImage: `url(${newsHero.listBackground})` }"
     >
       <div class="news-shell list-shell">
-        <header
-          v-if="!isEnterprise"
-          class="section-heading industry-heading"
-          data-aos="fade-down"
-        >
-          <div class="section-heading-top">
-            <h2>{{ activeCategory.heading }}</h2>
-            <img :src="newsHero.sectionDecoration" alt="Section decoration" />
-          </div>
-          <p>{{ activeCategory.label }}</p>
-          <div class="section-line"></div>
-        </header>
-
         <div v-if="loading" class="news-status-card">
           <p>Loading news...</p>
         </div>
@@ -307,7 +243,7 @@ onBeforeUnmount(() => {
           <p>{{ error }}</p>
         </div>
 
-        <div v-else-if="isEnterprise" class="news-grid">
+        <div v-else class="news-grid">
           <article
             v-for="(item, index) in pagedItems"
             :key="item.slug"
@@ -323,35 +259,18 @@ onBeforeUnmount(() => {
               <router-link :to="`/news/${item.slug}`" class="news-card-title">
                 {{ item.title }}
               </router-link>
-              <span class="news-card-date">{{ formatDate(item.published_at) }}</span>
+              <span class="news-card-date">{{
+                formatDate(item.published_at || item.created_at)
+              }}</span>
               <div class="news-card-line"></div>
             </div>
           </article>
 
-          <div v-if="!pagedItems.length" class="news-status-card news-status-card--empty">
-            <p>No news articles found in this category.</p>
-          </div>
-        </div>
-
-        <div v-else class="industry-list">
-          <article
-            v-for="(item, index) in pagedItems"
-            :key="item.slug"
-            class="industry-item"
-            data-aos="fade-up"
-            :data-aos-delay="animationDelay(index)"
+          <div
+            v-if="!pagedItems.length"
+            class="news-status-card news-status-card--empty"
           >
-            <router-link :to="`/news/${item.slug}`" class="industry-item-link">
-              <div class="industry-item-topline"></div>
-              <div class="industry-item-title">{{ item.title }}</div>
-              <span class="industry-item-date">{{ formatDate(item.published_at) }}</span>
-              <div class="news-card-line"></div>
-              <p>{{ item.summary }}</p>
-            </router-link>
-          </article>
-
-          <div v-if="!pagedItems.length" class="news-status-card news-status-card--empty">
-            <p>No news articles found in this category.</p>
+            <p>No news articles found.</p>
           </div>
         </div>
 
@@ -366,7 +285,9 @@ onBeforeUnmount(() => {
           </button>
 
           <template v-for="item in paginationItems" :key="`page-${item}`">
-            <span v-if="typeof item === 'string'" class="page-ellipsis">...</span>
+            <span v-if="typeof item === 'string'" class="page-ellipsis"
+              >...</span
+            >
             <button
               v-else
               type="button"
@@ -416,12 +337,22 @@ onBeforeUnmount(() => {
 }
 
 .hero-media::after {
-  content: '';
+  content: "";
   position: absolute;
   inset: 0;
   background:
-    linear-gradient(180deg, rgba(18, 29, 52, 0.18) 0%, rgba(18, 29, 52, 0.06) 42%, rgba(18, 29, 52, 0.45) 100%),
-    linear-gradient(90deg, rgba(17, 27, 47, 0.18) 0%, rgba(17, 27, 47, 0.04) 34%, rgba(17, 27, 47, 0.04) 100%);
+    linear-gradient(
+      180deg,
+      rgba(18, 29, 52, 0.18) 0%,
+      rgba(18, 29, 52, 0.06) 42%,
+      rgba(18, 29, 52, 0.45) 100%
+    ),
+    linear-gradient(
+      90deg,
+      rgba(17, 27, 47, 0.18) 0%,
+      rgba(17, 27, 47, 0.04) 34%,
+      rgba(17, 27, 47, 0.04) 100%
+    );
 }
 
 .hero-banner {
@@ -481,7 +412,7 @@ onBeforeUnmount(() => {
   background: #bb272b;
 
   &::after {
-    content: '';
+    content: "";
     position: absolute;
     right: 0;
     top: 50%;
@@ -522,10 +453,12 @@ onBeforeUnmount(() => {
     font-size: 1rem;
     letter-spacing: 0.8px;
     cursor: pointer;
-    transition: background-color 0.3s ease, color 0.3s ease;
+    transition:
+      background-color 0.3s ease,
+      color 0.3s ease;
 
     &::after {
-      content: '';
+      content: "";
       position: absolute;
       right: 0;
       top: 50%;
@@ -607,18 +540,17 @@ onBeforeUnmount(() => {
   right: 0;
   width: min(44vw, 846px);
   height: 72px;
-  background:
-    repeating-linear-gradient(
-      90deg,
-      rgba(193, 0, 0, 0.9) 0 3px,
-      rgba(193, 0, 0, 0.72) 3px 6px,
-      rgba(214, 0, 0, 0.95) 6px 110px
-    );
+  background: repeating-linear-gradient(
+    90deg,
+    rgba(193, 0, 0, 0.9) 0 3px,
+    rgba(193, 0, 0, 0.72) 3px 6px,
+    rgba(214, 0, 0, 0.95) 6px 110px
+  );
   overflow: hidden;
 
   &::before,
   &::after {
-    content: '';
+    content: "";
     position: absolute;
     top: 0;
     bottom: 0;
@@ -693,7 +625,7 @@ onBeforeUnmount(() => {
 
   &::before,
   &::after {
-    content: '';
+    content: "";
     position: absolute;
     top: 50%;
     width: 8px;
@@ -791,7 +723,7 @@ onBeforeUnmount(() => {
   background: #d8d8d8;
 
   &::before {
-    content: '';
+    content: "";
     position: absolute;
     left: 0;
     top: -2px;
@@ -912,7 +844,7 @@ onBeforeUnmount(() => {
   padding: 2vw 2vw 2.5vw;
 
   &::after {
-    content: '';
+    content: "";
     position: absolute;
     top: 0;
     left: 0;
@@ -1278,4 +1210,3 @@ onBeforeUnmount(() => {
   }
 }
 </style>
-

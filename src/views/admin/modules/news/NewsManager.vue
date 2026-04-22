@@ -21,7 +21,7 @@
             <th class="col-img">Image</th>
             <th class="col-title">Title</th>
             <th class="col-status">Status</th>
-            <th class="col-date">Created At</th>
+            <th class="col-date">Published At</th>
             <th class="col-actions">Actions</th>
           </tr>
         </thead>
@@ -58,7 +58,7 @@
             <td class="col-status">
               <span :class="['badge', `badge--${post.status}`]">{{ post.status }}</span>
             </td>
-            <td class="col-date text-sub">{{ formatDate(post.created_at) }}</td>
+            <td class="col-date text-sub">{{ formatDate(post.published_at || post.created_at) }}</td>
             <td class="col-actions">
               <div class="row-actions">
                 <button
