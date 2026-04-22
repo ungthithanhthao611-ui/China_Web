@@ -213,6 +213,8 @@ const previewHelpers = createEntityManagerPreviewHelpers({
 
 const {
   resolveMediaUrl,
+  safeMetadataObject,
+  normalizedExternalUrl,
   relationLabelFromOptions,
   isDirectVideoFile,
   isAllowedVideoUrl,
@@ -234,9 +236,66 @@ const {
 } = previewHelpers;
 
 const selectedMediaAsset = (field) => previewHelpers.selectedMediaAsset(form, field);
-const selectedMediaPreviewUrl = (field) =>
-  previewHelpers.selectedMediaPreviewUrl(form, field);
-const selectedMediaLabel = (field) => previewHelpers.selectedMediaLabel(form, field);
+
+const comparableMediaKey = (rawUrl) => {
+  const normalized = normalizedExternalUrl(rawUrl);
+  if (!normalized) return "";
+  const resolved = resolveMediaUrl(normalized);
+  try {
+    const parsed = new URL(resolved, "http://localhost");
+    return `${parsed.pathname}${parsed.search}`.replace(/\/+$/, "").toLowerCase();
+  } catch {
+    return resolved.replace(/\/+$/, "").toLowerCase();
+  }
+};
+
+const extractLegacyImageUrl = (record) => {
+  const metadata = safeMetadataObject(record?.metadata_json);
+  return String(
+    metadata?.src ||
+      metadata?.image_url ||
+      metadata?.image ||
+      metadata?.external_source_url ||
+      metadata?.source_url ||
+      metadata?.thumbnail_url ||
+      "",
+  ).trim();
+};
+
+const tryResolveMediaIdFromLegacyUrl = (legacyUrl) => {
+  const targetKey = comparableMediaKey(legacyUrl);
+  if (!targetKey) return null;
+
+  const matched = mediaOptions.value.find(
+    (media) => comparableMediaKey(media?.url) === targetKey,
+  );
+  return matched?.id || null;
+};
+
+const selectedMediaPreviewUrl = (field) => {
+  const primary = previewHelpers.selectedMediaPreviewUrl(form, field);
+  if (primary) return primary;
+
+  if (props.entityKey === "content_block_items" && field === "image_id") {
+    const legacyUrl = normalizedExternalUrl(form.__legacy_image_url || "");
+    if (legacyUrl) return resolveMediaUrl(legacyUrl);
+  }
+
+  return "";
+};
+
+const selectedMediaLabel = (field) => {
+  const primaryLabel = previewHelpers.selectedMediaLabel(form, field);
+  if (primaryLabel !== "No media selected") return primaryLabel;
+
+  if (props.entityKey === "content_block_items" && field === "image_id") {
+    return String(form.__legacy_image_url || "").trim()
+      ? "Ảnh cũ (metadata)"
+      : primaryLabel;
+  }
+
+  return primaryLabel;
+};
 
 const formHelpers = createEntityManagerFormHelpers({
   props,
@@ -774,11 +833,33 @@ function openEditForm(record) {
   formMode.value = "edit";
   editingRecordId.value = record.id;
   setDefaultFormValues(record);
+
+  if (props.entityKey === "content_block_items") {
+    const legacyImageUrl = extractLegacyImageUrl(record);
+    form.__legacy_image_url = legacyImageUrl;
+
+    if (!form.image_id && legacyImageUrl) {
+      const matchedMediaId = tryResolveMediaIdFromLegacyUrl(legacyImageUrl);
+      if (matchedMediaId) {
+        form.image_id = Number(matchedMediaId);
+        form.__legacy_image_url = "";
+      }
+    }
+  }
+
   if (typeof form.metadata_json === "object" && form.metadata_json !== null) {
     form.metadata_json = JSON.stringify(form.metadata_json, null, 2);
   }
   formOpen.value = true;
   void revealInlineEditor();
+}
+
+function handleFieldUpdate(field, value) {
+  form[field] = value;
+
+  if (props.entityKey === "content_block_items" && field === "image_id") {
+    form.__legacy_image_url = "";
+  }
 }
 
 function closeForm() {
@@ -823,8 +904,15 @@ async function submitForm() {
       closeForm();
     }
   } catch (error) {
-    formErrors.value = [error.message || "Failed to save record."];
-    notifyError(error.message || "Failed to save record.");
+    const errorMsg = error.message || "Failed to save record.";
+    formErrors.value = [errorMsg];
+    notifyError(errorMsg);
+    
+    // Nếu bản ghi không còn tồn tại, tải lại danh sách
+    if (error.status === 404 || errorMsg.toLowerCase().includes("not found")) {
+      closeForm();
+      loadRecords().catch(() => {});
+    }
   } finally {
     saving.value = false;
   }
@@ -951,7 +1039,18 @@ async function uploadMedia() {
     } else if (isBannerEntity.value && "image_id" in form) {
       form.image_id = media.id;
     } else if (uploadTargetField.value && uploadTargetField.value in form) {
-      if (uploadTargetField.value.endsWith("_url") || uploadTargetField.value.endsWith("_pdf_url")) {
+      if (uploadTargetField.value === "gallery_urls") {
+        // Nối thêm URL mới vào gallery thay vì ghi đè
+        const existing = String(form.gallery_urls || "")
+          .replace(/\r/g, "\n")
+          .split("\n")
+          .map((s) => s.trim())
+          .filter(Boolean);
+        const newUrl = String(media.url || "").trim();
+        if (newUrl && !existing.includes(newUrl)) {
+          form.gallery_urls = [...existing, newUrl].join("\n");
+        }
+      } else if (uploadTargetField.value.endsWith("_url") || uploadTargetField.value.endsWith("_pdf_url")) {
         form[uploadTargetField.value] = media.url;
       } else {
         form[uploadTargetField.value] = media.id;
@@ -974,6 +1073,81 @@ async function uploadMedia() {
   } finally {
     uploading.value = false;
   }
+}
+
+const productInlineUploading = ref("");
+const galleryUploadProgress = ref("");
+
+async function inlineUploadForField(field, filesOrFile) {
+  const token = normalizedToken();
+  if (!token) return;
+
+  const files = filesOrFile instanceof FileList
+    ? Array.from(filesOrFile)
+    : filesOrFile instanceof File
+      ? [filesOrFile]
+      : Array.isArray(filesOrFile) ? filesOrFile : [];
+
+  if (!files.length) return;
+
+  productInlineUploading.value = field;
+  let uploaded = 0;
+  const total = files.length;
+
+  try {
+    for (const file of files) {
+      uploaded++;
+      galleryUploadProgress.value = total > 1 ? `${uploaded}/${total}` : "";
+
+      const media = await uploadAdminMediaAsset(token, file, {
+        title: form.name || form.title || file.name,
+        altText: form.name || form.title || "",
+        assetFolder: mediaUploadAssetFolder(),
+        publicIdBase: mediaUploadPublicIdBase(),
+      });
+
+      if (
+        !mediaOptions.value.some((item) => String(item.id) === String(media.id))
+      ) {
+        mediaOptions.value = [media, ...mediaOptions.value];
+      }
+
+      if (field === "gallery_urls") {
+        const existing = String(form.gallery_urls || "")
+          .replace(/\r/g, "\n")
+          .split("\n")
+          .map((s) => s.trim())
+          .filter(Boolean);
+        const newUrl = String(media.url || "").trim();
+        if (newUrl && !existing.includes(newUrl)) {
+          form.gallery_urls = [...existing, newUrl].join("\n");
+        }
+      } else {
+        form[field] = media.url;
+      }
+    }
+
+    await loadMediaOptions();
+    notifySuccess(
+      total > 1
+        ? `Đã tải ${total} ảnh lên thành công → ${fieldLabel(field)}`
+        : `Đã tải ảnh lên thành công → ${fieldLabel(field)}`
+    );
+  } catch (error) {
+    notifyError(error.message || "Upload failed.");
+  } finally {
+    productInlineUploading.value = "";
+    galleryUploadProgress.value = "";
+  }
+}
+
+function removeGalleryUrl(urlToRemove) {
+  const existing = String(form.gallery_urls || "")
+    .replace(/\r/g, "\n")
+    .split("\n")
+    .map((s) => s.trim())
+    .filter(Boolean);
+  form.gallery_urls = existing.filter((u) => u !== urlToRemove).join("\n");
 }
 
 function setPage(page) {
@@ -1184,6 +1358,7 @@ onMounted(() => {
     </div>
 
     <EntityManagerEditor
+      :entity-key="props.entityKey"
       :form-open="formOpen"
       :inline-editor-ref="inlineEditorRef"
       :is-form-modal-entity="isFormModalEntity"
@@ -1247,6 +1422,8 @@ onMounted(() => {
       :current-form-preview-url="currentFormPreviewUrl"
       :saving="saving"
       :field-groups="FIELD_GROUPS"
+      :product-inline-uploading="productInlineUploading"
+      :gallery-upload-progress="galleryUploadProgress"
       @close="closeForm"
       @submit="submitForm"
       @file-change="handleFileChange"
@@ -1256,7 +1433,7 @@ onMounted(() => {
       @update:upload-target-field="uploadTargetField = $event"
       @update:upload-title="uploadTitle = $event"
       @update:upload-alt-text="uploadAltText = $event"
-      @update:field="(field, value) => (form[field] = value)"
+      @update:field="handleFieldUpdate"
       @update:relation-field="updateRelationField"
       @slug-input="handleSlugInput(slugSourceField, formMode)"
       @slug-source-input="handleSlugSourceInput($event, slugSourceField, formMode)"
@@ -1267,6 +1444,8 @@ onMounted(() => {
       @banner-focus-start="startBannerFocusAdjust"
       @banner-focus-move="onBannerFocusAdjust"
       @banner-focus-stop="stopBannerFocusAdjust"
+      @inline-upload="(field, files) => inlineUploadForField(field, files)"
+      @remove-gallery-url="removeGalleryUrl"
     />
 
     <EntityManagerConfirmDialog

@@ -1,7 +1,13 @@
 <script setup>
+import { computed, ref } from "vue";
+
 const props = defineProps({
   formOpen: {
     type: Boolean,
+    required: true,
+  },
+  entityKey: {
+    type: String,
     required: true,
   },
   inlineEditorRef: {
@@ -252,6 +258,14 @@ const props = defineProps({
     type: Object,
     required: true,
   },
+  productInlineUploading: {
+    type: String,
+    default: "",
+  },
+  galleryUploadProgress: {
+    type: String,
+    default: "",
+  },
 });
 
 const emit = defineEmits([
@@ -273,7 +287,101 @@ const emit = defineEmits([
   "banner-focus-start",
   "banner-focus-move",
   "banner-focus-stop",
+  "inline-upload",
+  "remove-gallery-url",
 ]);
+
+function handleInlineFile(field, event) {
+  const files = event?.target?.files;
+  if (files && files.length) {
+    emit("inline-upload", field, files);
+    event.target.value = "";
+  }
+}
+
+const isProductInlineUploadField = (field) =>
+  props.isProductsEntity && (field === "image_url" || field === "gallery_urls");
+
+const galleryUrlList = computed(() => {
+  const raw = String(props.form?.gallery_urls || "");
+  return raw
+    .replace(/\r/g, "\n")
+    .split("\n")
+    .map((s) => s.trim())
+    .filter(Boolean);
+});
+
+const quickPreviewOpen = ref(true);
+
+const isContentBlockItemsEditor = computed(
+  () => props.entityKey === "content_block_items",
+);
+
+const currentBlockOption = computed(() => {
+  const options = Array.isArray(props.relationOptions?.block_id)
+    ? props.relationOptions.block_id
+    : [];
+  const currentId = Number(props.form?.block_id);
+  if (!Number.isFinite(currentId)) return null;
+  return (
+    options.find((option) => Number(option?.id) === currentId) || null
+  );
+});
+
+const currentBlockKey = computed(() => {
+  const block = currentBlockOption.value;
+  return String(
+    block?.block_key ||
+      block?.key ||
+      block?.slug ||
+      block?.code ||
+      "",
+  ).trim();
+});
+
+const currentBlockLabel = computed(() => {
+  const block = currentBlockOption.value;
+  if (!block) return "Chưa chọn khối";
+  return String(
+    block?.title ||
+      block?.name ||
+      block?.label ||
+      block?.block_key ||
+      `#${block?.id || ""}`,
+  ).trim();
+});
+
+const previewItemKey = computed(() => String(props.form?.item_key || "").trim());
+const previewTitle = computed(() => String(props.form?.title || "").trim());
+const previewSubtitle = computed(() => String(props.form?.subtitle || "").trim());
+const previewContent = computed(() => String(props.form?.content || "").trim());
+const previewLink = computed(() => String(props.form?.link || "").trim());
+const previewSortOrder = computed(() =>
+  Number.isFinite(Number(props.form?.sort_order))
+    ? Number(props.form?.sort_order)
+    : null,
+);
+const previewImageUrl = computed(() =>
+  props.selectedMediaPreviewUrl("image_id") || "",
+);
+
+const timelineParts = computed(() => {
+  const raw = previewSubtitle.value;
+  const match = raw.match(/^(\d{4})(?:[-\/](\d{1,2}))?$/);
+  if (!match) return { year: "", month: "" };
+  const year = match[1];
+  const month = match[2] ? String(match[2]).padStart(2, "0") : "";
+  return { year, month };
+});
+
+const previewHasContent = computed(
+  () =>
+    Boolean(previewTitle.value) ||
+    Boolean(previewSubtitle.value) ||
+    Boolean(previewContent.value) ||
+    Boolean(previewImageUrl.value) ||
+    Boolean(previewLink.value),
+);
 </script>
 
 <template>
@@ -320,19 +428,15 @@ const emit = defineEmits([
         <p v-for="error in formErrors" :key="error">{{ error }}</p>
       </div>
 
-      <div v-if="hasMediaFields" class="upload-panel-minimal">
+      <div v-if="hasMediaFields && !isProductsEntity" class="upload-panel-minimal">
         <div class="upload-panel-minimal__header">
           <div class="upload-panel-minimal__title">
             <span class="upload-panel-badge">QUẢN LÝ MEDIA</span>
             <strong>Tải Ảnh/Video Lên Cloudinary</strong>
           </div>
-          <p v-if="isProductsEntity" class="upload-panel-help">
-            Chọn mục cần tải lên (Ảnh chính, Video, hoặc Catalog) rồi chọn file từ máy tính.
-          </p>
         </div>
 
         <div class="upload-panel-grid">
-          <!-- Col 1: Target & File -->
           <div class="upload-panel-section">
             <div class="upload-input-group">
               <label>Bạn muốn tải lên cho mục nào?</label>
@@ -364,7 +468,6 @@ const emit = defineEmits([
             </div>
           </div>
 
-          <!-- Col 2: Info & Action -->
           <div class="upload-panel-section">
             <div class="upload-input-row">
               <div class="upload-input-group">
@@ -450,7 +553,8 @@ const emit = defineEmits([
               />
               <div>
                 <strong>{{ selectedMediaLabel(field) }}</strong>
-                <small>#{{ form[field] }}</small>
+                <small v-if="form[field]">#{{ form[field] }}</small>
+                <small v-else>Nguồn ngoài / metadata cũ</small>
               </div>
             </div>
           </div>
@@ -578,6 +682,94 @@ const emit = defineEmits([
             </a>
           </div>
 
+          <div v-else-if="isProductInlineUploadField(field)" class="field-stack">
+            <!-- image_url: single text + upload -->
+            <template v-if="field === 'image_url'">
+              <input
+                :value="form[field]"
+                type="text"
+                :placeholder="fieldPlaceholder(field)"
+                @input="emit('update:field', field, $event.target.value)"
+              />
+              <div class="inline-upload-row">
+                <label :for="`inline-upload-${field}`" class="inline-upload-btn" :class="{ 'is-uploading': productInlineUploading === field }">
+                  <div v-if="productInlineUploading === field" class="spinner-tiny"></div>
+                  <span v-else>📁</span>
+                  <span>{{ productInlineUploading === field ? 'Đang tải...' : 'Chọn file tải lên' }}</span>
+                </label>
+                <input
+                  :id="`inline-upload-${field}`"
+                  type="file"
+                  accept="image/*"
+                  class="inline-upload-input"
+                  :disabled="!!productInlineUploading"
+                  @change="handleInlineFile(field, $event)"
+                />
+              </div>
+              <small v-if="fieldHelpText(field)" class="field-help">{{ fieldHelpText(field) }}</small>
+              <div
+                v-if="form[field] && /\.(png|jpe?g|gif|webp|avif|svg)(\?.*)?$/i.test(String(form[field]))"
+                class="url-image-preview"
+              >
+                <img :src="resolveMediaUrl(form[field])" alt="Preview" loading="lazy" />
+              </div>
+            </template>
+
+            <!-- gallery_urls: multi-upload + grid preview -->
+            <template v-else>
+              <div class="inline-upload-row">
+                <label :for="`inline-upload-${field}`" class="inline-upload-btn" :class="{ 'is-uploading': productInlineUploading === field }">
+                  <div v-if="productInlineUploading === field" class="spinner-tiny"></div>
+                  <span v-else>📁</span>
+                  <span v-if="productInlineUploading === field && galleryUploadProgress">Đang tải {{ galleryUploadProgress }}...</span>
+                  <span v-else-if="productInlineUploading === field">Đang tải...</span>
+                  <span v-else>Chọn nhiều ảnh tải lên</span>
+                </label>
+                <input
+                  :id="`inline-upload-${field}`"
+                  type="file"
+                  accept="image/*"
+                  multiple
+                  class="inline-upload-input"
+                  :disabled="!!productInlineUploading"
+                  @change="handleInlineFile(field, $event)"
+                />
+                <small class="gallery-count" v-if="galleryUrlList.length">{{ galleryUrlList.length }} ảnh</small>
+              </div>
+              <small v-if="fieldHelpText(field)" class="field-help">{{ fieldHelpText(field) }}</small>
+
+              <!-- Gallery Preview Grid -->
+              <div v-if="galleryUrlList.length" class="gallery-preview-grid">
+                <div
+                  v-for="(url, idx) in galleryUrlList"
+                  :key="idx"
+                  class="gallery-preview-item"
+                >
+                  <img :src="resolveMediaUrl(url)" :alt="`Gallery ${idx + 1}`" loading="lazy" />
+                  <button
+                    type="button"
+                    class="gallery-preview-remove"
+                    title="Xóa ảnh này"
+                    @click="emit('remove-gallery-url', url)"
+                  >×</button>
+                  <small class="gallery-preview-idx">#{{ idx + 1 }}</small>
+                </div>
+              </div>
+              <div v-else class="gallery-empty-hint">Chưa có ảnh liên quan. Nhấn "Chọn nhiều ảnh tải lên" để thêm.</div>
+
+              <!-- Hidden textarea for raw URL editing -->
+              <details class="gallery-raw-toggle">
+                <summary>Chỉnh sửa URL thủ công</summary>
+                <textarea
+                  :value="form[field]"
+                  rows="3"
+                  :placeholder="fieldPlaceholder(field)"
+                  @input="emit('update:field', field, $event.target.value)"
+                ></textarea>
+              </details>
+            </template>
+          </div>
+
           <input
             v-else
             :value="form[field]"
@@ -592,14 +784,14 @@ const emit = defineEmits([
           />
 
           <div
-            v-if="inputType(field) === 'url' && form[field] && /\.(png|jpe?g|gif|webp|avif|svg)(\?.*)?$/i.test(String(form[field]))"
+            v-if="!isProductInlineUploadField(field) && inputType(field) === 'url' && form[field] && /\.(png|jpe?g|gif|webp|avif|svg)(\?.*)?$/i.test(String(form[field]))"
             class="url-image-preview"
           >
             <img :src="resolveMediaUrl(form[field])" alt="Preview" loading="lazy" />
           </div>
 
           <small
-            v-if="!fieldGroups.media.includes(field) && fieldHelpText(field)"
+            v-if="!isProductInlineUploadField(field) && !fieldGroups.media.includes(field) && fieldHelpText(field)"
             class="field-help"
           >
             {{ fieldHelpText(field) }}
@@ -720,6 +912,66 @@ const emit = defineEmits([
             Mở xem trước bản ghi hiện tại
           </a>
         </div>
+
+        <section
+          v-if="isContentBlockItemsEditor"
+          class="content-item-preview"
+        >
+          <div class="content-item-preview__head">
+            <div>
+              <strong>Xem nhanh trước khi lưu</strong>
+              <small>Preview dữ liệu hiện tại để kiểm tra nhanh trước khi ghi DB.</small>
+            </div>
+            <button
+              type="button"
+              class="btn btn-secondary"
+              @click="quickPreviewOpen = !quickPreviewOpen"
+            >
+              {{ quickPreviewOpen ? "Ẩn preview" : "Xem nhanh" }}
+            </button>
+          </div>
+
+          <div v-if="quickPreviewOpen" class="content-item-preview__body">
+            <div class="content-item-preview__meta">
+              <span>Khối: {{ currentBlockLabel }}</span>
+              <span v-if="currentBlockKey">block_key: {{ currentBlockKey }}</span>
+              <span v-if="previewItemKey">item_key: {{ previewItemKey }}</span>
+              <span v-if="previewSortOrder !== null">thứ tự: {{ previewSortOrder }}</span>
+            </div>
+
+            <article v-if="previewHasContent" class="content-item-preview__card">
+              <img
+                v-if="previewImageUrl"
+                :src="previewImageUrl"
+                alt="Preview media"
+                loading="lazy"
+              />
+              <div class="content-item-preview__content">
+                <h4 v-if="previewTitle">{{ previewTitle }}</h4>
+                <p v-if="previewSubtitle">{{ previewSubtitle }}</p>
+                <p
+                  v-if="currentBlockKey === 'timeline' && timelineParts.year"
+                  class="content-item-preview__timeline"
+                >
+                  Mốc thời gian: {{ timelineParts.year }}{{ timelineParts.month ? `-${timelineParts.month}` : "" }}
+                </p>
+                <p v-if="previewContent" class="content-item-preview__text">{{ previewContent }}</p>
+                <a
+                  v-if="previewLink"
+                  :href="previewLink"
+                  target="_blank"
+                  rel="noreferrer noopener"
+                >
+                  {{ previewLink }}
+                </a>
+              </div>
+            </article>
+
+            <p v-else class="content-item-preview__empty">
+              Chưa có dữ liệu để preview. Nhập tiêu đề/nội dung/hình ảnh để xem nhanh.
+            </p>
+          </div>
+        </section>
 
         <div class="form-actions">
           <button type="button" class="btn btn-secondary" @click="emit('close')">
@@ -953,7 +1205,8 @@ const emit = defineEmits([
 .editor-field.wide,
 .media-preview-list,
 .form-actions,
-.banner-form-preview {
+.banner-form-preview,
+.content-item-preview {
   grid-column: 1 / -1;
 }
 
@@ -1274,6 +1527,120 @@ input[type="checkbox"] {
   pointer-events: none;
 }
 
+.content-item-preview {
+  display: grid;
+  gap: 12px;
+  padding: 16px;
+  border-radius: 20px;
+  border: 1px solid rgba(214, 226, 240, 0.94);
+  background: linear-gradient(180deg, rgba(251, 253, 255, 0.98), rgba(244, 249, 255, 0.96));
+}
+
+.content-item-preview__head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  flex-wrap: wrap;
+}
+
+.content-item-preview__head strong {
+  display: block;
+  color: #17324d;
+  font-size: 14px;
+}
+
+.content-item-preview__head small {
+  color: #5f7893;
+  font-size: 12px;
+}
+
+.content-item-preview__body {
+  display: grid;
+  gap: 12px;
+}
+
+.content-item-preview__meta {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.content-item-preview__meta span {
+  padding: 5px 10px;
+  border-radius: 999px;
+  border: 1px solid rgba(207, 221, 236, 0.94);
+  background: rgba(255, 255, 255, 0.92);
+  color: #3c5975;
+  font-size: 11px;
+  font-weight: 700;
+}
+
+.content-item-preview__card {
+  display: grid;
+  grid-template-columns: 160px minmax(0, 1fr);
+  gap: 12px;
+  padding: 12px;
+  border-radius: 16px;
+  border: 1px solid rgba(218, 229, 241, 0.95);
+  background: rgba(255, 255, 255, 0.9);
+}
+
+.content-item-preview__card img {
+  width: 100%;
+  height: 100%;
+  min-height: 120px;
+  max-height: 160px;
+  object-fit: cover;
+  border-radius: 12px;
+  border: 1px solid rgba(216, 227, 240, 0.96);
+  background: #edf3fb;
+}
+
+.content-item-preview__content {
+  display: grid;
+  gap: 8px;
+  min-width: 0;
+}
+
+.content-item-preview__content h4,
+.content-item-preview__content p {
+  margin: 0;
+  color: #17324d;
+}
+
+.content-item-preview__content h4 {
+  font-size: 16px;
+  line-height: 1.35;
+}
+
+.content-item-preview__content p {
+  font-size: 14px;
+  line-height: 1.5;
+}
+
+.content-item-preview__timeline {
+  color: #1f6eb4 !important;
+  font-weight: 700;
+  font-size: 13px !important;
+}
+
+.content-item-preview__text {
+  white-space: pre-wrap;
+}
+
+.content-item-preview__content a {
+  color: #1f6eb4;
+  font-size: 13px;
+  word-break: break-all;
+}
+
+.content-item-preview__empty {
+  margin: 0;
+  color: #627b97;
+  font-size: 13px;
+}
+
 .form-actions {
   justify-content: flex-end;
   margin-top: 8px;
@@ -1306,6 +1673,14 @@ button:disabled {
   .selected-media-preview video {
     width: 100%;
     height: 180px;
+  }
+
+  .content-item-preview__card {
+    grid-template-columns: 1fr;
+  }
+
+  .content-item-preview__card img {
+    max-height: 220px;
   }
 }
 
@@ -1499,5 +1874,169 @@ button:disabled {
   .upload-panel-grid {
     grid-template-columns: 1fr;
   }
+}
+
+/* ── Inline Upload for Products ── */
+.inline-upload-row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-top: 6px;
+}
+
+.inline-upload-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 7px 14px;
+  border-radius: 8px;
+  border: 1.5px dashed rgba(73, 147, 220, 0.45);
+  background: rgba(73, 147, 220, 0.06);
+  color: #3b82f6;
+  font-size: 13px;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  user-select: none;
+}
+
+.inline-upload-btn:hover {
+  border-color: #3b82f6;
+  background: rgba(73, 147, 220, 0.12);
+}
+
+.inline-upload-btn.is-uploading {
+  border-color: #f59e0b;
+  background: rgba(245, 158, 11, 0.08);
+  color: #d97706;
+  pointer-events: none;
+}
+
+.inline-upload-input {
+  display: none;
+}
+
+/* ── Gallery Count Badge ── */
+.gallery-count {
+  display: inline-flex;
+  align-items: center;
+  padding: 2px 10px;
+  border-radius: 12px;
+  background: rgba(73, 147, 220, 0.1);
+  color: #3b82f6;
+  font-size: 12px;
+  font-weight: 600;
+}
+
+/* ── Gallery Preview Grid ── */
+.gallery-preview-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(100px, 1fr));
+  gap: 10px;
+  margin-top: 10px;
+}
+
+.gallery-preview-item {
+  position: relative;
+  aspect-ratio: 1;
+  border-radius: 10px;
+  overflow: hidden;
+  border: 1.5px solid rgba(198, 216, 233, 0.6);
+  background: #f8fafc;
+  transition: border-color 0.2s, box-shadow 0.2s;
+}
+
+.gallery-preview-item:hover {
+  border-color: #3b82f6;
+  box-shadow: 0 2px 12px rgba(59, 130, 246, 0.15);
+}
+
+.gallery-preview-item img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  display: block;
+}
+
+.gallery-preview-remove {
+  position: absolute;
+  top: 4px;
+  right: 4px;
+  width: 22px;
+  height: 22px;
+  border-radius: 50%;
+  border: none;
+  background: rgba(239, 68, 68, 0.85);
+  color: #fff;
+  font-size: 14px;
+  font-weight: 700;
+  line-height: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  opacity: 0;
+  transition: opacity 0.2s;
+  backdrop-filter: blur(4px);
+}
+
+.gallery-preview-item:hover .gallery-preview-remove {
+  opacity: 1;
+}
+
+.gallery-preview-remove:hover {
+  background: #dc2626;
+  transform: scale(1.1);
+}
+
+.gallery-preview-idx {
+  position: absolute;
+  bottom: 4px;
+  left: 4px;
+  padding: 1px 6px;
+  border-radius: 8px;
+  background: rgba(0, 0, 0, 0.55);
+  color: #fff;
+  font-size: 10px;
+  font-weight: 600;
+  backdrop-filter: blur(4px);
+}
+
+/* ── Gallery Empty Hint ── */
+.gallery-empty-hint {
+  margin-top: 8px;
+  padding: 16px;
+  border: 1.5px dashed rgba(198, 216, 233, 0.5);
+  border-radius: 10px;
+  background: rgba(248, 250, 252, 0.6);
+  color: #94a3b8;
+  font-size: 13px;
+  text-align: center;
+}
+
+/* ── Gallery Raw URL Toggle ── */
+.gallery-raw-toggle {
+  margin-top: 8px;
+}
+
+.gallery-raw-toggle summary {
+  cursor: pointer;
+  color: #64748b;
+  font-size: 12px;
+  user-select: none;
+  padding: 4px 0;
+}
+
+.gallery-raw-toggle summary:hover {
+  color: #3b82f6;
+}
+
+.gallery-raw-toggle textarea {
+  margin-top: 6px;
+  width: 100%;
+  font-size: 12px;
+  font-family: monospace;
+  line-height: 1.5;
+  resize: vertical;
 }
 </style>

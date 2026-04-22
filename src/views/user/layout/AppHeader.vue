@@ -1,7 +1,11 @@
 <script setup>
 import { computed, nextTick, onBeforeUnmount, onMounted, ref, watch } from 'vue'
 import { useRoute } from 'vue-router'
+<<<<<<< HEAD
 import { ChevronDown, Globe, Mail, Menu, Phone, Search, X } from 'lucide-vue-next'
+=======
+import { ChevronDown, Mail, Menu, Phone, Search, X } from 'lucide-vue-next'
+>>>>>>> d8a2987 (Đồng bộ code Frontend)
 import { useBootstrapStore } from '@/views/user/stores/bootstrap'
 import { findMenuItems, normalizeMenuItems, toLinkProps } from '@/shared/utils/navigation'
 import { uiState } from '@/shared/utils/uiState'
@@ -80,8 +84,33 @@ const navItems = computed(() => {
   return fallbackNavItems.value
 })
 
-const siteName = computed(() => bootstrapStore.settingsMap.site_name || 'THIÊN ĐỒNG VIỆT NAM')
-const siteTagline = computed(() => bootstrapStore.settingsMap.site_tagline || 'UY TÍN TỪ NHỮNG ĐIỀU NHỎ NHẤT')
+const readSetting = (keys, fallback = '') => {
+  for (const key of keys) {
+    const value = bootstrapStore.settingsMap[key]
+    if (value) return value
+  }
+  return fallback
+}
+
+const defaultLogoUrl =
+  'https://res.cloudinary.com/db1b15yn4/image/upload/v1776826808/logo-thien-dong.jpg-removebg-preview_ckqep4.png'
+const siteName = computed(() => readSetting(['site_name', 'company_name'], 'THIÊN ĐỒNG VIỆT NAM'))
+const siteTagline = computed(() =>
+  readSetting(['site_tagline', 'company_slogan'], 'UY TÍN TỪ NHỮNG ĐIỀU NHỎ NHẤT'),
+)
+const companyLogoUrl = computed(() =>
+  readSetting(['company_logo_url', 'site_logo', 'logo_url'], defaultLogoUrl),
+)
+const headerEmail = computed(() =>
+  readSetting(['company_email', 'contact_email', 'email'], 'thiendongintl@gmail.com'),
+)
+const headerPhone = computed(() =>
+  readSetting(['company_phone', 'contact_phone', 'phone'], '0948.929.744'),
+)
+const phoneHref = computed(() => {
+  const normalized = String(headerPhone.value || '').replace(/[^\d+]/g, '')
+  return normalized ? `tel:${normalized}` : ''
+})
 
 const isHomeOverlay = computed(() => route.path === '/' || route.path === '/honors')
 const isContactHero = computed(
@@ -229,9 +258,15 @@ onBeforeUnmount(() => {
     <!-- Hover Trigger Zone (Active when hidden) -->
     <div class="header-trigger" v-if="uiState.isHeaderHidden"></div>
     <div class="header_flx">
-      <router-link to="/" class="logo-link">
-        <img src="https://res.cloudinary.com/db1b15yn4/image/upload/v1776826808/logo-thien-dong.jpg-removebg-preview_ckqep4.png" :alt="`${siteName} logo`" />
-      </router-link>
+      <div class="brand-block">
+        <router-link to="/" class="logo-link">
+          <img :src="companyLogoUrl" :alt="`${siteName} logo`" />
+        </router-link>
+        <div class="brand-copy">
+          <strong class="brand-name">{{ siteName }}</strong>
+          <span class="brand-tagline">{{ siteTagline }}</span>
+        </div>
+      </div>
 
       <div class="header_r">
         <nav class="header_nav">
@@ -258,17 +293,17 @@ onBeforeUnmount(() => {
           <Search :size="28" stroke-width="1.7" />
         </button>
 
-        <a href="mailto:thiendongintl@gmail.com" class="contact-item">
+        <a v-if="headerEmail" :href="`mailto:${headerEmail}`" class="contact-item">
           <div class="contact-icon">
             <Mail class="w-4 h-4" />
           </div>
-          <span class="text-sm font-medium">thiendongintl@gmail.com</span>
+          <span class="text-sm font-medium">{{ headerEmail }}</span>
         </a>
-        <a href="tel:0948929744" class="contact-item">
+        <a v-if="phoneHref" :href="phoneHref" class="contact-item">
           <div class="contact-icon">
             <Phone class="w-4 h-4" />
           </div>
-          <span class="text-sm font-medium">0948.929.744</span>
+          <span class="text-sm font-medium">{{ headerPhone }}</span>
         </a>
 
         <button class="mobile-toggle" @click="toggleMobileMenu" type="button" aria-label="Toggle menu">
@@ -547,6 +582,13 @@ onBeforeUnmount(() => {
   z-index: 1;
 }
 
+.brand-block {
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
+  min-width: 0;
+}
+
 .logo-link {
   flex-shrink: 0;
 
@@ -556,6 +598,37 @@ onBeforeUnmount(() => {
   }
 }
 
+.brand-copy {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0;
+  max-width: 300px;
+}
+
+.brand-name {
+  color: #f1d9b3;
+  font-size: 11px;
+  font-weight: 600;
+  line-height: 1.2;
+  text-transform: uppercase;
+  letter-spacing: 0.02em;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.brand-tagline {
+  color: #dfbd8e;
+  font-size: 10px;
+  line-height: 1.2;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
 .header_r {
   display: flex;
   align-items: center;
@@ -563,6 +636,31 @@ onBeforeUnmount(() => {
   gap: 18px;
   min-width: 0;
   flex: 1;
+}
+
+.contact-item {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  color: #dfbd8e;
+  text-decoration: none;
+  font-size: 13px;
+  line-height: 1;
+  white-space: nowrap;
+  transition: color 0.2s ease, transform 0.2s ease;
+
+  &:hover {
+    color: #f2d4a6;
+    transform: translateY(-1px);
+  }
+}
+
+.contact-icon {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 24px;
+  height: 24px;
 }
 
 .header_nav {
@@ -677,6 +775,10 @@ onBeforeUnmount(() => {
     display: none;
   }
 
+  .brand-copy {
+    display: none;
+  }
+
   .mobile-toggle {
     display: inline-flex;
     align-items: center;
@@ -691,6 +793,10 @@ onBeforeUnmount(() => {
 
   .lang {
     font-size: 16px;
+  }
+
+  .contact-item {
+    display: none;
   }
 
   .mobile-nav {

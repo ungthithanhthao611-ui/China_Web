@@ -363,6 +363,88 @@ export function createEntityManagerFormHelpers({
     return Number.isFinite(parsed) ? parsed : null;
   };
 
+  const BLOCK_ITEM_KEY_RULES = {
+    hero_summary: /^(headline|description|cover_image)$/,
+    intro_media: /^cover_image$/,
+    intro_video: /^(video_button|video_url)$/,
+    intro_paragraphs: /^paragraph_\d+$/,
+    speech_body: /^(vision|mission)$/,
+    culture_values: /^value_\d+$/,
+    timeline: /^milestone_\d+$/,
+    leadership_care_gallery: /^leader_\d+$/,
+    org_chart_image: /^main_chart$/,
+  };
+
+  const parseMetadataJsonSafe = () => {
+    if (!form.metadata_json) return null;
+    if (typeof form.metadata_json === "object") return form.metadata_json;
+    if (typeof form.metadata_json !== "string") return null;
+
+    const raw = form.metadata_json.trim();
+    if (!raw) return null;
+
+    try {
+      return JSON.parse(raw);
+    } catch {
+      return "__invalid_json__";
+    }
+  };
+
+  const parseTimelineSubtitle = (value) => {
+    const raw = String(value || "").trim();
+    if (!raw) return { year: "", month: "" };
+
+    const match = raw.match(/^(\d{4})(?:[-/.](\d{1,2}))?$/);
+    if (!match) return { year: "", month: "" };
+    return { year: match[1], month: match[2] ? String(match[2]).padStart(2, "0") : "" };
+  };
+
+  const validateContentBlockItemRules = (errors, metadataValue) => {
+    if (props.entityKey !== "content_block_items") return;
+
+    const itemKey = String(form.item_key || "").trim();
+    if (itemKey && !/^[a-z0-9]+(?:_[a-z0-9]+)*$/.test(itemKey)) {
+      errors.push(
+        "item_key chỉ được chứa chữ thường không dấu, số và dấu gạch dưới (_).",
+      );
+    }
+
+    const selectedBlock = (relationOptions.block_id || []).find(
+      (option) => String(option.id) === String(form.block_id),
+    );
+    const blockKey = String(selectedBlock?.block_key || "").trim();
+    if (!blockKey || !itemKey) return;
+
+    const expectedPattern = BLOCK_ITEM_KEY_RULES[blockKey];
+    if (expectedPattern && !expectedPattern.test(itemKey)) {
+      errors.push(
+        `item_key không đúng chuẩn cho block "${blockKey}".`,
+      );
+    }
+
+    if (blockKey === "speech_body" && !String(form.content || "").trim()) {
+      errors.push('Block "speech_body" yêu cầu nhập nội dung cho vision/mission.');
+    }
+
+    if (blockKey === "timeline") {
+      const yearFromMetadata =
+        metadataValue && metadataValue !== "__invalid_json__"
+          ? String(metadataValue.year ?? "").trim()
+          : "";
+      const { year: yearFromSubtitle } = parseTimelineSubtitle(form.subtitle);
+      const year = yearFromMetadata || yearFromSubtitle;
+      if (!year) {
+        errors.push(
+          'Block "timeline" yêu cầu Năm. Hãy nhập ở trường "Phụ đề" dạng 2024 hoặc 2024-01.',
+        );
+      }
+    }
+
+    if (blockKey === "leadership_care_gallery" && !String(form.subtitle || "").trim()) {
+      errors.push('Block "leadership_care_gallery" yêu cầu "subtitle" là chức vụ.');
+    }
+  };
+
   const setDefaultFormValues = (record = {}) => {
     Object.keys(form).forEach((key) => delete form[key]);
 
@@ -450,6 +532,7 @@ export function createEntityManagerFormHelpers({
   const validateForm = () => {
     const errors = [];
     const requiredFields = config.value?.required || [];
+    const metadataValue = parseMetadataJsonSafe();
 
     requiredFields.forEach((field) => {
       if (
@@ -506,13 +589,11 @@ export function createEntityManagerFormHelpers({
       }
     });
 
-    if (form.metadata_json && typeof form.metadata_json === "string") {
-      try {
-        JSON.parse(form.metadata_json);
-      } catch {
-        errors.push("Dữ liệu Metadata JSON không đúng định dạng JSON.");
-      }
+    if (metadataValue === "__invalid_json__") {
+      errors.push("Dữ liệu Metadata JSON không đúng định dạng JSON.");
     }
+
+    validateContentBlockItemRules(errors, metadataValue);
 
     formErrors.value = errors;
     return errors.length === 0;

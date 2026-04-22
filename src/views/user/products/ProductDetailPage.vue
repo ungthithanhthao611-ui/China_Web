@@ -18,41 +18,92 @@ const lightboxOpen = ref(false)
 const showInquiry = ref(false)
 
 const gallery = computed(() => {
-  const imgs = []
-  // Main image
-  if (product.value?.image_url) {
-    imgs.push({ url: product.value.image_url, alt: product.value.name })
-  }
-  
-  // Gallery from items (API structured)
-  if (product.value?.images?.length) {
-    imgs.push(...product.value.images)
-  } 
-  // Fallback: Gallery from raw string (each line is a URL)
-  else if (product.value?.gallery_urls) {
-    const urls = product.value.gallery_urls
-      .split('\n')
-      .map(s => s.trim())
-      .filter(s => s && s.startsWith('http'))
-    
-    urls.forEach(url => {
-      imgs.push({ url, alt: product.value.name })
+  const seen = new Set()
+  const images = []
+
+  const pushImage = (item) => {
+    const url = String(item?.url || '').trim()
+    if (!url || seen.has(url)) return
+    seen.add(url)
+    images.push({
+      url,
+      alt: item?.alt || product.value?.name || 'Product image',
     })
   }
 
-  return imgs
+  if (product.value?.image_url) {
+    pushImage({
+      url: product.value.image_url,
+      alt: `${product.value?.name || 'Sản phẩm'} - ảnh gốc`,
+    })
+  }
+
+  if (product.value?.images?.length) {
+    product.value.images.forEach((item) => {
+      pushImage({
+        url: item?.url,
+        alt: item?.alt || `${product.value?.name || 'Sản phẩm'} - ảnh liên quan`,
+      })
+    })
+  } else if (product.value?.gallery_urls) {
+    product.value.gallery_urls
+      .split('\n')
+      .map((item) => item.trim())
+      .filter((item) => item && item.startsWith('http'))
+      .forEach((url) => {
+        pushImage({
+          url,
+          alt: `${product.value?.name || 'Sản phẩm'} - ảnh liên quan`,
+        })
+      })
+  }
+
+  return images
 })
+
+const relatedGallery = computed(() => gallery.value.slice(1))
 
 const isDirectVideo = (url) => {
   if (!url) return false
   return /\.(mp4|webm|ogg|mov|m4v)(\?.*)?$/i.test(url)
 }
 
+const getEmbedVideoUrl = (url) => {
+  const source = String(url || '').trim()
+  if (!source || isDirectVideo(source)) return source
+
+  try {
+    const parsed = new URL(source)
+    const hostname = parsed.hostname.replace(/^www\./, '')
+
+    if (hostname === 'youtu.be') {
+      const id = parsed.pathname.split('/').filter(Boolean)[0]
+      return id ? `https://www.youtube.com/embed/${id}` : source
+    }
+
+    if (hostname.includes('youtube.com')) {
+      if (parsed.pathname.includes('/embed/')) return source
+      const id = parsed.searchParams.get('v')
+      return id ? `https://www.youtube.com/embed/${id}` : source
+    }
+
+    if (hostname.includes('vimeo.com')) {
+      const id = parsed.pathname.split('/').filter(Boolean)[0]
+      return id ? `https://player.vimeo.com/video/${id}` : source
+    }
+  } catch {
+    return source
+  }
+
+  return source
+}
+
 const mediaItems = computed(() => {
-  const items = gallery.value.map((item) => ({
+  const items = gallery.value.map((item, index) => ({
     type: 'image',
     url: item.url,
     alt: item.alt || product.value?.name || 'Product image',
+    isPrimary: index === 0,
   }))
 
   if (product.value?.video_url) {
@@ -60,6 +111,7 @@ const mediaItems = computed(() => {
     items.push({
       type: 'video',
       url: product.value.video_url,
+      embedUrl: getEmbedVideoUrl(product.value.video_url),
       isDirect,
       alt: `${product.value?.name || 'Product'} video demo`,
     })
@@ -68,9 +120,15 @@ const mediaItems = computed(() => {
   return items
 })
 
-const videoPoster = computed(() => gallery.value[0]?.url || product.value?.image_url || 'https://placehold.co/400x300?text=Video')
+const videoPoster = computed(() => gallery.value[0]?.url || product.value?.image_url || '')
 const currentMedia = computed(() => mediaItems.value[activeMediaIndex.value] || null)
 const hasPdf = computed(() => !!product.value?.catalog_pdf_url)
+
+const getRelatedProductImage = (item) => {
+  if (item?.image_url) return item.image_url
+  if (Array.isArray(item?.images) && item.images[0]?.url) return item.images[0].url
+  return ''
+}
 
 async function fetchProduct() {
   loading.value = true
@@ -79,6 +137,10 @@ async function fetchProduct() {
     const data = await getProduct(props.slug)
     product.value = data
     activeMediaIndex.value = 0
+
+    if (data?.name) {
+      document.title = `${data.name} | Thiên Đồng Việt`
+    }
   } catch (err) {
     error.value = err.message || 'Không thể tải sản phẩm'
     product.value = null
@@ -88,6 +150,7 @@ async function fetchProduct() {
 }
 
 function openLightbox(index) {
+  if (mediaItems.value[index]?.type !== 'image') return
   activeMediaIndex.value = index
   lightboxOpen.value = true
 }
@@ -106,7 +169,6 @@ function nextImage() {
   activeMediaIndex.value = (activeMediaIndex.value + 1) % total
 }
 
-// Mở inquiry modal nếu có query param
 watch(() => route.query.inquiry, (val) => {
   if (val === '1') showInquiry.value = true
 }, { immediate: true })
@@ -136,7 +198,6 @@ onMounted(() => {
     </div>
 
     <template v-else-if="product">
-      <!-- Breadcrumb -->
       <nav class="prod-detail__breadcrumb">
         <router-link to="/"><Home :size="14" />Trang Chủ</router-link>
         <ChevronRight :size="13" />
@@ -149,14 +210,15 @@ onMounted(() => {
         <span class="current">{{ product.name }}</span>
       </nav>
 
-      <!-- Main content -->
       <div class="prod-detail__shell">
-        <!-- Gallery -->
         <div class="prod-gallery">
-          <!-- Main image -->
-          <div v-if="currentMedia?.type === 'image'" class="prod-gallery__main" @click="openLightbox(activeMediaIndex)">
+          <div
+            v-if="currentMedia?.type === 'image'"
+            class="prod-gallery__main"
+            @click="openLightbox(activeMediaIndex)"
+          >
             <img
-              :src="currentMedia?.url || 'https://placehold.co/800x600?text=Sản+Phẩm'"
+              :src="currentMedia?.url"
               :alt="currentMedia?.alt || product.name"
             />
             <div class="prod-gallery__zoom-hint"><ZoomIn :size="20" />Nhấn để phóng to</div>
@@ -172,16 +234,26 @@ onMounted(() => {
               class="prod-gallery__direct-video"
             />
             <iframe
-              v-else
-              :src="currentMedia?.url"
+              v-else-if="currentMedia?.embedUrl"
+              :src="currentMedia.embedUrl"
               title="Product Demo Video"
               allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
               allowfullscreen
               loading="lazy"
             />
+            <a
+              v-else
+              class="prod-gallery__video-fallback"
+              :href="currentMedia?.url"
+              target="_blank"
+              rel="noopener noreferrer"
+            >
+              <Play :size="18" />
+              Mở video demo trong tab mới
+            </a>
             <div class="prod-gallery__video-hint"><Play :size="18" />Video Demo</div>
           </div>
-          <!-- Thumbnails -->
+
           <div v-if="mediaItems.length > 1" class="prod-gallery__thumbs">
             <button
               v-for="(media, index) in mediaItems"
@@ -192,10 +264,11 @@ onMounted(() => {
             >
               <template v-if="media.type === 'image'">
                 <img :src="media.url" :alt="media.alt || `Ảnh ${index + 1}`" />
+                <span v-if="media.isPrimary" class="thumb-btn__badge">Ảnh gốc</span>
               </template>
               <template v-else>
                 <div class="thumb-btn__video">
-                  <img :src="videoPoster" :alt="product.name" />
+                  <img v-if="videoPoster" :src="videoPoster" :alt="product.name" />
                   <div class="thumb-btn__video-overlay">
                     <Play :size="16" fill="currentColor" />
                     <span>Video</span>
@@ -204,9 +277,26 @@ onMounted(() => {
               </template>
             </button>
           </div>
+
+          <div v-if="relatedGallery.length" class="prod-gallery__related-strip">
+            <div class="prod-gallery__related-header">
+              <h3>Ảnh Liên Quan</h3>
+              <span>{{ relatedGallery.length }} ảnh</span>
+            </div>
+            <div class="prod-gallery__related-grid">
+              <button
+                v-for="(item, index) in relatedGallery"
+                :key="`${item.url}-${index}`"
+                type="button"
+                class="prod-gallery__related-card"
+                @click="openLightbox(index + 1)"
+              >
+                <img :src="item.url" :alt="item.alt || `${product.name} - ảnh liên quan`" loading="lazy" />
+              </button>
+            </div>
+          </div>
         </div>
 
-        <!-- Info -->
         <div class="prod-info">
           <div class="prod-info__category" v-if="product.category_name">{{ product.category_name }}</div>
           <h1 class="prod-info__name">{{ product.name }}</h1>
@@ -214,7 +304,6 @@ onMounted(() => {
           <div class="prod-info__divider" />
           <p class="prod-info__short-desc">{{ product.short_desc }}</p>
 
-          <!-- Specs -->
           <div class="prod-specs">
             <h3 class="prod-specs__title">Thông Số Kỹ Thuật</h3>
             <dl class="prod-specs__list">
@@ -233,7 +322,6 @@ onMounted(() => {
             </dl>
           </div>
 
-          <!-- Actions -->
           <div class="prod-actions">
             <button class="btn-inquiry" @click="showInquiry = true">
               <Send :size="16" />
@@ -253,7 +341,6 @@ onMounted(() => {
         </div>
       </div>
 
-      <!-- Full description -->
       <div v-if="product.full_desc" class="prod-detail__desc">
         <div class="prod-detail__desc-inner">
           <h2>Mô Tả Chi Tiết</h2>
@@ -262,7 +349,6 @@ onMounted(() => {
         </div>
       </div>
 
-      <!-- Related products -->
       <div v-if="product.related_products?.length" class="prod-related">
         <div class="prod-related__header">
           <h2>Sản Phẩm Liên Quan</h2>
@@ -271,7 +357,7 @@ onMounted(() => {
         <div class="prod-related__grid">
           <article v-for="rel in product.related_products" :key="rel.id" class="rel-card">
             <router-link :to="`/products/${rel.slug}`" class="rel-card__img">
-              <img :src="rel.image_url || rel.images?.[0]?.url || 'https://placehold.co/400x300?text=Sản+Phẩm'" :alt="rel.name" loading="lazy" />
+              <img :src="getRelatedProductImage(rel)" :alt="rel.name" loading="lazy" />
             </router-link>
             <div class="rel-card__body">
               <p class="rel-card__sku">{{ rel.sku }}</p>
@@ -282,7 +368,6 @@ onMounted(() => {
       </div>
     </template>
 
-    <!-- Lightbox -->
     <Teleport to="body">
       <div v-if="lightboxOpen" class="lightbox" @click.self="closeLightbox">
         <button class="lightbox__close" @click="closeLightbox" aria-label="Đóng"><X :size="28" /></button>
@@ -295,7 +380,6 @@ onMounted(() => {
       </div>
     </Teleport>
 
-    <!-- Inquiry Modal -->
     <InquiryModal
       v-if="showInquiry"
       :product-name="product?.name"
@@ -654,6 +738,106 @@ onMounted(() => {
   border: none;
 }
 
+
+.prod-gallery__related-strip {
+  margin-top: 18px;
+  padding: 18px;
+  border: 1px solid #e9e3db;
+  border-radius: 16px;
+  background: linear-gradient(180deg, rgba(255, 255, 255, 0.96), rgba(247, 242, 235, 0.92));
+}
+
+.prod-gallery__related-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  margin-bottom: 14px;
+}
+
+.prod-gallery__related-header h3 {
+  margin: 0;
+  color: #1d283d;
+  font-size: 1rem;
+  font-weight: 700;
+}
+
+.prod-gallery__related-header span {
+  color: #8a7460;
+  font-size: 12px;
+  font-weight: 600;
+}
+
+.prod-gallery__related-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(110px, 1fr));
+  gap: 12px;
+}
+
+.prod-gallery__related-card {
+  padding: 0;
+  border: 1px solid #ebe4da;
+  border-radius: 12px;
+  overflow: hidden;
+  background: #fff;
+  cursor: pointer;
+  transition: transform 0.22s ease, box-shadow 0.22s ease, border-color 0.22s ease;
+}
+
+.prod-gallery__related-card:hover {
+  transform: translateY(-2px);
+  border-color: rgba(196, 0, 17, 0.28);
+  box-shadow: 0 10px 24px rgba(29, 40, 61, 0.1);
+}
+
+.prod-gallery__related-card img {
+  display: block;
+  width: 100%;
+  aspect-ratio: 1 / 1;
+  object-fit: cover;
+}
+
+.thumb-btn {
+  position: relative;
+  width: 72px; height: 56px;
+  border: 2px solid transparent;
+  border-radius: 6px;
+  overflow: hidden;
+  cursor: pointer;
+  padding: 0;
+  transition: border-color 0.2s;
+  background: #f0ebe3;
+}
+.thumb-btn img { width: 100%; height: 100%; object-fit: cover; }
+.thumb-btn.active { border-color: #c40011; }
+.thumb-btn:hover:not(.active) { border-color: #ddd5c8; }
+
+.thumb-btn__badge {
+  position: absolute;
+  left: 4px;
+  bottom: 4px;
+  padding: 2px 6px;
+  border-radius: 999px;
+  background: rgba(196, 0, 17, 0.88);
+  color: #fff;
+  font-size: 10px;
+  font-weight: 700;
+  line-height: 1.2;
+}
+
+.prod-gallery__video-fallback {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+  width: 100%;
+  height: 100%;
+  color: #fff;
+  text-decoration: none;
+  font-weight: 600;
+  background: radial-gradient(circle at center, rgba(196, 0, 17, 0.32), rgba(15, 23, 42, 0.98));
+}
+
 /* Related */
 .prod-related {
   max-width: 1480px;
@@ -689,6 +873,7 @@ onMounted(() => {
   display: block;
   aspect-ratio: 4/3;
   overflow: hidden;
+  background: linear-gradient(135deg, #f3ede5, #e8ded2);
 }
 .rel-card__img img {
   width: 100%; height: 100%; object-fit: cover;

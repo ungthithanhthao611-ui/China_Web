@@ -23,6 +23,9 @@ const resolveUrl = (url) => {
 const findBlock = (blocks, key) =>
   blocks.find((b) => b.block_key === key) || null
 
+const findSection = (sections, anchor) =>
+  (sections || []).find((section) => section?.anchor === anchor) || null
+
 /** Lấy tất cả items của 1 block, đã sort theo sort_order */
 const blockItems = (blocks, key) => {
   const block = findBlock(blocks, key)
@@ -51,6 +54,15 @@ const itemImage = (item, metaField = 'src') => {
   const meta = itemMeta(item)
   const metaUrl = meta[metaField] || meta.src || meta.image_url || meta.image
   return metaUrl ? resolveUrl(metaUrl) : ''
+}
+
+const sectionTitle = (sections, anchor, fallback = '') =>
+  findSection(sections, anchor)?.title || fallback
+
+const sectionImage = (sections, anchor) => {
+  const section = findSection(sections, anchor)
+  const directUrl = section?.image?.url || section?.image_url || ''
+  return directUrl ? resolveUrl(directUrl) : ''
 }
 
 // ---------------------------------------------------------------------------
@@ -122,9 +134,14 @@ function normalizeCompanyIntroduction(blocks) {
 function normalizeChairmanSpeech(blocks) {
   const block = blocks.find((b) => b.block_key === 'speech_profile' || b.block_key === 'speech_body')
   const portraitItem = findItem(blocks, 'speech_profile', 'portrait')
-  const paragraphs = blockItems(blocks, 'speech_body').map(
-    (it) => it.content || it.title || '',
-  )
+  const speechItems = blockItems(blocks, 'speech_body')
+  const speechTexts = speechItems
+    .map((it) => it.content || it.title || '')
+    .filter(Boolean)
+  const visionItem = findItem(blocks, 'speech_body', 'vision')
+  const missionItem = findItem(blocks, 'speech_body', 'mission')
+  const vision = itemStr(visionItem, 'content') || itemStr(visionItem) || speechTexts[0] || ''
+  const mission = itemStr(missionItem, 'content') || itemStr(missionItem) || speechTexts[1] || ''
   const signTitle = findItem(blocks, 'speech_signature', 'sign_title')
   const signName = findItem(blocks, 'speech_signature', 'sign_name')
   const signatureImage = findItem(blocks, 'speech_signature', 'signature_image')
@@ -132,7 +149,9 @@ function normalizeChairmanSpeech(blocks) {
   return {
     title: block?.title || 'Tầm nhìn & Sứ mệnh',
     portrait: itemImage(portraitItem),
-    paragraphs,
+    vision,
+    mission,
+    paragraphs: [vision, mission].filter(Boolean),
     signTitle: itemStr(signTitle),
     signName: itemStr(signName),
     signatureImage: itemImage(signatureImage),
@@ -149,28 +168,63 @@ function normalizeOrganizationChart(blocks) {
 }
 
 function normalizeCorporateCulture(blocks) {
-  const mapBlock = (key) =>
-    blockItems(blocks, key).map((it) => ({
-      label: it.title || '',
-      text: it.content || '',
-    }))
-
-  const block = (key) => findBlock(blocks, key)
-
-  return [
-    { title: block('culture_purpose')?.title || 'Mục tiêu doanh nghiệp', items: mapBlock('culture_purpose') },
-    { title: block('culture_mission')?.title || 'Sứ mệnh doanh nghiệp', items: mapBlock('culture_mission') },
-    { title: block('culture_spirit')?.title || 'Tinh thần doanh nghiệp', items: mapBlock('culture_spirit') },
-    { title: block('culture_values')?.title || 'Giá trị cốt lõi', items: mapBlock('culture_values') },
+  const blockDefs = [
+    { key: 'culture_values', fallbackTitle: 'Giá trị cốt lõi' },
+    { key: 'culture_purpose', fallbackTitle: 'Mục tiêu doanh nghiệp' },
+    { key: 'culture_mission', fallbackTitle: 'Sứ mệnh doanh nghiệp' },
+    { key: 'culture_spirit', fallbackTitle: 'Tinh thần doanh nghiệp' },
   ]
+
+  const normalized = blockDefs
+    .map(({ key, fallbackTitle }) => {
+      const block = findBlock(blocks, key)
+      const items = blockItems(blocks, key)
+        .filter((it) => (it.title || it.content || '').trim() !== '')
+        .map((it) => ({
+          label: it.title || '',
+          text: it.content || '',
+        }))
+
+      if (!items.length) return null
+      return {
+        title: block?.title || fallbackTitle,
+        items,
+      }
+    })
+    .filter(Boolean)
+
+  if (normalized.length) return normalized
+  return [{ title: 'Giá trị cốt lõi', items: [] }]
 }
 
 function normalizeDevelopmentCourse(blocks) {
+  const parseTimelineSubtitle = (subtitle) => {
+    const raw = String(subtitle || '').trim()
+    if (!raw) return { year: '', month: '' }
+
+    const matched = raw.match(/^(\d{4})(?:[-/.](\d{1,2}))?$/)
+    if (!matched) return { year: '', month: '' }
+    return {
+      year: matched[1] || '',
+      month: matched[2] ? String(matched[2]).padStart(2, '0') : '',
+    }
+  }
+
+  const parseYearFromTitle = (title) => {
+    const raw = String(title || '').trim()
+    const matched = raw.match(/^(\d{4})/)
+    return matched?.[1] || ''
+  }
+
   return blockItems(blocks, 'timeline').map((it) => {
     const meta = itemMeta(it)
+    const subtitleMeta = parseTimelineSubtitle(it.subtitle)
+    const titleYear = parseYearFromTitle(it.title)
+    const year = String(meta.year ?? subtitleMeta.year ?? titleYear ?? '').trim()
+    const monthRaw = meta.month ?? subtitleMeta.month ?? ''
     return {
-      year: String(meta.year ?? ''),
-      month: (meta.month && String(meta.month).trim() !== '') ? String(meta.month).padStart(2, '0') : '',
+      year,
+      month: (monthRaw && String(monthRaw).trim() !== '') ? String(monthRaw).padStart(2, '0') : '',
       title: it.title || '',
       image: itemImage(it, 'image_url'),
     }
@@ -183,7 +237,8 @@ function normalizeLeadershipCare(blocks) {
   return blockItems(blocks, 'leadership_care_gallery').map((it) => {
     const meta = itemMeta(it)
     return {
-      year: it.subtitle || meta.year || '',
+      name: it.title || '',
+      role: it.subtitle || meta.role || meta.position || meta.year || '',
       image: itemImage(it, 'image_url'),
       text: it.title || '',
     }
@@ -233,6 +288,9 @@ export function normalizeAboutPage(raw, banners = []) {
   const sections = raw.sections || []
 
   const sectionMeta = buildSectionMeta(sections)
+  const cultureCoverItem = findItem(blocks, 'culture_values', 'cover_image')
+  const cultureCoverFallbackItem =
+    blockItems(blocks, 'culture_values').find((item) => itemImage(item)) || null
 
   return {
     // Page meta
@@ -251,7 +309,16 @@ export function normalizeAboutPage(raw, banners = []) {
     chairmanSpeech: normalizeChairmanSpeech(blocks),
     organizationChart: normalizeOrganizationChart(blocks),
     cultureBlocks: normalizeCorporateCulture(blocks),
+    cultureSection: {
+      title: sectionTitle(sections, 'corporate_culture', 'Giá trị cốt lõi'),
+      coverImage:
+        sectionImage(sections, 'corporate_culture') ||
+        itemImage(cultureCoverItem) ||
+        itemImage(cultureCoverFallbackItem),
+    },
     timelineEntries: normalizeDevelopmentCourse(blocks),
+    timelineSectionTitle: sectionTitle(sections, 'development_course', 'Lịch sử phát triển'),
     leadershipItems: normalizeLeadershipCare(blocks),
+    leadershipSectionTitle: sectionTitle(sections, 'leadership_care', 'Ban lãnh đạo'),
   }
 }

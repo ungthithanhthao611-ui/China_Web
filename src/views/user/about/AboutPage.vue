@@ -23,12 +23,11 @@ const timelineHoverAfter = repoImg("dfc20891-e902-474e-8c93-c374b583041d.png");
 const sectionMeta = computed(() => aboutView.value?.sectionMeta ?? []);
 const aboutTabs = computed(() => aboutView.value?.aboutTabs ?? []);
 const companyIntroduction = computed(() => aboutView.value?.companyIntroduction?.paragraphs ?? []);
-const chairmanSpeech = computed(() => aboutView.value?.chairmanSpeech?.paragraphs ?? []);
+const chairmanSpeech = computed(() => aboutView.value?.chairmanSpeech ?? null);
 const cultureBlocks = computed(() => aboutView.value?.cultureBlocks ?? []);
 const timelineEntries = computed(() => aboutView.value?.timelineEntries ?? []);
 const leadershipItems = computed(() => aboutView.value?.leadershipItems ?? []);
 const speechPortrait = computed(() => aboutView.value?.chairmanSpeech?.portrait ?? "");
-const speechSignature = computed(() => aboutView.value?.chairmanSpeech?.signatureImage ?? "");
 const heroBannerImage = computed(() => aboutView.value?.hero?.coverImage || "");
 const introImage = computed(() => aboutView.value?.companyIntroduction?.coverImage ?? "");
 const introVideoUrl = computed(() => aboutView.value?.companyIntroduction?.videoUrl ?? "");
@@ -37,9 +36,31 @@ const heroHeadline = computed(() => aboutView.value?.hero?.headline ?? "VỀ CH�
 const heroDescription = computed(() => aboutView.value?.hero?.description ?? "");
 const speechSignTitle = computed(() => aboutView.value?.chairmanSpeech?.signTitle ?? "");
 const speechSignName = computed(() => aboutView.value?.chairmanSpeech?.signName ?? "");
+const speechVision = computed(() => chairmanSpeech.value?.vision ?? "");
+const speechMission = computed(() => chairmanSpeech.value?.mission ?? "");
 const introTitle = computed(() => aboutView.value?.companyIntroduction?.title ?? "Giới thiệu công ty");
 const speechTitle = computed(() => aboutView.value?.chairmanSpeech?.title ?? "Tầm nhìn & Sứ mệnh");
 const orgChartTitle = computed(() => aboutView.value?.organizationChart?.title ?? "Sơ đồ tổ chức");
+const videoButtonLabel = computed(
+  () => aboutView.value?.companyIntroduction?.videoButtonLabel || "VIDEO +",
+);
+const cultureTitle = computed(
+  () =>
+    aboutView.value?.cultureSection?.title ||
+    aboutView.value?.cultureBlocks?.[0]?.title ||
+    "Giá trị cốt lõi",
+);
+const cultureImage = computed(
+  () =>
+    aboutView.value?.cultureSection?.coverImage ||
+    "https://en.sinodecor.com/portal-local/ngc202304190002/cms/image/3f9cf9fc-c3f2-4cd5-a6e7-6c1f19a596b0.jpg",
+);
+const timelineTitle = computed(
+  () => aboutView.value?.timelineSectionTitle || "Lịch sử phát triển",
+);
+const leadershipTitle = computed(
+  () => aboutView.value?.leadershipSectionTitle || "Ban lãnh đạo",
+);
 
 const activeSection = ref("page1");
 const activeCultureTitle = ref("Giá trị cốt lõi");
@@ -343,11 +364,16 @@ onBeforeUnmount(() => {
             <img class="intro-main" :src="introImage" alt="Company introduction" />
             <div class="intro-watermark" />
             <div class="intro-bottom">
-              <button class="video-trigger" type="button" @click="videoOpen = true">
+              <button
+                class="video-trigger"
+                type="button"
+                :disabled="!introVideoUrl"
+                @click="introVideoUrl && (videoOpen = true)"
+              >
                 <span class="video-icon">
                   <Play :size="16" fill="currentColor" />
                 </span>
-                <span>VIDEO +</span>
+                <span>{{ videoButtonLabel }}</span>
               </button>
             </div>
           </div>
@@ -372,9 +398,14 @@ onBeforeUnmount(() => {
         <div class="split-layout reverse speech-layout">
           <div class="speech-copy-panel">
             <div ref="speechScroller" class="split-copy speech-scroller">
-              <p v-for="(paragraph, idx) in chairmanSpeech" :key="idx">
-                {{ paragraph }}
-              </p>
+              <article v-if="speechVision" class="speech-block">
+                <h3>Tầm nhìn</h3>
+                <p>{{ speechVision }}</p>
+              </article>
+              <article v-if="speechMission" class="speech-block">
+                <h3>Sứ mệnh</h3>
+                <p>{{ speechMission }}</p>
+              </article>
               <div class="speech-signoff">
                 <div class="signature-block">
                   <span>{{ speechSignTitle }}</span>
@@ -410,13 +441,13 @@ onBeforeUnmount(() => {
     <section id="page5" :class="['about-section culture-section', { 'is-visible': isSectionVisible('page5') }]">
       <div class="section-shell">
         <div class="section-heading">
-          <span class="eyebrow">THIÊN ĐỒNG VIỆT NAM</span>
-          <h2>Giá trị cốt lõi</h2>
+          <span class="eyebrow">{{ heroHeadline }}</span>
+          <h2>{{ cultureTitle }}</h2>
         </div>
 
         <div class="culture-layout">
           <div class="culture-image">
-            <img src="https://en.sinodecor.com/portal-local/ngc202304190002/cms/image/3f9cf9fc-c3f2-4cd5-a6e7-6c1f19a596b0.jpg" alt="Corporate culture" />
+            <img :src="cultureImage" alt="Corporate culture" />
           </div>
 
           <div class="culture-panel">
@@ -450,7 +481,7 @@ onBeforeUnmount(() => {
       <div class="section-shell timeline-shell">
         <div class="timeline-heading">
           <p class="timeline-title">
-            <i>Lịch sử phát triển</i>
+            <i>{{ timelineTitle }}</i>
           </p>
           <span class="timeline-heading-rule" />
         </div>
@@ -533,7 +564,7 @@ onBeforeUnmount(() => {
       <div class="section-shell leadership-shell">
         <div class="leadership-heading">
           <h2 class="leadership-title">
-            <span>Ban lãnh đạo</span>
+            <span>{{ leadershipTitle }}</span>
           </h2>
         </div>
 
@@ -561,15 +592,15 @@ onBeforeUnmount(() => {
               }"
               @swiper="bindLeadershipSwiper"
             >
-              <SwiperSlide v-for="item in leadershipItems" :key="`${item.year}-${item.image}`">
+              <SwiperSlide v-for="item in leadershipItems" :key="`${item.name}-${item.role}-${item.image}`">
                 <article class="leadership-card">
                   <div class="leadership-card-frame">
                     <div class="leadership-photo">
                       <img :src="item.image" alt="Leadership care" />
                     </div>
-                    <strong class="leadership-year">{{ item.year }}</strong>
+                    <strong class="leadership-year">{{ item.role }}</strong>
                   </div>
-                  <p class="leadership-copy">{{ item.text }}</p>
+                  <p class="leadership-copy">{{ item.name }}</p>
                 </article>
               </SwiperSlide>
             </Swiper>
@@ -579,7 +610,7 @@ onBeforeUnmount(() => {
     </section>
 
 
-    <div v-if="videoOpen" class="about-modal" @click.self="videoOpen = false">
+    <div v-if="videoOpen && introVideoUrl" class="about-modal" @click.self="videoOpen = false">
       <button class="close-button" type="button" @click="videoOpen = false">
         <X :size="22" />
       </button>

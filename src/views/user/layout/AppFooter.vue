@@ -139,8 +139,20 @@ const socialItems = [
   }
 ]
 
-const siteName = computed(() => bootstrapStore.settingsMap.site_name || 'CÔNG TY TNHH THƯƠNG MẠI QUỐC TẾ THIÊN ĐỒNG VIỆT NAM')
-const siteTagline = computed(() => bootstrapStore.settingsMap.site_tagline || 'UY TÍN TỪ NHỮNG ĐIỀU NHỎ NHẤT')
+const defaultLogoUrl =
+  'https://res.cloudinary.com/db1b15yn4/image/upload/v1776826808/logo-thien-dong.jpg-removebg-preview_ckqep4.png'
+const siteName = computed(() =>
+  readSetting(
+    ['site_name', 'company_name'],
+    'CÔNG TY TNHH THƯƠNG MẠI QUỐC TẾ THIÊN ĐỒNG VIỆT NAM',
+  ),
+)
+const siteTagline = computed(() =>
+  readSetting(['site_tagline', 'company_slogan'], 'UY TÍN TỪ NHỮNG ĐIỀU NHỎ NHẤT'),
+)
+const companyLogoUrl = computed(() =>
+  readSetting(['company_logo_url', 'site_logo', 'logo_url'], defaultLogoUrl),
+)
 
 const contactItems = computed(() => {
   const fallbackAddressLines = [
@@ -211,10 +223,14 @@ const getLinkProps = (item) => toLinkProps(item)
           <div class="foot_left">
             <router-link id="footer-logo-link" class="foot_logo" to="/">
               <img
-                src="https://res.cloudinary.com/db1b15yn4/image/upload/v1776826808/logo-thien-dong.jpg-removebg-preview_ckqep4.png"
+                :src="companyLogoUrl"
                 :alt="siteName"
               />
             </router-link>
+            <div class="foot_brand">
+              <strong>{{ siteName }}</strong>
+              <span>{{ siteTagline }}</span>
+            </div>
 
             <div class="share">
               <a
@@ -309,6 +325,7 @@ const getLinkProps = (item) => toLinkProps(item)
           >
             {{ beianText }}
           </a>
+          <span class="foot_btm__tagline">{{ siteTagline }}</span>
           <span>{{ technicalSupportText }}</span>
         </div>
       </div>
@@ -394,6 +411,29 @@ const getLinkProps = (item) => toLinkProps(item)
   display: block;
   width: 100%;
   height: auto;
+}
+
+.foot_brand {
+  margin-top: 10px;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+
+  strong {
+    color: rgba(255, 255, 255, 0.9);
+    font-size: 12px;
+    font-weight: 600;
+    line-height: 1.3;
+    text-transform: uppercase;
+  }
+
+  span {
+    color: #d4b58a;
+    font-size: 11px;
+    line-height: 1.35;
+    text-transform: uppercase;
+    letter-spacing: 0.08em;
+  }
 }
 
 .share {
@@ -600,6 +640,12 @@ const getLinkProps = (item) => toLinkProps(item)
   gap: 8px 14px;
 }
 
+.foot_btm__tagline {
+  color: #d4b58a;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+}
+
 @media (max-width: 1360px) {
   .footer__container {
     padding: 36px 30px 12px;
@@ -660,6 +706,16 @@ const getLinkProps = (item) => toLinkProps(item)
 
   .foot_logo {
     width: 160px;
+  }
+
+  .foot_brand {
+    strong {
+      font-size: 11px;
+    }
+
+    span {
+      font-size: 10px;
+    }
   }
 
   .share {

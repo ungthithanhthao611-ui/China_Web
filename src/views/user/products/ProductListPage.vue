@@ -190,7 +190,7 @@ onMounted(async () => {
           >
             <router-link :to="`/products/${product.slug}`" class="prod-card__img-wrap">
               <img
-                :src="product.image_url || product.images?.[0]?.url || 'https://placehold.co/400x300?text=Sản+Phẩm'"
+                :src="product.image_url || product.images?.[0]?.url || ''"
                 :alt="product.name"
                 loading="lazy"
               />
@@ -579,6 +579,7 @@ onMounted(async () => {
   display: block;
   aspect-ratio: 4 / 3;
   overflow: hidden;
+  background: linear-gradient(135deg, #f3ede5, #e8ded2);
 }
 
 .prod-card__img-wrap img {

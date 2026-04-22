@@ -205,18 +205,58 @@ export function createEntityManagerPreviewHelpers({
     }
   };
 
+  const normalizedExternalUrl = (url) => {
+    const raw = String(url || "").trim();
+    if (!raw) return "";
+
+    let normalized = raw
+      .replace(/^['"`]+|['"`]+$/g, "")
+      .replace(/\\\//g, "/")
+      .replace(/&amp;/gi, "&")
+      .trim();
+
+    if (normalized.startsWith("//")) {
+      normalized = `https:${normalized}`;
+    }
+
+    try {
+      const parsed = new URL(normalized);
+
+      const driveFileMatch = parsed.pathname.match(/\/file\/d\/([^/]+)/i);
+      const driveId =
+        driveFileMatch?.[1] ||
+        parsed.searchParams.get("id") ||
+        (parsed.hostname.includes("drive.google.com") && parsed.pathname.includes("/uc")
+          ? parsed.searchParams.get("id")
+          : "");
+      if (driveId && /(^|\.)drive\.google\.com$/i.test(parsed.hostname)) {
+        return `https://drive.google.com/uc?export=view&id=${driveId}`;
+      }
+
+      if (/^www\.dropbox\.com$/i.test(parsed.hostname)) {
+        parsed.searchParams.set("raw", "1");
+        parsed.searchParams.delete("dl");
+        return parsed.toString();
+      }
+
+      return parsed.toString();
+    } catch {
+      return normalized;
+    }
+  };
+
   const isDirectImageFile = (url) => {
-    const normalized = String(url || "").trim().toLowerCase();
+    const normalized = normalizedExternalUrl(url).toLowerCase();
     return /\.(png|jpe?g|gif|webp|avif|svg)(\?.*)?$/.test(normalized);
   };
 
   const isDirectVideoFile = (url) => {
-    const normalized = String(url || "").trim().toLowerCase();
+    const normalized = normalizedExternalUrl(url).toLowerCase();
     return /\.(mp4|webm|ogg|mov|m4v)(\?.*)?$/.test(normalized);
   };
 
   const isAllowedVideoUrl = (url) => {
-    const normalized = String(url || "").trim();
+    const normalized = normalizedExternalUrl(url);
     if (!normalized) return false;
 
     try {
@@ -265,7 +305,7 @@ export function createEntityManagerPreviewHelpers({
     getMediaOptions().find((item) => String(item.id) === String(mediaId)) || null;
 
   const resolvePreviewMediaUrl = (url) => {
-    const normalized = String(url || "").trim();
+    const normalized = normalizedExternalUrl(url);
     if (!normalized) return "";
     // If it's already absolute, return as is
     if (/^https?:\/\//i.test(normalized)) return normalized;
@@ -301,8 +341,15 @@ export function createEntityManagerPreviewHelpers({
   };
 
   const buildMediaPreviewFromUrl = (rawUrl, fallbackLabel = "Media preview") => {
-    const normalized = String(rawUrl || "").trim();
+    const normalized = normalizedExternalUrl(rawUrl);
     if (!normalized) return null;
+
+    const isGoogleDriveDirectPreview =
+      /^https:\/\/drive\.google\.com\/uc\?/i.test(normalized);
+    const isLikelyImageHost =
+      /res\.cloudinary\.com|googleusercontent\.com|en\.sinodecor\.com|imgur\.com/i.test(
+        normalized,
+      ) || normalized.includes("/cms/image/");
 
     if (isDirectVideoFile(normalized)) {
       return {
@@ -322,7 +369,8 @@ export function createEntityManagerPreviewHelpers({
 
     if (
       isDirectImageFile(normalized) ||
-      /^https?:\/\//i.test(normalized) ||
+      isGoogleDriveDirectPreview ||
+      isLikelyImageHost ||
       normalized.startsWith("/")
     ) {
       return {
@@ -362,6 +410,8 @@ export function createEntityManagerPreviewHelpers({
       metadata?.src ||
         metadata?.image_url ||
         metadata?.image ||
+        metadata?.external_source_url ||
+        metadata?.source_url ||
         metadata?.video_url ||
         metadata?.thumbnail_url,
       "Xem trước từ metadata",
@@ -464,6 +514,7 @@ export function createEntityManagerPreviewHelpers({
     resolveContentBlockPreview,
     resolveBlockRecordById,
     safeMetadataObject,
+    normalizedExternalUrl,
     isDirectImageFile,
     isDirectVideoFile,
     isAllowedVideoUrl,
@@ -490,3 +541,5 @@ export function createEntityManagerPreviewHelpers({
     videoUrlHint,
   };
 }
+
+
