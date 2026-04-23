@@ -1,0 +1,1 @@
+var e=`china_decor.navigation.menus.updated_at`;function t(){let t=localStorage.getItem(e),n=Number.parseInt(String(t||``),10);return Number.isFinite(n)?n:0}function n(){let t=Date.now();return localStorage.setItem(e,String(t)),t}export{n,t as r,e as t};
