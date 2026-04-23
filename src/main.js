@@ -3,6 +3,7 @@ import { createPinia } from 'pinia'
 import App from './App.vue'
 import router from './app/router'
 import './assets/scss/main.scss'
+import './assets/css/style.css'
 
 // Import AOS
 import AOS from 'aos'
@@ -25,5 +26,6 @@ AOS.init({
   duration: 800,
   easing: 'ease-in-out',
   once: true,
-  mirror: false
+  mirror: false,
+  disable: 'mobile' // Tối ưu cho điện thoại
 })

@@ -18,7 +18,7 @@ defineProps({
       <div class="building-layer" :class="{ 'reveal-building': active }">
         <img
           class="building-img"
-          src="https://res.cloudinary.com/db1b15yn4/image/upload/v1776694061/Image_20260418142414_10_3_rj9klh.jpg"
+          src="https://res.cloudinary.com/db1b15yn4/image/upload/f_auto,q_auto/v1776694061/Image_20260418142414_10_3_rj9klh.jpg"
           alt="Building"
         />
         <div class="building-mask"></div>

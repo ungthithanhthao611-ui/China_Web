@@ -278,24 +278,7 @@ onMounted(() => {
             </button>
           </div>
 
-          <div v-if="relatedGallery.length" class="prod-gallery__related-strip">
-            <div class="prod-gallery__related-header">
-              <h3>Ảnh Liên Quan</h3>
-              <span>{{ relatedGallery.length }} ảnh</span>
-            </div>
-            <div class="prod-gallery__related-grid">
-              <button
-                v-for="(item, index) in relatedGallery"
-                :key="`${item.url}-${index}`"
-                type="button"
-                class="prod-gallery__related-card"
-                @click="openLightbox(index + 1)"
-              >
-                <img :src="item.url" :alt="item.alt || `${product.name} - ảnh liên quan`" loading="lazy" />
-              </button>
-            </div>
           </div>
-        </div>
 
         <div class="prod-info">
           <div class="prod-info__category" v-if="product.category_name">{{ product.category_name }}</div>
@@ -349,23 +332,6 @@ onMounted(() => {
         </div>
       </div>
 
-      <div v-if="product.related_products?.length" class="prod-related">
-        <div class="prod-related__header">
-          <h2>Sản Phẩm Liên Quan</h2>
-          <div class="prod-detail__desc-line" />
-        </div>
-        <div class="prod-related__grid">
-          <article v-for="rel in product.related_products" :key="rel.id" class="rel-card">
-            <router-link :to="`/products/${rel.slug}`" class="rel-card__img">
-              <img :src="getRelatedProductImage(rel)" :alt="rel.name" loading="lazy" />
-            </router-link>
-            <div class="rel-card__body">
-              <p class="rel-card__sku">{{ rel.sku }}</p>
-              <router-link :to="`/products/${rel.slug}`" class="rel-card__name">{{ rel.name }}</router-link>
-            </div>
-          </article>
-        </div>
-      </div>
     </template>
 
     <Teleport to="body">

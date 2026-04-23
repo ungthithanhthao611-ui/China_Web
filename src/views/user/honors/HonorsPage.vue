@@ -30,9 +30,9 @@ const hero = ref({
   title: 'NĂNG LỰC',
   description: 'Hình ảnh nhà máy, công nghệ sản xuất, công suất thực tế và các chứng nhận ISO, CE.',
   background:
-    'https://res.cloudinary.com/db1b15yn4/image/upload/v1776695465/width_1600_1_kqfqbl.png',
+    'https://res.cloudinary.com/db1b15yn4/image/upload/f_auto,q_auto/v1776695465/width_1600_1_kqfqbl.png',
   mobile_background:
-    'https://res.cloudinary.com/db1b15yn4/image/upload/v1776695465/width_1600_1_kqfqbl.png',
+    'https://res.cloudinary.com/db1b15yn4/image/upload/f_auto,q_auto/v1776695465/width_1600_1_kqfqbl.png',
   accent: '',
 })
 const qualificationItems = ref([])
@@ -57,28 +57,28 @@ const fallbackFactoryImages = [
   {
     id: 'factory-1',
     title: 'Hình ảnh nhà máy',
-    image_url: 'https://res.cloudinary.com/db1b15yn4/image/upload/v1776693986/Image_20260418142412_7_3_umh4bn.jpg',
+    image_url: 'https://res.cloudinary.com/db1b15yn4/image/upload/f_auto,q_auto/v1776693986/Image_20260418142412_7_3_umh4bn.jpg',
     year: null,
     issued_by: null,
   },
   {
     id: 'factory-2',
     title: 'Hình ảnh nhà máy',
-    image_url: 'https://res.cloudinary.com/db1b15yn4/image/upload/v1776694010/Image_20260418142413_8_3_jzz2fe.jpg',
+    image_url: 'https://res.cloudinary.com/db1b15yn4/image/upload/f_auto,q_auto/v1776694010/Image_20260418142413_8_3_jzz2fe.jpg',
     year: null,
     issued_by: null,
   },
   {
     id: 'factory-3',
     title: 'Hình ảnh nhà máy',
-    image_url: 'https://res.cloudinary.com/db1b15yn4/image/upload/v1776694034/Image_20260418142413_9_3_m65uzj.jpg',
+    image_url: 'https://res.cloudinary.com/db1b15yn4/image/upload/f_auto,q_auto/v1776694034/Image_20260418142413_9_3_m65uzj.jpg',
     year: null,
     issued_by: null,
   },
   {
     id: 'factory-4',
     title: 'Hình ảnh nhà máy',
-    image_url: 'https://res.cloudinary.com/db1b15yn4/image/upload/v1776694061/Image_20260418142414_10_3_rj9klh.jpg',
+    image_url: 'https://res.cloudinary.com/db1b15yn4/image/upload/f_auto,q_auto/v1776694061/Image_20260418142414_10_3_rj9klh.jpg',
     year: null,
     issued_by: null,
   },
@@ -88,7 +88,7 @@ const fallbackFactoryLocation = [
   {
     id: 'factory-location',
     title: 'Địa chỉ nhà máy',
-    image_url: 'https://res.cloudinary.com/db1b15yn4/image/upload/v1776693986/Image_20260418142412_7_3_umh4bn.jpg',
+    image_url: 'https://res.cloudinary.com/db1b15yn4/image/upload/f_auto,q_auto/v1776693986/Image_20260418142412_7_3_umh4bn.jpg',
     short_description: 'Beijing / Industrial zone / China',
     issued_by: 'Factory location',
   },
@@ -98,7 +98,7 @@ const fallbackOutputItems = [
   {
     id: 'factory-output',
     title: 'Công suất',
-    image_url: 'https://res.cloudinary.com/db1b15yn4/image/upload/v1776694010/Image_20260418142413_8_3_jzz2fe.jpg',
+    image_url: 'https://res.cloudinary.com/db1b15yn4/image/upload/f_auto,q_auto/v1776694010/Image_20260418142413_8_3_jzz2fe.jpg',
     short_description: 'Năng lực sản xuất ổn định cho đơn hàng số lượng lớn.',
     issued_by: 'Output',
   },
@@ -108,7 +108,7 @@ const fallbackTechnologyItems = [
   {
     id: 'factory-tech',
     title: 'Công nghệ sản xuất',
-    image_url: 'https://res.cloudinary.com/db1b15yn4/image/upload/v1776694061/Image_20260418142414_10_3_rj9klh.jpg',
+    image_url: 'https://res.cloudinary.com/db1b15yn4/image/upload/f_auto,q_auto/v1776694061/Image_20260418142414_10_3_rj9klh.jpg',
     short_description: 'Máy móc, quy trình và dây chuyền hiện đại.',
     issued_by: 'Production technology',
   },

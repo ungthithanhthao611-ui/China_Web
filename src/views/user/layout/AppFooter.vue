@@ -205,6 +205,7 @@ const getLinkProps = (item) => toLinkProps(item)
               <img
                 :src="logoImage"
                 :alt="siteName"
+                loading="lazy"
               />
             </router-link>
             <div class="foot_brand">
@@ -224,7 +225,7 @@ const getLinkProps = (item) => toLinkProps(item)
                 :rel="item.href.startsWith('http') ? 'noopener noreferrer' : undefined"
                 :aria-label="item.name"
               >
-                <img :src="item.icon" :alt="item.name" />
+                <img :src="item.icon" :alt="item.name" loading="lazy" />
                 <span v-if="item.qr" class="share__qr">
                   <img :src="item.qr" :alt="`${item.name} qr`" />
                 </span>
@@ -241,7 +242,7 @@ const getLinkProps = (item) => toLinkProps(item)
                 :target="item.external ? '_blank' : undefined"
                 :rel="item.external ? 'noopener noreferrer' : undefined"
               >
-                <img :src="item.icon" :alt="item.id" class="foot_contact__icon" />
+                <img :src="item.icon" :alt="item.id" class="foot_contact__icon" loading="lazy" />
 
                 <span v-if="item.lines" class="foot_contact__text foot_contact__text--stacked">
                   <span v-for="line in item.lines" :key="line">{{ line }}</span>
@@ -368,14 +369,13 @@ const getLinkProps = (item) => toLinkProps(item)
   z-index: 1;
   width: min(1600px, calc(100% - 4px));
   margin: 0 auto;
-  padding: 38px 58px 10px;
+  padding: 24px 58px 0;
 }
-
 .foot_top {
   display: grid;
-  grid-template-columns: 248px minmax(0, 1fr);
-  gap: 22px 58px;
-  min-height: 282px;
+  grid-template-columns: 320px 1fr; /* Rộng hơn cho phần bên trái */
+  gap: 40px 80px;
+  min-height: auto;
 }
 
 .foot_left {
@@ -394,25 +394,26 @@ const getLinkProps = (item) => toLinkProps(item)
 }
 
 .foot_brand {
-  margin-top: 10px;
+  margin-top: 14px;
   display: flex;
   flex-direction: column;
-  gap: 4px;
+  gap: 6px;
 
   strong {
-    color: rgba(255, 255, 255, 0.9);
-    font-size: 12px;
-    font-weight: 600;
+    color: #ffffff;
+    font-size: 13px; /* Giảm từ 14px xuống 13px */
+    font-weight: 700;
     line-height: 1.3;
-    text-transform: uppercase;
+    letter-spacing: 0.01em;
   }
 
   span {
     color: #d4b58a;
-    font-size: 11px;
-    line-height: 1.35;
+    font-size: 10px; /* Giảm từ 11px xuống 10px */
+    font-weight: 500;
+    line-height: 1.3;
     text-transform: uppercase;
-    letter-spacing: 0.08em;
+    letter-spacing: 0.1em;
   }
 }
 
@@ -420,7 +421,7 @@ const getLinkProps = (item) => toLinkProps(item)
   display: flex;
   align-items: center;
   gap: 12px;
-  margin-top: 23px;
+  margin-top: 12px;
 }
 
 .share__item {
@@ -480,9 +481,8 @@ const getLinkProps = (item) => toLinkProps(item)
 }
 
 .foot_contact {
-  display: grid;
-  gap: 7px;
-  margin-top: 28px;
+  gap: 6px;
+  margin-top: 16px;
   max-width: 218px;
 }
 
@@ -519,9 +519,9 @@ const getLinkProps = (item) => toLinkProps(item)
 
 .foot_nav {
   display: grid;
-  grid-template-columns: repeat(6, minmax(0, 1fr));
-  gap: 22px 36px;
-  padding-top: 1px;
+  grid-template-columns: repeat(4, minmax(0, 1fr)); /* Giảm từ 6 xuống 4 cột cho đặc hơn */
+  gap: 30px 40px;
+  padding-top: 4px;
 }
 
 .foot_nav__group {
@@ -531,8 +531,9 @@ const getLinkProps = (item) => toLinkProps(item)
 .foot_nav_tit {
   color: #d8b581;
   text-decoration: none;
-  font-size: 15px;
-  line-height: 1.55;
+  font-size: 14px; /* Giảm từ 15px xuống 14px */
+  font-weight: 600;
+  line-height: 1.4;
   transition: color 0.24s ease;
 }
 
@@ -543,13 +544,13 @@ const getLinkProps = (item) => toLinkProps(item)
 .foot_nav__accent {
   width: 23px;
   height: 2px;
-  margin: 12px 0 15px;
+  margin: 8px 0 10px;
   background: #e6081d;
 }
 
 .colum_two {
   display: grid;
-  gap: 10px;
+  gap: 6px; /* Giảm từ 10px xuống 6px */
 }
 
 .colum_two a {
@@ -580,18 +581,19 @@ const getLinkProps = (item) => toLinkProps(item)
   display: flex;
   align-items: center;
   justify-content: space-between;
-  gap: 20px;
-  margin-top: 2px;
-  color: rgba(184, 193, 207, 0.46);
+  gap: 15px;
+  margin-top: 8px;
+  padding: 10px 0 14px;
+  border-top: 1px solid rgba(255, 255, 255, 0.04);
+  color: rgba(184, 193, 207, 0.45);
   font-size: 12px;
-  line-height: 1.45;
 }
 
 .friends_lk {
   display: flex;
   align-items: center;
   flex-wrap: wrap;
-  gap: 0;
+  gap: 12px;
 }
 
 .friends_lk a,
@@ -603,13 +605,15 @@ const getLinkProps = (item) => toLinkProps(item)
 
 .friends_lk a:hover,
 .foot_btm__meta a:hover {
-  color: #ffffff;
+  color: #d4b58a;
 }
 
 .friends_lk > div:not(:last-child)::after {
-  content: '|';
-  margin: 0 10px;
-  color: rgba(255, 255, 255, 0.17);
+  content: '';
+  width: 1px;
+  height: 12px;
+  background: rgba(255, 255, 255, 0.1);
+  margin: 0 4px;
 }
 
 .foot_btm__meta {
@@ -617,119 +621,71 @@ const getLinkProps = (item) => toLinkProps(item)
   align-items: center;
   justify-content: flex-end;
   flex-wrap: wrap;
-  gap: 8px 14px;
+  gap: 8px 24px;
 }
 
 .foot_btm__tagline {
   color: #d4b58a;
+  font-weight: 600;
   text-transform: uppercase;
-  letter-spacing: 0.06em;
+  letter-spacing: 0.08em;
 }
 
-@media (max-width: 1360px) {
+@media (max-width: 992px) {
   .footer__container {
-    padding: 36px 30px 12px;
+    padding: 20px 30px 0;
   }
-
-  .foot_top {
-    grid-template-columns: 235px minmax(0, 1fr);
-    gap: 20px 36px;
-  }
-
-  .foot_nav {
-    gap: 20px 24px;
-  }
-}
-
-@media (max-width: 1160px) {
   .foot_top {
     grid-template-columns: 1fr;
-    min-height: 0;
+    gap: 24px;
   }
-
   .foot_left {
-    max-width: 320px;
-  }
-
-  .foot_nav {
-    grid-template-columns: repeat(3, minmax(0, 1fr));
-  }
-
-  .foot_btm {
-    flex-direction: column;
+    max-width: 100%;
+    display: flex;
+    flex-wrap: wrap;
+    gap: 30px;
     align-items: flex-start;
   }
-
-  .foot_btm__meta {
-    justify-content: flex-start;
+  .foot_contact {
+    margin-top: 0;
+    max-width: none;
+    flex: 1;
+    min-width: 250px;
+  }
+  .foot_nav {
+    grid-template-columns: repeat(3, 1fr);
+    gap: 20px;
   }
 }
 
 @media (max-width: 768px) {
-  .footer__bg--top {
-    width: 250px;
-    height: 148px;
-    opacity: 0.13;
-  }
-
-  .footer__bg--bottom {
-    width: 230px;
-    height: 102px;
-    bottom: 84px;
-    opacity: 0.11;
-  }
-
   .footer__container {
-    width: min(100%, calc(100% - 20px));
-    padding: 30px 10px 14px;
+    padding: 20px 15px;
   }
-
-  .foot_logo {
-    width: 160px;
+  .foot_left {
+    flex-direction: column;
+    gap: 15px;
   }
-
-  .foot_brand {
-    strong {
-      font-size: 11px;
-    }
-
-    span {
-      font-size: 10px;
-    }
-  }
-
-  .share {
-    margin-top: 18px;
-  }
-
-  .share__item {
-    width: 36px;
-    height: 36px;
-  }
-
   .foot_contact {
-    margin-top: 22px;
+    min-width: 100%;
   }
-
   .foot_nav {
-    grid-template-columns: repeat(2, minmax(0, 1fr));
-    gap: 18px 16px;
+    grid-template-columns: repeat(2, 1fr);
+    gap: 20px 10px;
   }
-
-  .foot_nav_tit {
-    font-size: 14px;
+  .foot_nav__accent {
+    margin: 6px 0 8px;
   }
-
-  .colum_two a,
-  .foot_contact__item,
   .foot_btm {
+    padding: 10px 0;
     font-size: 11px;
   }
 }
 
-@media (max-width: 520px) {
+@media (max-width: 480px) {
   .foot_nav {
-    grid-template-columns: 1fr;
+    grid-template-columns: repeat(2, 1fr); /* Giữ 2 cột cho gọn */
+    gap: 15px 10px;
   }
 }
 </style>

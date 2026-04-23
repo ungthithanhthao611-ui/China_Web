@@ -1,0 +1,105 @@
+/* Global Font Import */
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600&family=Outfit:wght@400;600;700&display=swap');
+
+* {
+    font-family: 'Inter', sans-serif !important;
+}
+
+h1, h2, h3, h4, h5, h6 {
+    font-family: 'Outfit', sans-serif !important;
+}
+
+/* Responsive Base */
+html {
+    font-size: 16px;
+    scroll-behavior: smooth;
+}
+
+body {
+    margin: 0;
+    padding: 0;
+    width: 100%;
+    min-height: 100vh;
+    overflow-x: hidden;
+    position: relative;
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+}
+
+html, body {
+    max-width: 100%;
+    overflow-x: hidden;
+}
+
+/* Container Responsiveness */
+.container {
+    width: 100%;
+    max-width: 1200px;
+    margin: 0 auto;
+    padding: 0 20px;
+}
+
+/* Media Queries for better responsiveness */
+@media screen and (max-width: 1200px) {
+    .container {
+        max-width: 960px;
+    }
+}
+
+@media screen and (max-width: 992px) {
+    .container {
+        max-width: 720px;
+    }
+}
+
+@media screen and (max-width: 768px) {
+    .container {
+        max-width: 540px;
+        padding: 0 15px;
+    }
+    
+    .section-padding {
+        padding: 40px 0 !important;
+    }
+}
+
+@media screen and (max-width: 576px) {
+    .container {
+        max-width: 100%;
+    }
+}
+
+/* Ensure images are responsive */
+img {
+    max-width: 100%;
+    height: auto;
+}
+
+/* Responsive Utilities */
+.hidden-mobile {
+    @media screen and (max-width: 768px) {
+        display: none !important;
+    }
+}
+
+.hidden-desktop {
+    @media screen and (min-width: 769px) {
+        display: none !important;
+    }
+}
+
+.w-full {
+    width: 100% !important;
+}
+
+.m-0 { margin: 0 !important; }
+.p-0 { padding: 0 !important; }
+
+/* Flexbox utilities for responsiveness */
+.flex-responsive {
+    display: flex;
+    flex-wrap: wrap;
+    @media screen and (max-width: 768px) {
+        flex-direction: column;
+    }
+}

@@ -216,17 +216,23 @@ watch(
   }
 )
 
-watch(isSearchOpen, (value) => {
-  setBodyLock(value)
-})
+const handleScroll = () => {
+  // Luôn ẩn header khi không rê chuột vào vùng trigger hoặc chính nó
+  // Dù ở đỉnh trang hay cuộn xuống đều ẩn để tạo cảm giác thoáng
+  uiState.isHeaderHidden = true;
+};
 
 onMounted(() => {
   window.addEventListener('keydown', handleKeydown)
+  window.addEventListener('scroll', handleScroll)
   loadProductCategories()
+  // Mặc định ẩn ngay khi load
+  uiState.isHeaderHidden = true;
 })
 
 onBeforeUnmount(() => {
   window.removeEventListener('keydown', handleKeydown)
+  window.removeEventListener('scroll', handleScroll)
   setBodyLock(false)
 })
 </script>
@@ -249,12 +255,16 @@ onBeforeUnmount(() => {
     @mouseenter="uiState.isHeaderHovered = true"
     @mouseleave="uiState.isHeaderHovered = false"
   >
-    <!-- Hover Trigger Zone (Active when hidden) -->
-    <div class="header-trigger" v-if="uiState.isHeaderHidden"></div>
+    <!-- Hover Trigger Zone (Active when not hovered) -->
+    <div 
+      class="header-trigger" 
+      v-if="!uiState.isHeaderHovered"
+      @mouseenter="uiState.isHeaderHovered = true"
+    ></div>
     <div class="header_flx">
       <div class="brand-block">
         <router-link to="/" class="logo-link">
-          <img :src="logoImage" :alt="`${siteName} logo`" />
+          <img :src="logoImage" :alt="`${siteName} logo`" loading="lazy" />
         </router-link>
       </div>
 
@@ -279,68 +289,103 @@ onBeforeUnmount(() => {
           </div>
         </nav>
 
-        <button class="nav_search" type="button" aria-label="Search" @click="openSearch">
-          <Search :size="28" stroke-width="1.7" />
-        </button>
-
-        <a v-if="headerEmail" :href="`mailto:${headerEmail}`" class="contact-item">
+        <!-- Desktop Only Contact -->
+        <a v-if="headerEmail" :href="`mailto:${headerEmail}`" class="contact-item desktop-only">
           <div class="contact-icon">
             <Mail class="w-4 h-4" />
           </div>
           <span class="text-sm font-medium">{{ headerEmail }}</span>
         </a>
-        <a v-if="phoneHref" :href="phoneHref" class="contact-item">
+        <a v-if="phoneHref" :href="phoneHref" class="contact-item desktop-only">
           <div class="contact-icon">
             <Phone class="w-4 h-4" />
           </div>
           <span class="text-sm font-medium">{{ headerPhone }}</span>
         </a>
 
-        <button class="mobile-toggle" @click="toggleMobileMenu" type="button" aria-label="Toggle menu">
-          <Menu v-if="!isMobileMenuOpen" :size="26" />
-          <X v-else :size="26" />
-        </button>
+        <!-- Icons Container (Visible on mobile) -->
+        <div class="header-icons-row">
+          <button class="nav_search" type="button" aria-label="Search" @click="openSearch">
+            <Search :size="24" stroke-width="1.7" />
+          </button>
+
+          <div class="lang">
+            <Globe :size="24" stroke-width="1.7" />
+            <span>CN</span>
+          </div>
+
+          <button class="mobile-toggle" @click="toggleMobileMenu" type="button" aria-label="Toggle menu">
+            <Menu :size="28" />
+          </button>
+        </div>
       </div>
     </div>
 
-    <div :class="['mobile-nav', { 'is-open': isMobileMenuOpen }]">
-      <div v-for="item in navItems" :key="`mobile-${item.name}`" class="mobile-nav-item">
-        <div class="mobile-nav-head">
-          <component
-            :is="item.external ? 'a' : 'router-link'"
-            v-bind="getLinkProps(item)"
-            @click="isMobileMenuOpen = false"
-          >
-            {{ item.name }}
-          </component>
-          <button
+    <!-- Mobile Backdrop -->
+    <div 
+      v-if="isMobileMenuOpen" 
+      class="mobile-backdrop" 
+      @click="isMobileMenuOpen = false"
+    ></div>
+
+    <div :class="['mobile-nav-sidebar', { 'is-open': isMobileMenuOpen }]">
+      <div class="mobile-nav-header">
+        <div class="mobile-logo">
+           <img :src="logoImage" :alt="siteName" />
+        </div>
+        <button class="mobile-close" @click="isMobileMenuOpen = false">
+           <X :size="28" />
+        </button>
+      </div>
+      
+      <div class="mobile-nav-content">
+        <div v-for="item in navItems" :key="`mobile-${item.name}`" class="mobile-nav-item">
+          <div class="mobile-nav-head">
+            <component
+              :is="item.external ? 'a' : 'router-link'"
+              v-bind="getLinkProps(item)"
+              @click="isMobileMenuOpen = false"
+            >
+              {{ item.name }}
+            </component>
+            <button
+              v-if="item.children?.length"
+              type="button"
+              class="mobile-nav-toggle"
+              :aria-label="`Toggle ${item.name}`"
+              @click="toggleMobileGroup(item.name)"
+            >
+              <ChevronDown
+                :size="18"
+                :class="{ rotated: isMobileGroupExpanded(item.name) }"
+              />
+            </button>
+          </div>
+          <div
             v-if="item.children?.length"
-            type="button"
-            class="mobile-nav-toggle"
-            :aria-label="`Toggle ${item.name}`"
-            @click="toggleMobileGroup(item.name)"
+            class="mobile-dropdown"
+            :class="{ 'is-open': isMobileGroupExpanded(item.name) }"
           >
-            <ChevronDown
-              :size="18"
-              :class="{ rotated: isMobileGroupExpanded(item.name) }"
-            />
-          </button>
+            <component
+              v-for="child in item.children"
+              :key="`mobile-${child.name}`"
+              :is="child.external ? 'a' : 'router-link'"
+              v-bind="getLinkProps(child)"
+              @click="isMobileMenuOpen = false"
+            >
+              {{ child.name }}
+            </component>
+          </div>
         </div>
-        <div
-          v-if="item.children?.length"
-          class="mobile-dropdown"
-          :class="{ 'is-open': isMobileGroupExpanded(item.name) }"
-        >
-          <component
-            v-for="child in item.children"
-            :key="`mobile-${child.name}`"
-            :is="child.external ? 'a' : 'router-link'"
-            v-bind="getLinkProps(child)"
-            @click="isMobileMenuOpen = false"
-          >
-            {{ child.name }}
-          </component>
-        </div>
+      </div>
+      
+      <div class="mobile-nav-footer">
+         <a :href="`tel:${headerPhone}`" class="mobile-contact-link">
+            <Phone :size="18" /> {{ headerPhone }}
+         </a>
+         <a :href="`mailto:${headerEmail}`" class="mobile-contact-link">
+            <Mail :size="18" /> {{ headerEmail }}
+         </a>
       </div>
     </div>
 
@@ -751,133 +796,213 @@ onBeforeUnmount(() => {
   cursor: pointer;
 }
 
-.mobile-nav {
-  display: none;
+.mobile-backdrop {
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.6);
+  backdrop-filter: blur(4px);
+  z-index: 1500;
 }
 
-@media (max-width: 1380px) {
-  .header_flx {
-    min-height: 96px;
-    padding: 0 20px;
+.mobile-nav-sidebar {
+  position: fixed;
+  top: 0;
+  right: 0;
+  width: 300px;
+  height: 100vh;
+  background: #0f1b33;
+  z-index: 1600;
+  display: flex;
+  flex-direction: column;
+  transform: translateX(100%);
+  transition: transform 0.4s cubic-bezier(0.19, 1, 0.22, 1);
+  box-shadow: -10px 0 30px rgba(0, 0, 0, 0.3);
+
+  &.is-open {
+    transform: translateX(0);
+  }
+}
+
+.mobile-nav-header {
+  padding: 24px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+
+  .mobile-logo img {
+    height: 40px;
+    width: auto;
   }
 
-  .header_nav {
-    display: none;
+  .mobile-close {
+    background: transparent;
+    border: none;
+    color: #fff;
+    cursor: pointer;
   }
+}
 
-  .brand-copy {
-    display: none;
-  }
+.mobile-nav-content {
+  flex: 1;
+  overflow-y: auto;
+  padding: 24px;
+}
 
-  .mobile-toggle {
-    display: inline-flex;
-    align-items: center;
-    justify-content: center;
-  }
-
-  .nav_search :deep(svg),
-  .lang :deep(svg) {
-    width: 24px;
-    height: 24px;
-  }
-
-  .lang {
-    font-size: 16px;
-  }
-
-  .contact-item {
-    display: none;
-  }
-
-  .mobile-nav {
-    display: block;
-    max-height: 0;
-    overflow: hidden;
-    transition: max-height 0.28s ease;
-    border-top: 1px solid rgba(214, 184, 136, 0.2);
-    background: rgba(3, 19, 50, 0.94);
-
-    &.is-open {
-      max-height: 85vh;
-      overflow-y: auto;
-    }
-  }
-
-  .mobile-nav-item {
-    padding: 14px 20px;
-    border-bottom: 1px solid rgba(214, 184, 136, 0.12);
-
-    > a {
-      color: #e6c596;
-      font-size: 18px;
-    }
-  }
+.mobile-nav-item {
+  margin-bottom: 20px;
 
   .mobile-nav-head {
     display: flex;
     align-items: center;
     justify-content: space-between;
-    gap: 10px;
-  }
-
-  .mobile-nav-toggle {
-    border: 0;
-    background: transparent;
-    color: #e6c596;
-    display: inline-flex;
-    align-items: center;
-    justify-content: center;
-  }
-
-  .mobile-nav-toggle :deep(svg) {
-    transition: transform 0.25s ease;
-  }
-
-  .mobile-nav-toggle :deep(svg.rotated) {
-    transform: rotate(180deg);
-  }
-
-  .mobile-dropdown {
-    display: grid;
-    gap: 8px;
-    max-height: 0;
-    overflow: hidden;
-    transition: max-height 0.25s ease, margin-top 0.25s ease;
-    margin-top: 0;
-    padding-left: 12px;
-
-    &.is-open {
-      max-height: 360px;
-      margin-top: 10px;
+    
+    a, span {
+      color: #fff;
+      font-size: 17px;
+      font-weight: 500;
+      text-decoration: none;
     }
 
-    a {
-      color: #e2d1b7;
-      font-size: 14px;
+    .mobile-nav-toggle {
+      background: transparent;
+      border: none;
+      color: #dfbd8e;
+      padding: 4px;
+      
+      svg.rotated {
+        transform: rotate(180deg);
+      }
     }
   }
 }
 
-@media (max-width: 768px) {
+.mobile-dropdown {
+  max-height: 0;
+  overflow: hidden;
+  transition: max-height 0.3s ease;
+  padding-left: 16px;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  margin-top: 0;
+
+  &.is-open {
+    max-height: 500px;
+    margin-top: 12px;
+  }
+
+  a {
+    color: rgba(255, 255, 255, 0.7);
+    font-size: 15px;
+    text-decoration: none;
+    padding: 4px 0;
+  }
+}
+
+.mobile-nav-footer {
+  padding: 24px;
+  background: rgba(0, 0, 0, 0.2);
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+
+  .mobile-contact-link {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    color: #dfbd8e;
+    text-decoration: none;
+    font-size: 14px;
+  }
+}
+
+@media (max-width: 1380px) {
+  .header {
+    background: transparent !important;
+    height: 76px !important;
+    margin: 0;
+    width: 100%;
+    /* Let the laptop behavior (is-hidden/is-hovered) control visibility */
+    box-shadow: none;
+
+    &.is-hovered {
+      background: rgba(15, 27, 51, 0.9) !important;
+      backdrop-filter: blur(8px);
+      box-shadow: 0 4px 20px rgba(0, 0, 0, 0.2);
+    }
+
+    &::before {
+      display: none !important;
+    }
+  }
+
   .header_flx {
-    min-height: 82px;
+    min-height: 76px;
+    padding: 0 20px;
+    gap: 12px;
+  }
+
+  .logo-link img {
+    width: 160px;
+  }
+
+  .header_nav, .brand-copy {
+    display: none !important;
+  }
+
+  .desktop-only {
+    display: none !important;
+  }
+
+  .header-icons-row {
+    display: flex;
+    align-items: center;
+    gap: 16px;
+    color: #c4a676; /* Premium gold */
+  }
+
+  .nav_search, .lang, .mobile-toggle {
+    display: flex !important;
+    color: #c4a676 !important;
+    padding: 4px;
+    
+    span {
+      font-size: 14px;
+      font-weight: 600;
+      margin-left: 4px;
+    }
+  }
+
+  .mobile-toggle {
+    background: transparent !important;
+    padding-right: 0;
+  }
+}
+
+@media (max-width: 768px) {
+  .header {
+    height: 70px !important;
+    width: 100%;
+    margin: 0;
+  }
+
+  .header_flx {
+    min-height: 70px;
     padding: 0 16px;
   }
 
   .logo-link img {
-    width: 158px;
+    width: 140px;
   }
 
-  .header_r {
-    gap: 8px;
+  .header-icons-row {
+    gap: 12px;
   }
 
   .lang span {
-    display: none;
-  }
-
-  .nav_search {
-    display: none;
+    display: inline !important;
+    font-size: 13px;
   }
 }
 

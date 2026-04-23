@@ -1,9 +1,10 @@
 <script setup>
-import { computed, ref, onMounted, onUnmounted, watch } from 'vue'
+import { computed, ref, onMounted, onUnmounted, watch, defineAsyncComponent } from 'vue'
 import HeroBanner from './sections/HeroBanner.vue'
-import HomeAbout from './sections/HomeAbout.vue'
-import StatsSection from './sections/StatsSection.vue'
-import NewsSection from './sections/NewsSection.vue'
+
+const HomeAbout = defineAsyncComponent(() => import('./sections/HomeAbout.vue'))
+const StatsSection = defineAsyncComponent(() => import('./sections/StatsSection.vue'))
+const NewsSection = defineAsyncComponent(() => import('./sections/NewsSection.vue'))
 import HomeNav from './sections/HomeNav.vue'
 import AppFooter from '@/views/user/layout/AppFooter.vue'
 import { useBootstrapStore } from '@/views/user/stores/bootstrap'

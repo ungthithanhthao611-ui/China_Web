@@ -1,9 +1,9 @@
 import { createRouter, createWebHistory } from 'vue-router'
 
-import { ADMIN_TOKEN_STORAGE_KEY } from '@/admin/shared/constants/auth'
-import AdminLayout from '@/admin/layout/AdminLayout.vue'
+import { ADMIN_TOKEN_STORAGE_KEY } from '@/views/admin/shared/constants/auth'
+import AdminLayout from '@/views/admin/layout/AdminLayout.vue'
 import ClientLayout from '@/app/layouts/ClientLayout.vue'
-import adminRoutes from '@/admin/routes/admin.routes'
+import adminRoutes from '@/views/admin/routes/admin.routes'
 import clientRoutes from './client.routes'
 
 const routes = [

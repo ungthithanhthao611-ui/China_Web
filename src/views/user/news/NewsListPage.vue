@@ -142,12 +142,33 @@ const goToPage = async (page) => {
 
 const animationDelay = (index) => `${index * 100}`;
 
+const visibleSections = ref(new Set());
+let observer;
+
+const updateVisibleSections = (entries) => {
+  entries.forEach((entry) => {
+    if (entry.isIntersecting) {
+      visibleSections.value.add(entry.target.id || 'featured');
+    }
+  });
+};
+
+const setupObserver = () => {
+  observer?.disconnect();
+  observer = new IntersectionObserver(updateVisibleSections, {
+    threshold: 0.1,
+  });
+
+  const featuredEl = document.querySelector('.featured-section');
+  if (featuredEl) observer.observe(featuredEl);
+};
+
 onMounted(async () => {
   uiState.isHeaderHovered = false;
-  uiState.isHeaderHidden = false;
   uiState.isFooterHidden = false;
   await Promise.all([fetchBanner(), fetchFeatured(), fetchPage()]);
   await nextTick();
+  setupObserver();
   await refreshAnimations();
 });
 
@@ -183,19 +204,6 @@ onBeforeUnmount(() => {
             </div>
           </div>
         </div>
-
-        <div class="news-breadcrumb">
-          <div class="news-shell breadcrumb-shell">
-            <div class="breadcrumb-list">
-              <router-link to="/">
-                <Home :size="15" />
-                <span>Home</span>
-              </router-link>
-              <span class="separator">></span>
-              <span class="current">News</span>
-            </div>
-          </div>
-        </div>
       </section>
 
     <section
@@ -204,13 +212,6 @@ onBeforeUnmount(() => {
       :style="{ backgroundImage: `url(${newsHero.featuredBackground})` }"
     >
       <div class="news-shell featured-shell">
-        <header class="section-heading" data-aos="fade-down">
-          <div class="section-heading-top">
-            <h2>News Center</h2>
-          </div>
-          <p>Latest updates</p>
-          <div class="section-line"></div>
-        </header>
 
         <Swiper
           class="featured-slider"
@@ -219,12 +220,12 @@ onBeforeUnmount(() => {
           :speed="600"
         >
           <SwiperSlide v-for="item in featuredItems" :key="item.slug">
-            <article class="featured-card" data-aos="fade-up">
-              <router-link :to="`/news/${item.slug}`" class="featured-image">
+            <article :class="['featured-card', { 'is-visible': visibleSections.has('featured') }]">
+              <router-link :to="`/news/${item.slug}`" class="featured-image animate-item slide-right">
                 <img :src="imageUrl(item)" :alt="item.title" />
               </router-link>
 
-              <div class="featured-copy">
+              <div class="featured-copy animate-item slide-up delay-1">
                 <span class="featured-date">{{
                   formatDate(item.published_at || item.created_at)
                 }}</span>
@@ -349,6 +350,8 @@ onBeforeUnmount(() => {
 
 .news-hero {
   background: #10243c;
+  min-height: 480px; /* Thêm chiều cao để không bị đè nội dung */
+  position: relative;
 }
 
 .hero-media,
@@ -680,25 +683,46 @@ onBeforeUnmount(() => {
 }
 
 .featured-image {
-  flex: 0 0 60%;
-  padding-right: 2vw;
+  flex: 0 0 65%; /* Tăng từ 60% lên 65% cho bự hơn */
+  padding-right: 3vw;
 
   img {
     width: 100%;
-    aspect-ratio: 16 / 9;
+    aspect-ratio: 16 / 9.5; /* Điều chỉnh tỉ lệ để ảnh cao hơn chút */
     object-fit: cover;
-    transition: transform 0.5s ease;
+    transition: transform 0.6s cubic-bezier(0.2, 0.8, 0.2, 1);
+    border-radius: 12px;
+    box-shadow: 0 15px 35px rgba(0, 0, 0, 0.12);
   }
 
   &:hover img {
-    transform: scale(1.05);
+    transform: scale(1.03);
   }
 }
 
 .featured-copy {
-  flex: 1 1 40%;
+  flex: 1 1 35%;
   min-width: 0;
+  padding-left: 1vw;
 }
+
+/* Animation System */
+.animate-item {
+  opacity: 0;
+  transition: all 1s cubic-bezier(0.2, 0.8, 0.2, 1);
+  will-change: transform, opacity;
+
+  &.slide-left { transform: translateX(-60px); }
+  &.slide-right { transform: translateX(60px); }
+  &.slide-up { transform: translateY(60px); }
+}
+
+.is-visible .animate-item {
+  opacity: 1;
+  transform: translate(0, 0) !important;
+}
+
+.delay-1 { transition-delay: 0.2s; }
 
 .featured-date,
 .news-card-date,

@@ -191,24 +191,24 @@ const navigateToSection = async (meta) => {
   scrollToSection(meta.id, true);
 };
 
-const syncActiveSectionToRoute = async (id) => {
+let syncTimeout = null;
+const syncActiveSectionToRoute = (id) => {
   const matched = sectionMeta.value.find((item) => item.id === id);
-  if (!matched) {
-    return;
-  }
+  if (!matched) return;
 
-  if (route.path === matched.route && route.hash === matched.hash) {
-    return;
-  }
+  if (route.path === matched.route && route.hash === matched.hash) return;
 
-  syncingRouteFromSection.value = true;
-
-  try {
-    await router.replace({ path: matched.route, hash: matched.hash });
-    await nextTick();
-  } finally {
-    syncingRouteFromSection.value = false;
-  }
+  if (syncTimeout) clearTimeout(syncTimeout);
+  
+  syncTimeout = setTimeout(async () => {
+    syncingRouteFromSection.value = true;
+    try {
+      await router.replace({ path: matched.route, hash: matched.hash });
+      await nextTick();
+    } finally {
+      syncingRouteFromSection.value = false;
+    }
+  }, 300); // Tăng debounce để mượt hơn khi lướt nhanh
 };
 
 const syncRouteToScroll = async () => {
@@ -223,12 +223,10 @@ const updateVisibleSections = (entries) => {
 
   entries.forEach((entry) => {
     const id = entry.target.id;
-
     if (entry.isIntersecting) {
       nextSet.add(id);
-    } else {
-      nextSet.delete(id);
     }
+    // Không xóa ID khi không giao thoa nữa để hiệu ứng giữ nguyên sau khi xuất hiện
   });
 
   visibleSections.value = nextSet;
@@ -237,7 +235,7 @@ const updateVisibleSections = (entries) => {
     .filter((entry) => entry.isIntersecting)
     .sort((left, right) => right.intersectionRatio - left.intersectionRatio)[0];
 
-  if (bestEntry?.target?.id) {
+  if (bestEntry && bestEntry.target && bestEntry.target.id) {
     activeSection.value = bestEntry.target.id;
   }
 };
@@ -245,8 +243,8 @@ const updateVisibleSections = (entries) => {
 const setupObserver = () => {
   observer?.disconnect();
   observer = new IntersectionObserver(updateVisibleSections, {
-    threshold: [0.2, 0.35, 0.55, 0.75],
-    rootMargin: "-12% 0px -18% 0px"
+    threshold: 0.01, // Kích hoạt ngay khi bắt đầu thấy 1%
+    rootMargin: "0px"
   });
 
   sectionMeta.value.forEach((section) => {
@@ -360,8 +358,8 @@ onBeforeUnmount(() => {
         </div>
 
         <div class="intro-layout">
-          <div class="intro-visual">
-            <img class="intro-main" :src="introImage" alt="Company introduction" />
+          <div class="intro-visual animate-item slide-right">
+            <img class="intro-main" :src="introImage" alt="Company introduction" loading="lazy" />
             <div class="intro-watermark" />
             <div class="intro-bottom">
               <button
@@ -378,7 +376,7 @@ onBeforeUnmount(() => {
             </div>
           </div>
 
-          <div ref="introScroller" class="intro-copy intro-scroller">
+          <div ref="introScroller" class="intro-copy intro-scroller animate-item slide-left delay-1">
             <p v-for="paragraph in companyIntroduction" :key="paragraph">
               {{ paragraph }}
             </p>
@@ -396,7 +394,7 @@ onBeforeUnmount(() => {
         </div>
 
         <div class="split-layout reverse speech-layout">
-          <div class="speech-copy-panel">
+          <div class="speech-copy-panel animate-item slide-up">
             <div ref="speechScroller" class="split-copy speech-scroller">
               <article v-if="speechVision" class="speech-block">
                 <h3>Tầm nhìn</h3>
@@ -415,11 +413,9 @@ onBeforeUnmount(() => {
             </div>
           </div>
 
-          <div class="split-media">
-            <img :src="speechPortrait" alt="Chairman's speech" />
+          <div class="split-media animate-item slide-right delay-1">
+            <img :src="speechPortrait" alt="Chairman's speech" loading="lazy" />
           </div>
-
-          <!-- <img class="signature-mark speech-signature-outside" :src="speechSignature" alt="Signature" /> -->
         </div>
       </div>
     </section>
@@ -432,8 +428,8 @@ onBeforeUnmount(() => {
           </p>
         </div>
 
-        <button class="chart-card" type="button" @click="chartOpen = true">
-          <img :src="orgChartImage" alt="Organization chart" />
+        <button class="chart-card animate-item slide-up" type="button" @click="chartOpen = true">
+          <img :src="orgChartImage" alt="Organization chart" loading="lazy" />
         </button>
       </div>
     </section>
@@ -446,11 +442,11 @@ onBeforeUnmount(() => {
         </div>
 
         <div class="culture-layout">
-          <div class="culture-image">
-            <img :src="cultureImage" alt="Corporate culture" />
+          <div class="culture-image animate-item slide-right">
+            <img :src="cultureImage" alt="Corporate culture" loading="lazy" />
           </div>
 
-          <div class="culture-panel">
+          <div class="culture-panel animate-item slide-left delay-1">
             <article class="culture-card active">
               <h3>{{ currentCultureBlock.title }}</h3>
               <ul>
@@ -596,7 +592,7 @@ onBeforeUnmount(() => {
                 <article class="leadership-card">
                   <div class="leadership-card-frame">
                     <div class="leadership-photo">
-                      <img :src="item.image" alt="Leadership care" />
+                      <img :src="item.image" alt="Leadership care" loading="lazy" />
                     </div>
                     <strong class="leadership-year">{{ item.role }}</strong>
                   </div>
@@ -808,15 +804,38 @@ onBeforeUnmount(() => {
   padding: 80px 0;
   display: flex;
   align-items: center;
-  opacity: 0;
-  transform: translateY(48px);
-  transition: opacity 0.78s ease, transform 0.78s ease;
+  opacity: 1; /* Keep parent visible */
+  will-change: transform, opacity;
+  contain: content;
+}
 
-  &.is-visible {
-    opacity: 1;
-    transform: translateY(0);
+/* Animation System */
+.animate-item {
+  opacity: 0;
+  transition: all 1s cubic-bezier(0.2, 0.8, 0.2, 1);
+  will-change: transform, opacity;
+
+  &.slide-left { transform: translateX(-60px); }
+  &.slide-right { transform: translateX(60px); }
+  &.slide-up { transform: translateY(60px); }
+}
+
+@media (max-width: 768px) {
+  .animate-item {
+    &.slide-left { transform: translateX(-30px); }
+    &.slide-right { transform: translateX(30px); }
+    &.slide-up { transform: translateY(30px); }
   }
 }
+
+.is-visible .animate-item {
+  opacity: 1;
+  transform: translate(0, 0) !important;
+}
+
+.delay-1 { transition-delay: 0.15s; }
+.delay-2 { transition-delay: 0.3s; }
+.delay-3 { transition-delay: 0.45s; }
 
 .section-shell {
   width: min(100%, 1660px);
@@ -1306,28 +1325,31 @@ onBeforeUnmount(() => {
 }
 
 .speech-layout.reverse {
-  grid-template-columns: 60.41% 31.2%;
-  gap: 0;
+  display: grid;
+  grid-template-columns: 1fr 1.2fr; /* Tăng tỉ lệ cột chứa ảnh */
+  gap: 40px;
   align-items: center;
   position: relative;
   min-height: calc(100vh - 204px);
 }
 
 .speech-layout .split-media {
-  position: absolute;
-  right: 7.395%;
-  top: 50%;
-  width: 31.2%;
-  height: 86%;
-  transform: translateY(-50%);
+  position: relative; /* Bỏ absolute để dễ kiểm soát kích thước */
+  width: 100%; 
+  height: auto;
+  max-height: 80vh;
+  transform: none;
+  display: flex;
+  justify-content: center;
 }
 
 .speech-layout .split-media img {
   width: 100%;
-  height: 100%;
-  min-height: 0;
-  object-fit: contain;
-  background: transparent;
+  height: auto;
+  max-height: 70vh;
+  object-fit: cover; /* Để ảnh tràn khung cho bự */
+  border-radius: 8px;
+  box-shadow: 0 20px 40px rgba(0,0,0,0.1);
 }
 
 .signature-block {
@@ -2687,16 +2709,16 @@ onBeforeUnmount(() => {
   }
 
   .timeline-nav {
-    top: 224px;
-    width: 58px;
-    height: 58px;
+    top: 210px;
+    width: 50px;
+    height: 50px;
 
     &.is-prev {
-      left: -6px;
+      left: 10px;
     }
 
     &.is-next {
-      right: -6px;
+      right: 10px;
     }
   }
 
@@ -2873,9 +2895,9 @@ onBeforeUnmount(() => {
   }
 
   .timeline-wave {
-    top: 224px;
-    height: 92px;
-    background-size: 300px 92px;
+    top: 240px; /* Hạ thấp sóng xuống để không đè chữ */
+    height: 80px;
+    background-size: 320px 80px;
   }
 
   .timeline-swiper :deep(.swiper-slide) {
@@ -2884,8 +2906,8 @@ onBeforeUnmount(() => {
   }
 
   .bg-img {
-    width: 178px;
-    height: 144px;
+    width: 140px; /* Thu nhỏ khung ảnh để không bị tràn */
+    height: 110px;
   }
 
   .timeline-slide.no-image .bg-img {
@@ -2901,24 +2923,29 @@ onBeforeUnmount(() => {
   }
 
   .sw-f {
-    padding-left: 18px;
+    padding-left: 0;
+    text-align: center;
+    width: 100%;
   }
 
   .sw-f .year {
-    font-size: 42px;
+    font-size: 38px;
   }
 
   .sw-f .month {
-    font-size: 32px;
+    font-size: 28px;
   }
 
   .sw-i {
-    padding: 10px 12px 0 18px;
+    padding: 10px 10px 0 10px;
+    flex: 1 0 100%; /* Ép xuống dòng để không đè năm */
   }
 
   .sw-i .tit {
     font-size: 14px;
-    line-height: 1.55;
+    line-height: 1.5;
+    margin-top: 10px;
+    text-align: center;
   }
 
   .timeline-nav {

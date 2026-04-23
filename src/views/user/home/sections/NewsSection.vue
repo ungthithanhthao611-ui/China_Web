@@ -87,7 +87,7 @@ onMounted(() => {
         >
           <article class="news-card-premium" @click="goTo(item.link)">
             <div class="card-media">
-              <img :src="item.image" :alt="item.title">
+              <img :src="item.image" :alt="item.title" loading="lazy">
               <div class="media-overlay"></div>
               <div class="date-tag">
                 <span class="day">{{ item.day }}</span>

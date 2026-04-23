@@ -248,6 +248,8 @@ defineExpose({ goToSlide })
             v-if="slide.type === 'image'"
             :src="slide.src"
             :alt="slide.alt"
+            :loading="index === 0 ? 'eager' : 'lazy'"
+            :fetchpriority="index === 0 ? 'high' : 'auto'"
             :style="{ objectPosition: `${slide.focusX ?? 50}% ${slide.focusY ?? 50}%` }"
           />
           <video
