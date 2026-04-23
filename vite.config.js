@@ -13,17 +13,18 @@ export default defineConfig({
   css: {
     preprocessorOptions: {
       scss: {
-        api: 'modern-compiler',
-        additionalData: `@use "@/assets/scss/_variables.scss" as *;`,
+        additionalData: "@use '@/assets/scss/_variables.scss' as *;",
       },
     },
   },
   build: {
     rollupOptions: {
       output: {
-        manualChunks: {
-          'vendor-vue': ['vue', 'vue-router', 'pinia'],
-          'vendor-ui': ['lucide-vue-next', 'aos', 'swiper'],
+        manualChunks(id) {
+          if (!id.includes('node_modules')) return undefined
+          if (id.includes('/vue/') || id.includes('/vue-router/') || id.includes('/pinia/')) return 'vendor-vue'
+          if (id.includes('/lucide-vue-next/') || id.includes('/aos/') || id.includes('/swiper/')) return 'vendor-ui'
+          return 'vendor'
         },
       },
     },
@@ -34,3 +35,4 @@ export default defineConfig({
     drop: ['console', 'debugger'],
   },
 })
+
