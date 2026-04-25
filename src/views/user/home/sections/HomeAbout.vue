@@ -52,8 +52,7 @@ defineProps({
 .home-about-section {
   position: relative;
   width: 100%;
-  height: 100vh;
-  min-height: 720px;
+  min-height: 100svh;
   overflow: hidden;
   background:
     linear-gradient(to right, rgba(255, 255, 255, 0.97), rgba(255, 255, 255, 0.93)),
@@ -329,11 +328,13 @@ defineProps({
 
 @media (max-width: 992px) {
   .home-about-section {
-    min-height: 760px;
+    min-height: auto;
+    padding: 96px 0 64px;
   }
 
   .container {
     width: calc(100% - 40px);
+    height: auto;
   }
 
   .building-layer {
@@ -373,7 +374,7 @@ defineProps({
     width: 100%;
     max-width: 480px;
     margin: 0 auto;
-    padding-top: 110px;
+    padding-top: 0;
     opacity: 1;
     transform: none;
   }
@@ -398,6 +399,98 @@ defineProps({
 
   .two_btn {
     gap: 34px;
+  }
+}
+
+@media (max-width: 768px) {
+  .home-about-section {
+    min-height: auto;
+    padding: 88px 0 52px;
+    overflow: hidden;
+  }
+
+  .ctn {
+    display: flex;
+    min-height: 0;
+    flex-direction: column;
+  }
+
+  .container {
+    order: 1;
+    width: min(100%, calc(100% - 32px));
+    height: auto;
+  }
+
+  .content-left {
+    max-width: none;
+    width: 100%;
+    margin: 0;
+  }
+
+  .tit {
+    margin-bottom: 28px;
+  }
+
+  .tit h2 {
+    font-size: clamp(24px, 7vw, 30px);
+    line-height: 1.18;
+  }
+
+  .title-line {
+    width: min(220px, 62vw);
+    margin-top: 14px;
+  }
+
+  .des {
+    max-width: none;
+    margin-bottom: 0;
+    font-size: 15px;
+    line-height: 1.85;
+  }
+
+  .building-layer {
+    order: 2;
+    position: relative;
+    inset: auto;
+    height: clamp(240px, 58vw, 360px);
+    margin-top: 44px;
+    pointer-events: none;
+  }
+
+  .building-img {
+    position: relative;
+    inset: auto;
+    width: min(100%, calc(100% - 32px));
+    height: 100%;
+    margin: 0 auto;
+    object-fit: cover;
+    object-position: center;
+    opacity: 0.95;
+    transform: none;
+  }
+
+  .building-mask {
+    display: none;
+  }
+
+  .corner-sketch {
+    width: 150px;
+    height: 120px;
+    opacity: 0.08;
+  }
+}
+
+@media (max-width: 430px) {
+  .home-about-section {
+    padding-top: 82px;
+  }
+
+  .container {
+    width: min(100%, calc(100% - 28px));
+  }
+
+  .building-img {
+    width: min(100%, calc(100% - 28px));
   }
 }
 </style>

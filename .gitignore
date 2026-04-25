@@ -13,3 +13,6 @@ dist-ssr
 .DS_Store
 .env
 .venv
+
+
+.docs

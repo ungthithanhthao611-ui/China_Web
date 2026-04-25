@@ -1,4 +1,5 @@
 import { env } from '@/shared/config/env'
+import { clearAdminSession } from '@/views/admin/shared/constants/auth'
 
 export class HttpError extends Error {
   constructor(message, { status = 0, statusText = '', url = '', body = null } = {}) {
@@ -31,6 +32,10 @@ function buildUrl(path, query) {
   }
 
   return url
+}
+
+function shouldHandleAdminUnauthorized(url) {
+  return url.includes('/api/v1/admin') || url.includes('/api/v1/auth/me')
 }
 
 async function parseResponse(response) {
@@ -88,6 +93,13 @@ export async function fetchJson(path, options = {}) {
     const payload = await parseResponse(response)
 
     if (!response.ok) {
+      if (response.status === 401 && shouldHandleAdminUnauthorized(url.toString())) {
+        clearAdminSession({
+          broadcast: true,
+          reason: 'expired',
+        })
+      }
+
       const detail = payload?.detail
       const normalizedDetail = Array.isArray(detail)
         ? detail

@@ -1,6 +1,10 @@
 import { createRouter, createWebHistory } from 'vue-router'
 
-import { ADMIN_TOKEN_STORAGE_KEY } from '@/views/admin/shared/constants/auth'
+import {
+  ADMIN_TOKEN_STORAGE_KEY,
+  clearAdminSession,
+  getStoredAdminToken,
+} from '@/views/admin/shared/constants/auth'
 import AdminLayout from '@/views/admin/layout/AdminLayout.vue'
 import ClientLayout from '@/app/layouts/ClientLayout.vue'
 import adminRoutes from '@/views/admin/routes/admin.routes'
@@ -46,12 +50,13 @@ const router = createRouter({
 
 router.beforeEach((to) => {
   const isAdminLogin = to.name === 'AdminLogin'
-  const adminToken = String(localStorage.getItem(ADMIN_TOKEN_STORAGE_KEY) || '').trim()
+  const adminToken = getStoredAdminToken()
 
   if (to.meta.requiresAdminAuth && !adminToken) {
+    clearAdminSession()
     return {
       name: 'AdminLogin',
-      query: { redirect: to.fullPath },
+      query: { redirect: to.fullPath, reason: 'missing' },
     }
   }
 

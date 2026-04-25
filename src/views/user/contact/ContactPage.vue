@@ -710,6 +710,8 @@ onUnmounted(() => {
 
 .contact-tabbar__item {
   position: relative;
+  flex: 1 1 0;
+  min-width: 0;
   min-height: 108px;
   display: flex;
   align-items: center;
@@ -1388,12 +1390,15 @@ onUnmounted(() => {
 
   .contact-tabbar__inner {
     width: calc(100% - 16px);
-    grid-template-columns: repeat(2, minmax(0, 1fr));
+    flex-wrap: wrap;
   }
 
   .contact-tabbar__item {
+    flex: 1 1 100%;
     min-height: 62px;
     font-size: 14px;
+    padding: 0 12px;
+    text-align: center;
   }
 
   .contact-hero__content {
@@ -1474,6 +1479,7 @@ onUnmounted(() => {
     margin-top: 24px;
     padding: 18px;
     gap: 22px;
+    width: 100%;
   }
 
   .contact-card__intro {
@@ -1540,6 +1546,7 @@ onUnmounted(() => {
     left: 14px;
     right: 14px;
     top: 14px;
+    transform: none;
     min-width: 0;
     max-width: none;
     padding: 12px;

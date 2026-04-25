@@ -320,7 +320,9 @@ const sideGallery = computed(() =>
 
 @media (max-width: 768px) {
   .case-feature {
-    overflow-y: auto;
+    height: auto;
+    min-height: auto;
+    overflow: visible;
   }
 
   .alTop,
@@ -339,7 +341,14 @@ const sideGallery = computed(() =>
 
   .topLeft,
   .sltBox {
-    height: 31vh;
+    height: auto;
+    min-height: 260px;
+  }
+
+  .leftLi,
+  .bottomLi,
+  .case-gallery {
+    height: clamp(260px, 62vw, 360px);
   }
 
   .topRight::before,
@@ -354,6 +363,7 @@ const sideGallery = computed(() =>
 
   .topSum {
     display: block;
+    text-align: left;
   }
 
   .almore {

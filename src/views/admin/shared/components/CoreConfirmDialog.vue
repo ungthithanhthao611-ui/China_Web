@@ -71,7 +71,7 @@ const emit = defineEmits(["cancel", "accept"]);
   z-index: 1450;
   display: grid;
   place-items: center;
-  padding: 18px;
+  padding: 14px;
   background: rgba(7, 21, 36, 0.58);
   backdrop-filter: blur(10px);
 }
@@ -79,12 +79,12 @@ const emit = defineEmits(["cancel", "accept"]);
 .action-confirm-card {
   width: min(480px, calc(100vw - 28px));
   display: grid;
-  gap: 16px;
-  padding: 22px;
-  border-radius: 28px;
+  gap: 14px;
+  padding: 18px;
+  border-radius: var(--admin-card-radius, 22px);
   border: 1px solid rgba(212, 224, 238, 0.9);
   background: linear-gradient(180deg, rgba(255, 255, 255, 0.98), rgba(245, 250, 255, 0.96));
-  box-shadow: 0 30px 60px rgba(8, 24, 42, 0.28);
+  box-shadow: 0 22px 42px rgba(8, 24, 42, 0.24);
 }
 
 .action-confirm-card--danger {
@@ -94,16 +94,16 @@ const emit = defineEmits(["cancel", "accept"]);
 .action-confirm-head {
   display: flex;
   align-items: center;
-  gap: 14px;
+  gap: 12px;
 }
 
 .action-confirm-icon {
-  width: 48px;
-  height: 48px;
-  border-radius: 16px;
+  width: 42px;
+  height: 42px;
+  border-radius: 14px;
   display: grid;
   place-items: center;
-  font-size: 22px;
+  font-size: 18px;
   font-weight: 800;
   color: #27557a;
   background: linear-gradient(135deg, rgba(39, 158, 208, 0.2), rgba(39, 158, 208, 0.06));
@@ -119,7 +119,7 @@ const emit = defineEmits(["cancel", "accept"]);
 .eyebrow {
   margin: 0 0 6px;
   color: #68809a;
-  font-size: 11px;
+  font-size: var(--admin-label-size, 11px);
   text-transform: uppercase;
   letter-spacing: 0.14em;
   font-weight: 800;
@@ -128,14 +128,14 @@ const emit = defineEmits(["cancel", "accept"]);
 h3 {
   margin: 0;
   color: #17324d;
-  font-size: 24px;
+  font-size: 22px;
 }
 
 .action-confirm-copy {
   margin: 0;
   color: #4c6783;
   font-size: 14px;
-  line-height: 1.65;
+  line-height: 1.55;
 }
 
 .action-confirm-actions {
@@ -146,11 +146,11 @@ h3 {
 }
 
 :deep(.btn) {
-  border-radius: 16px;
+  border-radius: var(--admin-control-radius, 14px);
   border: 1px solid transparent;
-  min-height: 46px;
-  padding: 0 16px;
-  font-size: 14px;
+  min-height: var(--admin-button-height, 40px);
+  padding: 0 14px;
+  font-size: 13px;
   font-weight: 700;
   cursor: pointer;
   transition:
@@ -173,13 +173,13 @@ h3 {
 :deep(.btn-primary) {
   color: #fff;
   background: linear-gradient(135deg, #1f7ae0 0%, #4fa7ff 100%);
-  box-shadow: 0 16px 30px rgba(31, 122, 224, 0.24);
+  box-shadow: 0 12px 22px rgba(31, 122, 224, 0.2);
 }
 
 :deep(.btn-danger) {
   color: #fff;
   background: linear-gradient(135deg, #d84562 0%, #f07189 100%);
-  box-shadow: 0 16px 30px rgba(216, 69, 98, 0.22);
+  box-shadow: 0 12px 22px rgba(216, 69, 98, 0.2);
 }
 
 .confirm-fade-enter-active,
@@ -198,7 +198,7 @@ h3 {
 @media (max-width: 640px) {
   .action-confirm-card {
     padding: 16px;
-    border-radius: 22px;
+    border-radius: 18px;
   }
 
   h3 {

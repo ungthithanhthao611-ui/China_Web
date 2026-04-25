@@ -677,14 +677,30 @@ const getLinkProps = (item) => toLinkProps(item)
     margin: 6px 0 8px;
   }
   .foot_btm {
+    flex-direction: column;
+    align-items: flex-start;
     padding: 10px 0;
     font-size: 11px;
+  }
+
+  .foot_btm__meta {
+    justify-content: flex-start;
   }
 }
 
 @media (max-width: 480px) {
+  .footer__container {
+    width: 100%;
+    padding-left: 14px;
+    padding-right: 14px;
+  }
+
+  .foot_logo {
+    width: 150px;
+  }
+
   .foot_nav {
-    grid-template-columns: repeat(2, 1fr); /* Giữ 2 cột cho gọn */
+    grid-template-columns: 1fr;
     gap: 15px 10px;
   }
 }

@@ -1018,23 +1018,23 @@ watch(pageSize, async (nextSize, previousSize) => {
 
 <style scoped>
 .honors-admin {
-  margin-top: 14px;
+  margin-top: var(--admin-section-gap, 16px);
   display: grid;
-  gap: 14px;
+  gap: var(--admin-section-gap, 16px);
 }
 
 .panel {
   background: rgba(255, 255, 255, 0.9);
   border: 1px solid #d7e5f2;
-  border-radius: 12px;
-  box-shadow: 0 14px 32px rgba(19, 41, 67, 0.09);
-  padding: 16px;
+  border-radius: var(--admin-card-radius, 22px);
+  box-shadow: var(--admin-card-shadow-soft, 0 10px 24px rgba(19, 41, 67, 0.08));
+  padding: var(--admin-panel-padding, 16px);
 }
 
 .header-panel {
   display: flex;
   justify-content: space-between;
-  gap: 16px;
+  gap: 14px;
   align-items: flex-start;
 }
 
@@ -1054,26 +1054,29 @@ watch(pageSize, async (nextSize, previousSize) => {
 .panel-head h3 {
   margin: 0;
   color: #1f3850;
-  font-family: 'Merriweather', Georgia, 'Times New Roman', serif;
+  font-size: var(--admin-subheading-size, clamp(20px, 1.8vw, 26px));
 }
 
 .eyebrow {
   margin: 0;
-  font-size: 12px;
+  font-size: var(--admin-label-size, 11px);
   text-transform: uppercase;
   letter-spacing: 0.08em;
   color: #59799c;
 }
 
 .header-panel h2 {
-  margin: 6px 0 0;
+  margin: 4px 0 0;
   color: #203a55;
-  font-family: 'Merriweather', Georgia, 'Times New Roman', serif;
+  font-size: var(--admin-heading-size, clamp(22px, 2vw, 30px));
+  line-height: 1.08;
 }
 
 .subtext {
-  margin: 8px 0 0;
+  margin: 6px 0 0;
   color: #617f9d;
+  font-size: var(--admin-body-size, 14px);
+  line-height: 1.55;
 }
 
 .filters-panel {
@@ -1085,25 +1088,26 @@ watch(pageSize, async (nextSize, previousSize) => {
 input,
 select,
 textarea {
-  min-height: 40px;
+  min-height: var(--admin-control-height, 42px);
   border: 1px solid #cddced;
-  border-radius: 8px;
-  padding: 8px 10px;
+  border-radius: var(--admin-control-radius, 14px);
+  padding: 10px 12px;
   font: inherit;
 }
 
 textarea {
   resize: vertical;
-  min-height: 110px;
+  min-height: 100px;
 }
 
 .btn {
-  min-height: 40px;
-  border-radius: 8px;
+  min-height: var(--admin-button-height, 40px);
+  border-radius: var(--admin-control-radius, 14px);
   border: 1px solid transparent;
-  padding: 8px 12px;
+  padding: 0 14px;
   cursor: pointer;
   font-weight: 700;
+  font-size: 13px;
 }
 
 .btn-primary {
@@ -1136,7 +1140,7 @@ table {
 th,
 td {
   border-bottom: 1px solid #e4edf6;
-  padding: 10px;
+  padding: 9px 10px;
   vertical-align: top;
   text-align: left;
   color: #24405d;
@@ -1150,7 +1154,7 @@ th {
 .thumb {
   width: 96px;
   height: 72px;
-  border-radius: 8px;
+  border-radius: 10px;
   object-fit: cover;
   border: 1px solid #d7e4f1;
 }
@@ -1178,7 +1182,7 @@ th {
   display: inline-flex;
   padding: 4px 8px;
   border-radius: 999px;
-  font-size: 12px;
+  font-size: 11px;
   font-weight: 700;
 }
 
@@ -1201,7 +1205,7 @@ th {
 .empty {
   text-align: center;
   color: #5f7a97;
-  padding: 18px;
+  padding: 16px;
 }
 
 .table-pagination {
@@ -1229,7 +1233,7 @@ th {
   inset: 0;
   background: rgba(13, 27, 42, 0.45);
   z-index: 50;
-  padding: 24px;
+  padding: 16px;
   display: grid;
   place-items: center;
 }
@@ -1237,7 +1241,7 @@ th {
 .form-panel,
 .category-form-panel {
   width: min(980px, 100%);
-  max-height: calc(100vh - 48px);
+  max-height: calc(100vh - 32px);
   overflow: auto;
 }
 
@@ -1254,24 +1258,24 @@ th {
 .form-head h3 {
   margin: 0;
   color: #203a55;
-  font-family: 'Merriweather', Georgia, 'Times New Roman', serif;
+  font-size: var(--admin-subheading-size, clamp(20px, 1.8vw, 26px));
 }
 
 .icon-btn {
-  width: 38px;
-  height: 38px;
+  width: 36px;
+  height: 36px;
   border: 1px solid #cfdeee;
-  border-radius: 8px;
+  border-radius: 10px;
   background: #fff;
   cursor: pointer;
-  font-size: 24px;
+  font-size: 20px;
   line-height: 1;
 }
 
 .errors {
   margin-top: 10px;
   border: 1px solid #edbcc5;
-  border-radius: 8px;
+  border-radius: 12px;
   background: #fff0f3;
   color: #a13749;
   padding: 10px;
@@ -1328,7 +1332,7 @@ th {
   margin-top: 14px;
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));
-  gap: 12px;
+  gap: 10px;
 }
 
 label {

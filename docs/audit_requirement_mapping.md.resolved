@@ -1,0 +1,533 @@
+# Audit đối chiếu project với REQUIREMENT WEBSITE
+
+## Phạm vi kiểm tra
+
+- FE: [China_Web_FE](file:///E:/uiChina_Web/China_Web_FE)
+- BE: [China_BE](file:///E:/uiChina_Web/China_BE)
+- Tài liệu yêu cầu: [REQUIREMENT WEBSITE.docx](file:///E:/uiChina_Web/China_Web_FE/docs/REQUIREMENT%20WEBSITE.docx)
+
+## 1) Tóm tắt requirement đã trích xuất
+
+### Company
+- Tên công ty
+- Logo
+- Slogan
+- Giới thiệu
+- Lịch sử phát triển
+- Tầm nhìn
+- Sứ mệnh
+- Giá trị cốt lõi
+- Ban lãnh đạo
+- Sơ đồ tổ chức
+
+### Năng lực
+- Hình ảnh nhà máy
+- Địa chỉ nhà máy
+- Công nghệ sản xuất
+- Công suất
+- Chứng nhận
+
+### Danh mục sản phẩm
+- Tên danh mục
+- Mô tả danh mục
+- Ảnh danh mục
+
+### Sản phẩm
+- Tên sản phẩm
+- Mã sản phẩm
+- Danh mục
+- Ảnh sản phẩm
+- Video
+- Mô tả ngắn
+- Mô tả chi tiết
+- Kích thước
+- Chất liệu
+- Màu sắc
+- Ứng dụng
+- Catalog PDF
+- Inquiry button
+
+### Dự án
+- Tên dự án
+- Hình ảnh dự án
+- Địa điểm
+- Mô tả
+- Sản phẩm dùng (mapping product)
+
+### Tin tức
+- Tiêu đề
+- Nội dung
+- Ảnh
+- Ngày đăng
+
+### Liên hệ
+- Địa chỉ
+- Email
+- SĐT
+- Google Map
+- Form liên hệ
+
+---
+
+## 2) Kết luận nhanh
+
+| Nhóm | Mức độ hoàn thiện | Kết luận ngắn |
+|---|---:|---|
+| Company | 80% | Kiến trúc CMS tốt, nhưng FE còn trộn dữ liệu API với asset cứng/trang trí cứng |
+| Năng lực | 55% | Có module riêng và API, nhưng còn nhiều fallback hard-code, chưa thật sự CMS-driven hoàn toàn |
+| Danh mục sản phẩm | 90% | Đã có model, API, admin config, FE list lọc danh mục |
+| Sản phẩm | 88% | CRUD và public flow khá đầy đủ, nhưng còn lỗi nhỏ ở breadcrumb/filter và placeholder/fallback |
+| Dự án | 75% | Danh mục + project case + gallery đã có, nhưng thiếu mapping project -> product theo requirement |
+| Tin tức | 70% | Public page chạy được, nhưng service đang trộn endpoint `/news` với `/public/posts`, kiến trúc chưa đồng nhất |
+| Liên hệ | 85% | Contact info + map + form đã có, nhưng vẫn còn một số dữ liệu giao diện cứng |
+
+---
+
+## 3) Đối chiếu chi tiết theo nhóm chức năng
+
+## A. Company (Công ty)
+
+### Thành phần đã tìm thấy
+- Router FE about page: [client.routes.js](file:///E:/uiChina_Web/China_Web_FE/src/app/router/client.routes.js#L7-L47)
+- Trang FE: [AboutPage.vue](file:///E:/uiChina_Web/China_Web_FE/src/views/user/about/AboutPage.vue)
+- API public page: [public.py](file:///E:/uiChina_Web/China_BE/app/api/routes/public.py#L46-L48)
+- Service lấy page detail: [public.py](file:///E:/uiChina_Web/China_BE/app/services/public.py#L231-L249)
+- Admin CMS config:
+  - [entityConfigs.js - pages](file:///E:/uiChina_Web/China_Web_FE/src/views/admin/config/entityConfigs.js#L29-L72)
+  - [entityConfigs.js - page_sections](file:///E:/uiChina_Web/China_Web_FE/src/views/admin/config/entityConfigs.js#L73-L129)
+  - [entityConfigs.js - content_blocks](file:///E:/uiChina_Web/China_Web_FE/src/views/admin/config/entityConfigs.js#L130-L168)
+  - [entityConfigs.js - content_block_items](file:///E:/uiChina_Web/China_Web_FE/src/views/admin/config/entityConfigs.js#L169-L203)
+
+### Đã làm được
+- Có kiến trúc CMS khá rõ cho toàn bộ nhóm Company.
+- About page đã được tách thành các section đúng tinh thần requirement:
+  - Company Introduction
+  - Chairman Speech
+  - Organization Chart
+  - Corporate Culture
+  - Development Course
+  - Leadership Care
+  - Cooperative Partner
+- Backend có trả về:
+  - page
+  - sections
+  - blocks
+  - gallery
+- Admin đã có cấu hình để editor quản lý page/section/block/item.
+
+### Chưa hoàn chỉnh
+- FE [AboutPage.vue](file:///E:/uiChina_Web/China_Web_FE/src/views/user/about/AboutPage.vue) vẫn còn dùng nhiều asset cứng, ví dụ:
+  - banner cứng
+  - icon/trang trí cứng
+  - một số ảnh section cứng
+- Điều này nghĩa là **nội dung chính đã CMS-driven một phần, nhưng trình bày chưa hoàn toàn phụ thuộc dữ liệu CMS**.
+- Requirement có các field cấp công ty như:
+  - Tên công ty
+  - Logo
+  - Slogan
+  Hiện nhóm này chưa thấy bind rõ ràng vào một nguồn settings thống nhất trên About page.
+
+### Đánh giá
+- **Đã có nền tảng rất tốt**.
+- **Cần hoàn thiện để trở thành 100% CMS-driven**.
+
+### Mức độ
+- **80% hoàn thiện**
+
+---
+
+## B. Năng lực
+
+### Thành phần đã tìm thấy
+- FE: [HonorsPage.vue](file:///E:/uiChina_Web/China_Web_FE/src/views/user/honors/HonorsPage.vue)
+- FE service: [honorsApi.js](file:///E:/uiChina_Web/China_Web_FE/src/views/user/services/honorsApi.js)
+- Public API: [public.py honors route](file:///E:/uiChina_Web/China_BE/app/api/routes/public.py#L127-L133)
+- Public service honors: [public.py](file:///E:/uiChina_Web/China_BE/app/services/public.py#L529-L532)
+- Admin config honors: [entityConfigs.js - honors](file:///E:/uiChina_Web/China_Web_FE/src/views/admin/config/entityConfigs.js#L467-L503)
+
+### Đã làm được
+- Có module admin riêng cho [honors](file:///E:/uiChina_Web/China_BE/app/api/routes/public.py#127-134).
+- Có public API `/api/v1/public/honors`.
+- FE đã chia được thành các phần gần đúng requirement:
+  - Hình ảnh nhà máy
+  - Địa chỉ nhà máy
+  - Công suất
+  - Công nghệ sản xuất
+  - Chứng nhận & năng lực
+- Có lấy contact để hiển thị địa chỉ/map nhà máy.
+
+### Chưa hoàn chỉnh
+- [HonorsPage.vue](file:///E:/uiChina_Web/China_Web_FE/src/views/user/honors/HonorsPage.vue) đang còn **fallback hard-code rất nhiều**:
+  - `fallbackFactoryImages`
+  - `fallbackFactoryLocation`
+  - `fallbackOutputItems`
+  - `fallbackTechnologyItems`
+  - `outputMetrics`
+- Nghĩa là khi backend chưa trả đúng dữ liệu, FE tự bù bằng dữ liệu cứng.
+- `Địa chỉ nhà máy`, `Công suất`, `Công nghệ sản xuất` chưa đi từ một schema CMS thật rõ ràng và đồng nhất.
+- Admin config [honors](file:///E:/uiChina_Web/China_BE/app/api/routes/public.py#127-134) hiện dùng trường kiểu `award_category`, `award_year`, `issuer`, thiên về mô hình “honor/certificate”, chưa thật sự đẹp cho toàn bộ nhóm “factory capability”.
+
+### Vấn đề chính
+- Requirement muốn đây là **một nhóm năng lực doanh nghiệp hoàn chỉnh**.
+- Hệ thống hiện tại mới đạt mức **ghép từ honors + contacts + fallback UI**.
+
+### Đánh giá
+- Chạy được giao diện, nhưng **chưa đủ chuẩn dữ liệu động hoàn toàn**.
+
+### Mức độ
+- **55% hoàn thiện**
+
+---
+
+## C. Danh mục sản phẩm
+
+### Thành phần đã tìm thấy
+- Model: [products.py - ProductCategory](file:///E:/uiChina_Web/China_BE/app/models/products.py#L8-L18)
+- API route: [public.py - product-categories](file:///E:/uiChina_Web/China_BE/app/api/routes/public.py#L164-L166)
+- Service: [public.py - list_product_categories](file:///E:/uiChina_Web/China_BE/app/services/public.py#L604-L627)
+- FE service: [productsApi.js](file:///E:/uiChina_Web/China_Web_FE/src/views/user/services/productsApi.js#L1-L11)
+- Admin config: [entityConfigs.js - product_categories](file:///E:/uiChina_Web/China_Web_FE/src/views/admin/config/entityConfigs.js#L597-L625)
+- FE list page: [ProductListPage.vue](file:///E:/uiChina_Web/China_Web_FE/src/views/user/products/ProductListPage.vue)
+
+### Đã làm được
+- Có đầy đủ field requirement:
+  - Tên danh mục
+  - Mô tả danh mục
+  - Ảnh danh mục
+- Có API trả `product_count`.
+- FE sidebar đã hiển thị danh mục + số lượng + thumbnail.
+- Admin đã có cấu hình quản lý riêng.
+
+### Chưa hoàn chỉnh
+- Ảnh danh mục hiện đang là `image_url` string, chưa đồng bộ theo media library như các module media khác.
+- Nhưng đây là vấn đề tối ưu kiến trúc, **không phải blocker chức năng**.
+
+### Mức độ
+- **90% hoàn thiện**
+
+---
+
+## D. Sản phẩm
+
+### Thành phần đã tìm thấy
+- Model: [products.py - Product](file:///E:/uiChina_Web/China_BE/app/models/products.py#L20-L44)
+- Product images: [products.py - ProductImage](file:///E:/uiChina_Web/China_BE/app/models/products.py#L46-L56)
+- API routes:
+  - [public.py - products list](file:///E:/uiChina_Web/China_BE/app/api/routes/public.py#L169-L181)
+  - [public.py - inquiries](file:///E:/uiChina_Web/China_BE/app/api/routes/public.py#L184-L186)
+- Service:
+  - [list_products](file:///E:/uiChina_Web/China_BE/app/services/public.py#L629-L658)
+  - [get_product_detail](file:///E:/uiChina_Web/China_BE/app/services/public.py#L661-L699)
+  - [create_inquiry](file:///E:/uiChina_Web/China_BE/app/services/public.py#L704-L723)
+- Admin config:
+  - [product_categories](file:///E:/uiChina_Web/China_Web_FE/src/views/admin/config/entityConfigs.js#L597-L625)
+  - [products](file:///E:/uiChina_Web/China_Web_FE/src/views/admin/config/entityConfigs.js#L626-L688)
+- FE pages:
+  - [ProductListPage.vue](file:///E:/uiChina_Web/China_Web_FE/src/views/user/products/ProductListPage.vue)
+  - [ProductDetailPage.vue](file:///E:/uiChina_Web/China_Web_FE/src/views/user/products/ProductDetailPage.vue)
+
+### Đã làm được
+- Đủ gần như toàn bộ field requirement:
+  - Tên sản phẩm
+  - SKU
+  - Danh mục
+  - Nhiều ảnh HD
+  - Video
+  - Mô tả ngắn
+  - Mô tả chi tiết
+  - Kích thước
+  - Chất liệu
+  - Màu sắc
+  - Ứng dụng
+  - Catalog PDF
+  - Inquiry button
+- FE list page có:
+  - filter theo category
+  - tìm kiếm text
+  - pagination
+  - card hiển thị video/inquiry/detail
+- FE detail page có:
+  - gallery
+  - video thumb
+  - inquiry modal
+  - catalog pdf
+  - related products
+- Backend support submit inquiry tốt.
+
+### Chưa hoàn chỉnh
+- [ProductDetailPage.vue](file:///E:/uiChina_Web/China_Web_FE/src/views/user/products/ProductDetailPage.vue) breadcrumb đang link category bằng `category_id` vào query `category`, trong khi list page đang filter bằng `slug`:
+  - [ProductDetailPage.vue#L123-L126](file:///E:/uiChina_Web/China_Web_FE/src/views/user/products/ProductDetailPage.vue#L123-L126)
+- Một số chỗ vẫn còn fallback placeholder ảnh public.
+- Chưa thấy SEO/meta được set rõ cho product detail giống project detail.
+
+### Đánh giá
+- Đây là nhóm đang hoàn thiện khá tốt.
+
+### Mức độ
+- **88% hoàn thiện**
+
+---
+
+## E. Dự án
+
+### Thành phần đã tìm thấy
+- Models:
+  - [projects.py - ProjectCategory](file:///E:/uiChina_Web/China_BE/app/models/projects.py#L8-L22)
+  - [projects.py - Project](file:///E:/uiChina_Web/China_BE/app/models/projects.py#L24-L51)
+  - [projects.py - ProjectCategoryItem](file:///E:/uiChina_Web/China_BE/app/models/projects.py#L53-L68)
+- Public API:
+  - [projects list/detail](file:///E:/uiChina_Web/China_BE/app/api/routes/public.py#L73-L124)
+- Public service:
+  - [list_projects](file:///E:/uiChina_Web/China_BE/app/services/public.py#L332-L366)
+  - [get_project_detail](file:///E:/uiChina_Web/China_BE/app/services/public.py#L369-L389)
+  - [get_project_case_page](file:///E:/uiChina_Web/China_BE/app/services/public.py#L392-L527)
+- Admin config:
+  - [project_categories](file:///E:/uiChina_Web/China_Web_FE/src/views/admin/config/entityConfigs.js#L277-L307)
+  - [projects](file:///E:/uiChina_Web/China_Web_FE/src/views/admin/config/entityConfigs.js#L308-L340)
+  - [project_category_items](file:///E:/uiChina_Web/China_Web_FE/src/views/admin/config/entityConfigs.js#L341-L374)
+  - [entity_media](file:///E:/uiChina_Web/China_Web_FE/src/views/admin/config/entityConfigs.js#L375-L443)
+- FE pages:
+  - [ProjectCasePage.vue](file:///E:/uiChina_Web/China_Web_FE/src/views/user/projects/ProjectCasePage.vue)
+  - [ProjectDetailPage.vue](file:///E:/uiChina_Web/China_Web_FE/src/views/user/projects/ProjectDetailPage.vue)
+
+### Đã làm được
+- Đã có:
+  - Tên dự án
+  - Gallery/hình ảnh dự án
+  - Địa điểm
+  - Mô tả
+- Có 2 lớp hiển thị:
+  - project case theo category
+  - project detail theo slug
+- Có entity media nhóm hero/gallery khá linh hoạt.
+- Có CMS mapping `project_category_items` để sắp xếp dự án theo từng category.
+
+### Chưa hoàn chỉnh
+- Requirement có **Sản phẩm dùng / Mapping product**.
+- Hiện model [Project](file:///E:/uiChina_Web/China_BE/app/models/projects.py#24-51) **không có quan hệ sang Product**.
+- [ProjectCategoryItem](file:///E:/uiChina_Web/China_BE/app/models/projects.py#53-68) cũng **không phải mapping project-product**, mà chỉ là mapping category-project.
+- FE [ProjectDetailPage.vue](file:///E:/uiChina_Web/China_Web_FE/src/views/user/projects/ProjectDetailPage.vue) cũng chưa hiển thị sản phẩm dùng.
+
+### Đây là gap quan trọng nhất của nhóm Dự án
+- Backend thiếu bảng trung gian kiểu `project_products` hoặc tương đương.
+- Admin thiếu UI chọn sản phẩm dùng cho từng dự án.
+- Public API thiếu trả danh sách sản phẩm liên kết.
+- FE detail thiếu block “Sản phẩm sử dụng trong dự án”.
+
+### Mức độ
+- **75% hoàn thiện**
+
+---
+
+## F. Tin tức
+
+### Thành phần đã tìm thấy
+- FE pages:
+  - [NewsListPage.vue](file:///E:/uiChina_Web/China_Web_FE/src/views/user/news/NewsListPage.vue)
+  - [NewsDetailPage.vue](file:///E:/uiChina_Web/China_Web_FE/src/views/user/news/NewsDetailPage.vue)
+- Backend public post routes:
+  - [public.py - /posts](file:///E:/uiChina_Web/China_BE/app/api/routes/public.py#L51-L70)
+- Backend service:
+  - [list_posts](file:///E:/uiChina_Web/China_BE/app/services/public.py#L252-L299)
+  - [get_post_detail](file:///E:/uiChina_Web/China_BE/app/services/public.py#L301-L329)
+- Admin config:
+  - [post_categories](file:///E:/uiChina_Web/China_Web_FE/src/views/admin/config/entityConfigs.js#L253-L264)
+  - [posts](file:///E:/uiChina_Web/China_Web_FE/src/views/admin/config/entityConfigs.js#L265-L276)
+
+### Đã làm được
+- Có đủ field requirement:
+  - tiêu đề
+  - nội dung
+  - ảnh
+  - ngày đăng
+- FE có list + detail + category tab.
+- Backend có pagination và filter theo category.
+- Admin có module post/category.
+
+### Chưa hoàn chỉnh
+- FE service [publicApi.js](file:///E:/uiChina_Web/China_Web_FE/src/views/user/services/publicApi.js) đang gọi:
+  - [getPublicNews()](file:///E:/uiChina_Web/China_Web_FE/src/views/user/services/publicApi.js#32-49) -> `/news`
+  - [getPublicNewsDetail()](file:///E:/uiChina_Web/China_Web_FE/src/views/user/services/publicApi.js#50-65) -> `/news/:slug`
+- Trong khi backend public router file đang expose chuẩn `/public/posts` và `/public/posts/{slug}`.
+- Điều này cho thấy **kiến trúc news đang lai 2 nguồn API**:
+  - workflow news riêng
+  - public posts chuẩn
+- Đây là dấu hiệu kỹ thuật chưa đồng bộ hoàn toàn.
+- Ngoài ra [NewsListPage.vue](file:///E:/uiChina_Web/China_Web_FE/src/views/user/news/NewsListPage.vue) còn phụ thuộc `newsData` cho hero/meta trình bày.
+
+### Đánh giá
+- Về chức năng user thấy là **đã dùng được**.
+- Về mặt kiến trúc dữ liệu/API thì **chưa sạch và chưa thống nhất**.
+
+### Mức độ
+- **70% hoàn thiện**
+
+---
+
+## G. Liên hệ
+
+### Thành phần đã tìm thấy
+- FE page: [ContactPage.vue](file:///E:/uiChina_Web/China_Web_FE/src/views/user/contact/ContactPage.vue)
+- Public API contacts: [public.py - contacts](file:///E:/uiChina_Web/China_BE/app/api/routes/public.py#L154-L156)
+- Public service contacts: [public.py - list_contacts](file:///E:/uiChina_Web/China_BE/app/services/public.py#L576-L583)
+- Inquiry submit dùng lại `/public/inquiries`
+- Admin config:
+  - [contacts](file:///E:/uiChina_Web/China_Web_FE/src/views/admin/config/entityConfigs.js#L444-L466)
+  - [inquiry_submissions](file:///E:/uiChina_Web/China_Web_FE/src/views/admin/config/entityConfigs.js#L553-L596)
+
+### Đã làm được
+- Đủ requirement chính:
+  - Địa chỉ
+  - Email
+  - SĐT
+  - Google Map/OpenStreetMap embed
+  - Form liên hệ
+- Có validate form.
+- Có submit inquiry.
+- Admin có module xem submissions và phản hồi nội bộ.
+
+### Chưa hoàn chỉnh
+- Giao diện còn dùng một số asset cứng:
+  - icon contact
+  - QR images
+  - hero image
+- Nếu muốn “toàn bộ website được CMS quản lý”, phần này vẫn cần chuyển thêm một số nội dung trình bày sang settings/media.
+
+### Mức độ
+- **85% hoàn thiện**
+
+---
+
+## 4) Những phần đã có CMS tương đối tốt
+
+1. **Company / About**
+   - Có cấu trúc page -> sections -> blocks -> items
+2. **Products**
+   - Có category, product, product image, inquiry
+3. **Projects**
+   - Có category, project, category-item, entity media
+4. **Contacts / Inquiry submissions**
+   - Có quản trị riêng
+5. **Posts / News categories**
+   - Có quản trị riêng
+
+---
+
+## 5) Những phần còn hard-code hoặc bán động
+
+### Mức độ cao
+- Honors / Năng lực
+- News hero metadata
+- Một phần asset ở About
+- Một phần asset ở Contact
+
+### Mức độ trung bình
+- Product UI fallback placeholder
+- Breadcrumb/filter inconsistency ở Product detail
+
+---
+
+## 6) Gap quan trọng nhất cần phát triển tiếp
+
+## Ưu tiên 1 — Bắt buộc
+### Mapping Product trong Dự án
+
+**Vấn đề**
+- Requirement yêu cầu: `Dự án -> Sản phẩm dùng`
+- Hiện tại chưa có ở DB, API, admin, FE.
+
+**Cần làm**
+1. Backend:
+   - Tạo bảng trung gian `project_products`
+   - Fields gợi ý:
+     - [id](file:///E:/uiChina_Web/China_BE/app/api/routes/public.py#159-162)
+     - `project_id`
+     - `product_id`
+     - `sort_order`
+     - `note` hoặc `usage_context`
+2. Admin:
+   - Thêm entity quản lý mapping project-product
+   - Cho chọn nhiều sản phẩm trong project
+3. Public API:
+   - [get_project_detail](file:///E:/uiChina_Web/China_BE/app/services/public.py#369-390) trả thêm `related_products` hoặc `used_products`
+4. FE:
+   - Thêm section “Sản phẩm sử dụng trong dự án” ở [ProjectDetailPage.vue](file:///E:/uiChina_Web/China_Web_FE/src/views/user/projects/ProjectDetailPage.vue)
+
+---
+
+## Ưu tiên 2 — Năng lực phải chuẩn hóa dữ liệu
+
+**Vấn đề**
+- Honors page đang dùng nhiều fallback hard-code.
+
+**Cần làm**
+1. Chốt schema dữ liệu cho năng lực:
+   - factory_images
+   - factory_location
+   - output
+   - production_technology
+   - certificates
+2. Đảm bảo admin nhập được đủ các nhóm này.
+3. Bỏ fallback cứng ở FE.
+4. Chuẩn hóa API response để FE render thuần từ API.
+
+---
+
+## Ưu tiên 3 — Đồng bộ kiến trúc News
+
+**Vấn đề**
+- FE đang dùng `/news` trong service, backend public chuẩn lại là `/public/posts`.
+
+**Cần làm**
+1. Chốt 1 nguồn API duy nhất.
+2. Nếu dùng public API chuẩn thì sửa FE news service sang `/public/posts`.
+3. Đảm bảo category slug corporate-news / industry-dynamics map đúng.
+4. Kiểm tra admin post workflow có trùng hay lệch schema không.
+
+---
+
+## Ưu tiên 4 — Xóa các asset hard-code khỏi Company/Contact
+
+**Cần làm**
+- Chuyển hero image, QR, icon trang trí quan trọng, banner phụ sang media/settings hoặc content blocks.
+- Giữ lại asset trang trí thuần UI nếu thực sự không cần CMS.
+
+---
+
+## 7) Thứ tự phát triển đề xuất
+
+### Giai đoạn 1
+- Hoàn thiện **Project -> Product Mapping**
+- Đây là gap business rõ nhất so với doc requirement
+
+### Giai đoạn 2
+- Chuẩn hóa **Năng lực** thành module CMS-driven 100%
+
+### Giai đoạn 3
+- Đồng bộ lại **News API architecture**
+
+### Giai đoạn 4
+- Dọn hard-code còn sót ở **About / Contact / Product UI**
+
+---
+
+## 8) Kết luận cuối
+
+### Phần đã làm được tốt
+- Khung CMS tổng thể của dự án đã có nền tảng mạnh.
+- Các nhóm chức năng lớn đều đã có page, API, và admin config cơ bản.
+- Sản phẩm, Company, Liên hệ là các nhóm đang gần hoàn thiện nhất.
+
+### Phần chưa hoàn chỉnh
+- **Dự án chưa có mapping sản phẩm dùng**.
+- **Năng lực chưa thuần CMS**, còn fallback cứng nhiều.
+- **Tin tức chưa đồng nhất API/public architecture**.
+- Một số trang vẫn còn trộn dữ liệu động với asset cứng.
+
+### Kết luận tổng thể
+- Dự án hiện tại có thể xem là **đã hoàn thành khoảng 75% - 80% so với file requirement**.
+- Để bước vào giai đoạn phát triển/hoàn thiện website, nên ưu tiên:
+  1. `Project -> Product mapping`
+  2. `Capability/Honors chuẩn hóa dữ liệu`
+  3. `News API thống nhất`
+  4. `Loại bỏ hard-code còn sót`

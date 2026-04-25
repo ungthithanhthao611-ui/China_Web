@@ -89,27 +89,27 @@ const searchPlaceholder = computed(
   display: flex;
   align-items: center;
   justify-content: space-between;
-  gap: 12px;
+  gap: 8px;
   flex-wrap: wrap;
 }
 
 .filters__group {
   display: grid;
-  gap: 8px;
+  gap: 4px;
 }
 
 .filters__group--search {
   flex: 1;
-  min-width: 260px;
+  min-width: 190px;
 }
 
 .filters__group--status {
-  min-width: 180px;
+  min-width: 140px;
 }
 
 .filters__label {
   color: #6a8097;
-  font-size: 11px;
+  font-size: var(--admin-label-size, 11px);
   font-weight: 800;
   text-transform: uppercase;
   letter-spacing: 0.12em;
@@ -123,10 +123,10 @@ const searchPlaceholder = computed(
 
 input,
 select {
-  min-height: 48px;
+  min-height: var(--admin-control-height, 42px);
   border: 1px solid rgba(198, 216, 233, 0.95);
-  border-radius: 16px;
-  padding: 12px 14px;
+  border-radius: var(--admin-control-radius, 14px);
+  padding: 8px 10px;
   color: #17324d;
   background: rgba(255, 255, 255, 0.98);
   font: inherit;
@@ -148,12 +148,12 @@ select:focus {
 }
 
 .btn {
-  border-radius: 16px;
+  border-radius: var(--admin-control-radius, 14px);
   border: 1px solid transparent;
-  min-height: 46px;
-  padding: 0 16px;
+  min-height: var(--admin-button-height, 40px);
+  padding: 0 12px;
   cursor: pointer;
-  font-size: 14px;
+  font-size: 12px;
   font-weight: 700;
   white-space: nowrap;
   transition:

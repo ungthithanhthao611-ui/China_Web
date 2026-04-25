@@ -2832,9 +2832,13 @@ onBeforeUnmount(() => {
 }
 
 @media (max-width: 640px) {
+  .about-page {
+    overflow-x: hidden;
+  }
+
   .about-hero {
-    min-height: auto;
-    padding-top: 82px;
+    min-height: 100svh;
+    padding-top: 0;
   }
 
   .hero-image-pc {
@@ -2846,8 +2850,7 @@ onBeforeUnmount(() => {
   }
 
   .hero-content {
-    padding-top: 86px;
-    padding-bottom: 132px;
+    padding: 104px 18px 132px;
   }
 
   .hero-title-row {
@@ -2861,6 +2864,31 @@ onBeforeUnmount(() => {
 
   .about-dots {
     display: none;
+  }
+
+  .hero-tabbar {
+    grid-template-columns: 1fr;
+    max-height: 42vh;
+    overflow-y: auto;
+    padding: 0;
+  }
+
+  .hero-tab {
+    min-height: 52px;
+    padding: 12px 16px;
+    font-size: 14px;
+  }
+
+  .about-section {
+    min-height: auto;
+    padding: 76px 0 54px;
+    contain: none;
+  }
+
+  .section-shell {
+    width: 100%;
+    padding-left: 16px;
+    padding-right: 16px;
   }
 
   .leadership-carousel {
@@ -2970,7 +2998,8 @@ onBeforeUnmount(() => {
   .split-media img,
   .culture-image img,
   .intro-main {
-    min-height: 360px;
+    min-height: 0;
+    height: auto;
   }
 
   .intro-section .section-shell {
@@ -2989,7 +3018,33 @@ onBeforeUnmount(() => {
   }
 
   .intro-section {
-    padding-top: 108px;
+    padding-top: 88px;
+    padding-bottom: 52px;
+  }
+
+  .intro-layout {
+    display: flex;
+    flex-direction: column;
+  }
+
+  .intro-copy {
+    order: 1;
+    width: 100%;
+    max-width: none;
+  }
+
+  .intro-visual {
+    order: 2;
+    min-height: 0;
+    height: auto;
+    width: 100%;
+  }
+
+  .intro-main {
+    width: 100%;
+    aspect-ratio: 4 / 3;
+    object-fit: cover;
+    object-position: center;
   }
 
   .intro-heading h2 {
@@ -3033,8 +3088,8 @@ onBeforeUnmount(() => {
   }
 
   .chart-card img {
-    width: 94%;
-    max-width: 94%;
+    width: 100%;
+    max-width: 100%;
     max-height: none;
     margin-top: 18px;
   }
@@ -3055,7 +3110,7 @@ onBeforeUnmount(() => {
   }
 
   .leadership-carousel {
-    padding: 0 20px 24px;
+    padding: 0 16px 24px;
   }
 
   .leadership-card {
@@ -3076,8 +3131,9 @@ onBeforeUnmount(() => {
   }
 
   .leadership-year {
-    margin-left: 26px;
+    margin-left: 0;
     font-size: 32px;
+    text-align: center;
   }
 
   .leadership-copy {

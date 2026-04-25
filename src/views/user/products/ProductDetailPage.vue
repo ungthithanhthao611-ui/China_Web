@@ -932,4 +932,68 @@ onMounted(() => {
     gap: 28px;
   }
 }
+
+@media (max-width: 640px) {
+  .prod-detail__breadcrumb,
+  .prod-detail__shell,
+  .prod-detail__desc-inner,
+  .prod-video-inner,
+  .prod-related {
+    padding-left: 16px;
+    padding-right: 16px;
+  }
+
+  .prod-detail__shell {
+    padding-top: 24px;
+  }
+
+  .prod-gallery__thumbs {
+    gap: 6px;
+  }
+
+  .thumb-btn {
+    width: 64px;
+    height: 50px;
+  }
+
+  .prod-specs__list {
+    grid-template-columns: 1fr;
+    gap: 6px;
+  }
+
+  .prod-actions {
+    flex-direction: column;
+  }
+
+  .btn-inquiry,
+  .btn-catalog {
+    width: 100%;
+    justify-content: center;
+  }
+
+  .prod-related__grid {
+    grid-template-columns: 1fr;
+  }
+
+  .lightbox__prev,
+  .lightbox__next {
+    width: 42px;
+    height: 42px;
+    top: auto;
+    bottom: 22px;
+    transform: none;
+  }
+
+  .lightbox__prev {
+    left: 18px;
+  }
+
+  .lightbox__next {
+    right: 18px;
+  }
+
+  .lightbox__counter {
+    bottom: 34px;
+  }
+}
 </style>

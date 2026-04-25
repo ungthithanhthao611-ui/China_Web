@@ -1,0 +1,90 @@
+# 🗂️ Checklist Chia Tách Cấu Trúc Thư Mục Admin (Wrapper Pattern)
+
+> **Mục tiêu:** Chuyển đổi kiến trúc Admin CMS từ việc dựa dẫm hoàn toàn vào 1 file [EntityManager.vue](file:///e:/uiChina_Web/China_Web_FE/src/views/admin/modules/entity-manager/EntityManager.vue) duy nhất sang kiến trúc phân tách chức năng (Domain-specific folders: [products](file:///e:/uiChina_Web/China_BE/app/services/public.py#583-613), `about`, [projects](file:///e:/uiChina_Web/China_BE/app/services/public.py#280-315)...) theo mong muốn của người dùng. Áp dụng thiết kế **Wrapper** để cấu trúc cây gọn gàng mà không bị "phình" code trùng lặp.
+
+---
+
+## 🏛 Cấu trúc Thư Mục MỚI mong muốn (Sau khi cấu trúc lại)
+
+```bash
+src/views/admin/modules/
+├── core/                               # Đổi tên từ 'entity-manager' cũ
+│   ├── AdminCoreManager.vue            # (Đổi tên từ EntityManager.vue) Động cơ gốc
+│   ├── AdminCoreEditor.vue             # (Đổi tên từ EntityManagerEditor.vue)
+│   └── ...các file helper cũ
+│
+├── about/                              # THƯ MỤC ABOUT
+│   └── AboutManager.vue                # Gọi lõi core + logic riêng của about
+│
+├── contacts/                           # THƯ MỤC LIÊN HỆ
+│   ├── ContactsManager.vue             # Thông tin liên hệ
+│   └── InquiriesManager.vue            # Form yêu cầu
+│
+├── products/                           # THƯ MỤC SẢN PHẨM
+│   ├── ProductsManager.vue             # Quản lý Sản Phẩm
+│   ├── CategoriesManager.vue           # Quản lý Danh Mục Sản Phẩm
+│   └── VideosManager.vue               # Quản lý Video
+│
+├── projects/                           # THƯ MỤC DỰ ÁN
+│   ├── ProjectsManager.vue             # Quản lý Dự Án
+│   ├── ProjectCategoriesManager.vue    # Danh mục Dự Án
+│   └── ProjectProductsManager.vue      # Sản phẩm đính kèm dự án
+│
+├── system/                             # THƯ MỤC HỆ THỐNG
+│   ├── BannersManager.vue              # Slider / Hero
+│   └── SiteSettingsManager.vue         # Logo, Tên website
+│
+├── honors/                             # ✅ Đã có
+├── news/                               # ✅ Đã có
+└── navigation/                         # ✅ Đã có
+```
+
+---
+
+## 🛠 Lộ trình 3 Bước Thực Hiện
+
+### Bước 1: Khởi tạo các Thư mục & File Wrapper
+Với mỗi chức năng, tạo thư mục và file `<Domain>Manager.vue` tương ứng đóng vai trò "lớp vỏ bọc".
+
+- [ ] Tạo `src/views/admin/modules/products/ProductsManager.vue`.
+- [ ] Tạo `src/views/admin/modules/products/ProductCategoriesManager.vue`.
+- [ ] Tạo `src/views/admin/modules/about/AboutManager.vue`.
+- [ ] Tạo `src/views/admin/modules/projects/ProjectsManager.vue`.
+- [ ] Tạo `src/views/admin/modules/contacts/ContactsManager.vue`.
+- [ ] Tạo `src/views/admin/modules/contacts/InquiriesManager.vue`.
+
+_Mẫu code (Boilerplate) cho mỗi file:_
+```vue
+<template>
+  <EntityManager 
+    entity-key="tên_tương_ứng" 
+    :token="token" 
+    :active="active"
+    @notify-success="$emit('notify-success', $event)" 
+  />
+</template>
+```
+
+### Bước 2: Viết lại (Refactor) [AdminDashboardPage.vue](file:///e:/uiChina_Web/China_Web_FE/src/views/admin/AdminDashboardPage.vue)
+Cắt bỏ cục `v-else` đang tự động parse config. Thay vào đó, import thủ công các Module Manager tĩnh vừa tạo.
+- [ ] Mở [src/views/admin/AdminDashboardPage.vue](file:///e:/uiChina_Web/China_Web_FE/src/views/admin/AdminDashboardPage.vue).
+- [ ] Xóa đoạn if tĩnh (`<EntityManager v-else ...>`).
+- [ ] Trổ thẳng vào từng thẻ UI:
+```html
+<ProductsManager v-else-if="activeSection === 'products'" :token="token" />
+<AboutManager v-else-if="activeSection === 'content_block_items'" :token="token" />
+<ProjectsManager v-else-if="activeSection === 'projects'" :token="token" />
+<InquiriesManager v-else-if="activeSection === 'inquiry_submissions'" :token="token" />
+```
+
+### Bước 3: Đổi tên và Cleanup lõi (Tùy chọn nhưng khuyến nghị)
+Hiện tại từ `entity-manager` nghe hơi mơ hồ.
+- [ ] (Tùy chọn) Đổi tên thư mục `entity-manager` thành `core` hoặc [base](file:///e:/uiChina_Web/China_BE/app/services/admin.py#122-141).
+- [ ] (Tùy chọn) Rút cụm Config (`ENTITY_MANAGER_CONFIGS`) từ [entityConfigs.js](file:///e:/uiChina_Web/China_Web_FE/src/views/admin/config/entityConfigs.js) nhúng cứng về lại các thư mục cụ thể để mỗi chức năng hoàn toàn kiểm soát biến và API của nó. (Giúp bạn vô thay đổi số lượng trường, tiêu đề cột của Products hay About một cách dễ dàng ngay trong file Manager tương ứng).
+
+---
+
+## 🎯 Tại sao giải pháp này tối ưu nhất?
+- **Bạn đạt được mục đích:** Nhìn vào Visual Studio Code, bạn sẽ thấy ngay các thư mục [products](file:///e:/uiChina_Web/China_BE/app/services/public.py#583-613), `about`, dễ dàng click vào và chỉ chú tâm chuyên biệt vào module mình cần sửa.
+- **Bảo toàn Cấu trúc Code:** Không bị mắc lỗi đẻ thêm 10 lần dòng code (D.R.Y). Code lõi Table, Upload Media ở dưới vẫn đang được chạy mượt mà. 
+- **Sẵn sàng Scale:** Ví dụ sau này mảng [projects](file:///e:/uiChina_Web/China_BE/app/services/public.py#280-315) cần chèn UI đặc biệt "Kéo thả sản phẩm vào bản vẽ map", bạn chỉ cần mở `ProjectsManager.vue`, đập code lõi ra và bắt đầu viết bằng tay chức năng kéo thả. Nó không ảnh hưởng tới bảng Products hay Banners.

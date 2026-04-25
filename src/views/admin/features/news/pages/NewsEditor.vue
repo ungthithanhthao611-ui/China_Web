@@ -1373,26 +1373,26 @@ onBeforeUnmount(() => {
   flex: 1;
   min-width: 0;
   overflow: auto;
-  padding: 24px 24px 96px;
+  padding: 18px 18px 72px;
 }
 
 .news-editor-stage {
   min-width: 100%;
   display: flex;
   justify-content: center;
-  padding: 8px 0 40px;
+  padding: 4px 0 28px;
 }
 
 .news-editor-page {
   position: relative;
-  border-radius: 28px;
-  box-shadow: 0 24px 60px rgba(15, 23, 42, 0.08);
+  border-radius: 22px;
+  box-shadow: 0 18px 36px rgba(15, 23, 42, 0.08);
   border: 1px solid rgba(226, 232, 240, 0.9);
 }
 
 .news-editor-block {
   position: absolute;
-  border-radius: 20px;
+  border-radius: 16px;
   outline: 1px solid transparent;
   transition: outline-color 0.18s ease, box-shadow 0.18s ease;
 }
@@ -1462,8 +1462,8 @@ onBeforeUnmount(() => {
 
 .news-editor-sidebar {
   position: relative;
-  min-width: 280px;
-  max-width: 500px;
+  min-width: 260px;
+  max-width: 420px;
   border-left: 1px solid #e2e8f0;
   background: rgba(255, 255, 255, 0.82);
   backdrop-filter: blur(16px);
@@ -1485,16 +1485,16 @@ onBeforeUnmount(() => {
 
 .sidebar-panel {
   display: grid;
-  gap: 18px;
-  padding: 24px 24px 48px;
+  gap: 14px;
+  padding: 18px 18px 32px;
 }
 
 .sidebar-panel__section {
   display: grid;
-  gap: 14px;
-  padding: 18px;
+  gap: 12px;
+  padding: 14px;
   border: 1px solid rgba(226, 232, 240, 0.8);
-  border-radius: 20px;
+  border-radius: 16px;
   background: rgba(255, 255, 255, 0.92);
 }
 
@@ -1514,7 +1514,7 @@ onBeforeUnmount(() => {
 
 .sidebar-panel__title {
   margin: 0;
-  font-size: 16px;
+  font-size: 15px;
   line-height: 1.3;
   font-weight: 700;
   color: #0f172a;
@@ -1530,7 +1530,7 @@ onBeforeUnmount(() => {
 }
 
 .sidebar-field span {
-  font-size: 12px;
+  font-size: 11px;
   font-weight: 600;
   color: #334155;
 }
@@ -1538,8 +1538,8 @@ onBeforeUnmount(() => {
 .sidebar-field input,
 .sidebar-field select {
   width: 100%;
-  height: 42px;
-  padding: 0 14px;
+  height: 40px;
+  padding: 0 12px;
   border: 1px solid #dbe2ea;
   border-radius: 12px;
   outline: none;
@@ -1558,12 +1558,12 @@ onBeforeUnmount(() => {
 .sidebar-grid {
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));
-  gap: 12px;
+  gap: 10px;
 }
 
 .sidebar-empty {
-  padding: 14px;
-  border-radius: 14px;
+  padding: 12px;
+  border-radius: 12px;
   background: #f8fafc;
   color: #64748b;
   font-size: 13px;
@@ -1572,8 +1572,8 @@ onBeforeUnmount(() => {
 
 .sidebar-color-row {
   display: grid;
-  grid-template-columns: 52px minmax(0, 1fr);
-  gap: 10px;
+  grid-template-columns: 46px minmax(0, 1fr);
+  gap: 8px;
 }
 
 .sidebar-color {
@@ -1583,13 +1583,13 @@ onBeforeUnmount(() => {
 
 .sidebar-color--full {
   width: 100%;
-  height: 42px;
+  height: 40px;
 }
 
 .sidebar-upload-btn,
 .sidebar-action-btn {
-  height: 42px;
-  padding: 0 14px;
+  height: 40px;
+  padding: 0 12px;
   border-radius: 12px;
   border: 1px solid #dbe2ea;
   background: #fff;
@@ -1606,12 +1606,12 @@ onBeforeUnmount(() => {
 .sidebar-media-grid {
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));
-  gap: 10px;
+  gap: 8px;
 }
 
 .sidebar-media-card {
   border: 1px solid #dbe2ea;
-  border-radius: 14px;
+  border-radius: 12px;
   background: #fff;
   overflow: hidden;
   padding: 0;
@@ -1638,7 +1638,7 @@ onBeforeUnmount(() => {
 
 .sidebar-actions {
   display: grid;
-  gap: 10px;
+  gap: 8px;
 }
 
 .sidebar-action-btn--subtle:hover,
@@ -1654,16 +1654,16 @@ onBeforeUnmount(() => {
 
 .news-editor-floating-actions {
   position: fixed;
-  left: 28px;
-  bottom: 24px;
+  left: 20px;
+  bottom: 18px;
   z-index: 20;
   display: flex;
-  gap: 10px;
+  gap: 8px;
 }
 
 .floating-btn {
-  height: 44px;
-  padding: 0 16px;
+  height: 40px;
+  padding: 0 14px;
   border: 1px solid rgba(148, 163, 184, 0.22);
   border-radius: 999px;
   background: rgba(255, 255, 255, 0.92);
@@ -1671,11 +1671,11 @@ onBeforeUnmount(() => {
   display: inline-flex;
   align-items: center;
   gap: 8px;
-  font-size: 13px;
+  font-size: 12px;
   font-weight: 700;
   color: #0f172a;
   cursor: pointer;
-  box-shadow: 0 12px 30px rgba(15, 23, 42, 0.1);
+  box-shadow: 0 10px 20px rgba(15, 23, 42, 0.1);
 }
 
 .sr-only {
@@ -1705,7 +1705,7 @@ onBeforeUnmount(() => {
 
 @media (max-width: 1280px) {
   .news-editor-canvas {
-    padding: 20px 18px 100px;
+    padding: 16px 14px 76px;
   }
 }
 

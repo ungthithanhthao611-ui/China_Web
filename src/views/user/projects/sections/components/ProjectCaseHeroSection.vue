@@ -365,6 +365,10 @@ watch(
 }
 
 @media (max-width: 768px) {
+  .page1-hero {
+    min-height: 100svh;
+  }
+
   .banLi__image--desktop {
     display: none;
   }
@@ -374,8 +378,9 @@ watch(
   }
 
   .banText {
-    inset: 0 0 84px;
+    inset: 0;
     padding: 0 20px;
+    justify-content: center;
   }
 
   .new_banner {
@@ -396,8 +401,8 @@ watch(
   }
 
   .new_des {
-    font-size: 16px;
-    line-height: 1.8;
+    font-size: 14px;
+    line-height: 1.65;
   }
 
   .anBox {
@@ -406,8 +411,8 @@ watch(
   }
 
   .swiper_but {
-    width: 44px;
-    height: 44px;
+    width: 40px;
+    height: 40px;
   }
 
   .swiper-prev {
@@ -427,6 +432,24 @@ watch(
     min-width: 120px;
     height: 84px;
     font-size: 14px;
+  }
+}
+
+@media (max-width: 430px) {
+  .fnt_36 {
+    font-size: clamp(26px, 8vw, 34px);
+  }
+
+  .new_sub {
+    font-size: 13px;
+    letter-spacing: 0.1em;
+  }
+
+  .new_des {
+    display: -webkit-box;
+    -webkit-line-clamp: 5;
+    -webkit-box-orient: vertical;
+    overflow: hidden;
   }
 }
 </style>

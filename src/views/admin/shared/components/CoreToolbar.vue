@@ -65,39 +65,39 @@ const safeDescription = computed(
   display: flex;
   align-items: flex-start;
   justify-content: space-between;
-  gap: 18px;
+  gap: 12px;
 }
 
 .manager-toolbar__content {
   display: grid;
-  gap: 12px;
+  gap: 8px;
   min-width: 0;
 }
 
 .manager-toolbar__badge-wrap {
   display: flex;
   align-items: center;
-  gap: 10px;
+  gap: 8px;
   flex-wrap: wrap;
 }
 
 .manager-toolbar__badge {
   display: inline-flex;
   align-items: center;
-  min-height: 28px;
-  padding: 0 12px;
+  min-height: 24px;
+  padding: 0 10px;
   border-radius: 999px;
   background: rgba(73, 147, 220, 0.12);
   border: 1px solid rgba(73, 147, 220, 0.18);
   color: #1f5f95;
-  font-size: 12px;
+  font-size: 11px;
   font-weight: 600;
 }
 
 .eyebrow {
   margin: 0;
   color: #6c839c;
-  font-size: 11px;
+  font-size: var(--admin-label-size, 11px);
   text-transform: uppercase;
   letter-spacing: 0.16em;
   font-weight: 500;
@@ -105,22 +105,22 @@ const safeDescription = computed(
 
 .manager-toolbar__heading {
   display: grid;
-  gap: 8px;
+  gap: 4px;
 }
 
 h2 {
   margin: 0;
   color: #15314d;
-  font-size: clamp(28px, 3vw, 38px);
-  line-height: 1.05;
+  font-size: var(--admin-heading-size, clamp(22px, 2vw, 30px));
+  line-height: 1.08;
 }
 
 .description {
   margin: 0;
   max-width: 920px;
   color: #5d7690;
-  font-size: 14px;
-  line-height: 1.65;
+  font-size: var(--admin-body-size, 14px);
+  line-height: 1.5;
 }
 
 .toolbar-actions {
@@ -132,12 +132,12 @@ h2 {
 }
 
 .btn {
-  border-radius: 16px;
+  border-radius: var(--admin-control-radius, 14px);
   border: 1px solid transparent;
-  min-height: 46px;
-  padding: 0 16px;
+  min-height: var(--admin-button-height, 40px);
+  padding: 0 12px;
   cursor: pointer;
-  font-size: 14px;
+  font-size: 12px;
   font-weight: 500;
   white-space: nowrap;
   transition:
@@ -154,7 +154,7 @@ h2 {
 .btn-primary {
   color: #fff;
   background: linear-gradient(135deg, #1f7ae0 0%, #4fa7ff 100%);
-  box-shadow: 0 16px 30px rgba(31, 122, 224, 0.22);
+  box-shadow: 0 12px 22px rgba(31, 122, 224, 0.2);
 }
 
 .btn-secondary {

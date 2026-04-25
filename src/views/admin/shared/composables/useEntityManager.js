@@ -961,7 +961,7 @@ export function useEntityManager(props, emit) {
         altText:
           uploadAltText.value || form.title || videoUploadFile.value.name,
         assetFolder: mediaUploadAssetFolder(),
-        publicIdBase: mediaUploadPublicIdBase(),
+        publicIdBase: mediaUploadPublicIdBase(videoUploadFile.value?.name),
       })
       await loadMediaOptions()
       if (
@@ -1000,7 +1000,7 @@ export function useEntityManager(props, emit) {
         title: uploadTitle.value || form.title,
         altText: uploadAltText.value || form.title,
         assetFolder: mediaUploadAssetFolder(),
-        publicIdBase: mediaUploadPublicIdBase(),
+        publicIdBase: mediaUploadPublicIdBase(uploadFile.value?.name),
       })
       await loadMediaOptions()
       if (
@@ -1079,7 +1079,7 @@ export function useEntityManager(props, emit) {
           title: form.name || form.title || file.name,
           altText: form.name || form.title || '',
           assetFolder: mediaUploadAssetFolder(),
-          publicIdBase: mediaUploadPublicIdBase(),
+          publicIdBase: mediaUploadPublicIdBase(file?.name),
         })
         if (
           !mediaOptions.value.some(

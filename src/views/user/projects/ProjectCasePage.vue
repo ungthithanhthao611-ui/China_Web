@@ -126,5 +126,16 @@ function isVisible(sectionId) {
     --case-sidebar-width: 170px;
   }
 }
+
+@media (max-width: 768px) {
+  .project-case-page__section {
+    min-height: auto;
+    overflow: visible;
+  }
+
+  .project-case-page__section--hero {
+    min-height: 100svh;
+  }
+}
 </style>
 

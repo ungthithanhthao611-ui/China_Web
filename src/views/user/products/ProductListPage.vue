@@ -507,7 +507,8 @@ onMounted(async () => {
   border-radius: 99px; /* Tròn trịa hiện đại hơn */
   background: $white;
   color: $text-light;
-  min-width: 320px;
+  min-width: min(320px, 100%);
+  max-width: 100%;
   transition: $transition-base;
   box-shadow: 0 2px 6px rgba($navy-dark, 0.02);
 }
@@ -881,12 +882,51 @@ onMounted(async () => {
   }
 
   .prod-hero {
-    height: 40vh;
+    min-height: 300px;
+    height: 42svh;
   }
 
   .prod-grid {
     grid-template-columns: 1fr;
   }
-  .prod-hero { height: 45vh; }
+  .prod-toolbar {
+    align-items: stretch;
+  }
+
+  .prod-search {
+    width: 100%;
+  }
+}
+
+@media (max-width: 430px) {
+  .prod-hero__content {
+    width: 100%;
+    padding-left: 18px;
+    padding-right: 18px;
+  }
+
+  .prod-hero__breadcrumb {
+    left: 18px;
+    right: 18px;
+    flex-wrap: wrap;
+  }
+
+  .prod-cat-item {
+    gap: 8px;
+    align-items: flex-start;
+  }
+
+  .prod-cat-item > :not(.prod-cat-count) {
+    flex-shrink: 1;
+    min-width: 0;
+  }
+
+  .prod-card__footer {
+    flex-direction: column;
+  }
+
+  .prod-pagination {
+    flex-wrap: wrap;
+  }
 }
 </style>

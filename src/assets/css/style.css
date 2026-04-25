@@ -1,18 +1,23 @@
-/* Global Font Import */
-@import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600&family=Outfit:wght@400;600;700&display=swap');
+:root {
+    --site-header-offset: 126px;
+    --site-page-gutter: clamp(16px, 4vw, 64px);
+}
 
 * {
-    font-family: 'Inter', sans-serif !important;
+    box-sizing: border-box;
+    font-family: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif !important;
 }
 
 h1, h2, h3, h4, h5, h6 {
-    font-family: 'Outfit', sans-serif !important;
+    font-family: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif !important;
 }
 
 /* Responsive Base */
 html {
     font-size: 16px;
     scroll-behavior: smooth;
+    text-size-adjust: 100%;
+    -webkit-text-size-adjust: 100%;
 }
 
 body {
@@ -31,31 +36,51 @@ html, body {
     overflow-x: hidden;
 }
 
+#app {
+    min-height: 100vh;
+    max-width: 100%;
+    overflow-x: clip;
+}
+
+main,
+section,
+article,
+aside,
+header,
+footer {
+    max-width: 100%;
+}
+
+[id^="ctn"],
+[id^="page"],
+section[id] {
+    scroll-margin-top: var(--site-header-offset);
+}
+
 /* Container Responsiveness */
 .container {
     width: 100%;
-    max-width: 1200px;
+    max-width: min(1200px, calc(100% - (var(--site-page-gutter) * 2)));
     margin: 0 auto;
-    padding: 0 20px;
+    padding: 0;
 }
 
 /* Media Queries for better responsiveness */
 @media screen and (max-width: 1200px) {
     .container {
-        max-width: 960px;
+        max-width: min(960px, calc(100% - (var(--site-page-gutter) * 2)));
     }
 }
 
 @media screen and (max-width: 992px) {
     .container {
-        max-width: 720px;
+        max-width: min(720px, calc(100% - 32px));
     }
 }
 
 @media screen and (max-width: 768px) {
     .container {
-        max-width: 540px;
-        padding: 0 15px;
+        max-width: calc(100% - 32px);
     }
     
     .section-padding {
@@ -65,7 +90,7 @@ html, body {
 
 @media screen and (max-width: 576px) {
     .container {
-        max-width: 100%;
+        max-width: calc(100% - 28px);
     }
 }
 
@@ -73,6 +98,32 @@ html, body {
 img {
     max-width: 100%;
     height: auto;
+}
+
+video,
+iframe,
+picture,
+svg {
+    max-width: 100%;
+}
+
+button,
+input,
+textarea,
+select {
+    font: inherit;
+}
+
+@media screen and (max-width: 1023px) {
+    :root {
+        --site-header-offset: 102px;
+    }
+}
+
+@media screen and (max-width: 767px) {
+    :root {
+        --site-header-offset: 94px;
+    }
 }
 
 /* Responsive Utilities */

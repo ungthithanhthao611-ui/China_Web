@@ -169,7 +169,7 @@ onUnmounted(() => {
 .full-page-wrapper {
   position: relative;
   width: 100%;
-  height: 100vh;
+  height: 100svh;
   overflow: hidden;
   
   @media (max-width: 992px) {
@@ -206,7 +206,7 @@ onUnmounted(() => {
   
   @media (max-width: 992px) {
     height: auto;
-    min-height: 100vh;
+    min-height: auto;
   }
 }
 

@@ -1,8 +1,12 @@
 <script setup>
-import { computed, ref } from 'vue'
+import { computed, ref, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 
-import { ADMIN_TOKEN_STORAGE_KEY, ADMIN_USER_STORAGE_KEY } from '@/views/admin/shared/constants/auth'
+import {
+  ADMIN_TOKEN_STORAGE_KEY,
+  ADMIN_USER_STORAGE_KEY,
+  getStoredAdminToken,
+} from '@/views/admin/shared/constants/auth'
 import { loginAdmin } from '@/views/admin/shared/api/adminApi.js'
 
 const router = useRouter()
@@ -13,6 +17,20 @@ const password = ref('')
 const loading = ref(false)
 const errorMessage = ref('')
 
+const sessionMessage = computed(() => {
+  const reason = String(route.query.reason || '').trim().toLowerCase()
+
+  if (reason === 'expired') {
+    return 'Phiên đăng nhập admin đã hết hạn. Vui lòng đăng nhập lại.'
+  }
+
+  if (reason === 'missing') {
+    return 'Bạn cần đăng nhập admin để truy cập khu vực quản trị.'
+  }
+
+  return ''
+})
+
 const redirectPath = computed(() => {
   const candidate = String(route.query.redirect || '').trim()
   if (!candidate.startsWith('/admin')) {
@@ -21,10 +39,20 @@ const redirectPath = computed(() => {
   return candidate
 })
 
+watch(
+  sessionMessage,
+  (message) => {
+    if (message) {
+      errorMessage.value = message
+    }
+  },
+  { immediate: true },
+)
+
 async function handleLogin() {
   const normalizedUsername = username.value.trim()
   if (!normalizedUsername || !password.value) {
-    errorMessage.value = 'Please provide username and password.'
+    errorMessage.value = 'Vui lòng nhập đầy đủ tên đăng nhập và mật khẩu.'
     return
   }
 
@@ -37,10 +65,14 @@ async function handleLogin() {
     localStorage.setItem(ADMIN_USER_STORAGE_KEY, JSON.stringify(response.user || null))
     await router.replace(redirectPath.value)
   } catch (error) {
-    errorMessage.value = error.message || 'Failed to sign in admin.'
+    errorMessage.value = error.message || 'Đăng nhập admin thất bại.'
   } finally {
     loading.value = false
   }
+}
+
+if (getStoredAdminToken() && route.name === 'AdminLogin') {
+  router.replace(redirectPath.value)
 }
 </script>
 
@@ -85,7 +117,7 @@ async function handleLogin() {
   min-height: 100vh;
   display: grid;
   place-items: center;
-  padding: 20px;
+  padding: 16px;
   background:
     radial-gradient(560px 320px at 12% 4%, rgba(67, 180, 221, 0.18), transparent 70%),
     radial-gradient(520px 300px at 90% 100%, rgba(76, 90, 186, 0.14), transparent 72%),
@@ -94,19 +126,19 @@ async function handleLogin() {
 
 .login-card {
   width: min(460px, 100%);
-  border-radius: 16px;
+  border-radius: var(--admin-card-radius, 22px);
   background: rgba(255, 255, 255, 0.86);
   border: 1px solid #d8e3f2;
-  box-shadow: 0 18px 42px rgba(23, 48, 82, 0.12);
-  padding: 24px;
+  box-shadow: 0 14px 30px rgba(23, 48, 82, 0.1);
+  padding: 20px;
   display: grid;
-  gap: 10px;
+  gap: 8px;
 }
 
 .eyebrow {
   margin: 0;
   color: #5e748f;
-  font-size: 11px;
+  font-size: var(--admin-label-size, 11px);
   text-transform: uppercase;
   letter-spacing: 0.12em;
   font-weight: 700;
@@ -114,9 +146,8 @@ async function handleLogin() {
 
 h1 {
   margin: 0;
-  font-family: 'Merriweather', Georgia, 'Times New Roman', serif;
-  font-size: 44px;
-  line-height: 0.95;
+  font-size: clamp(30px, 4vw, 38px);
+  line-height: 0.98;
   color: #1e3650;
 }
 
@@ -139,8 +170,8 @@ input {
   width: 100%;
   min-width: 0;
   border: 1px solid #c7d7e8;
-  border-radius: 12px;
-  padding: 12px 13px;
+  border-radius: var(--admin-control-radius, 14px);
+  padding: 10px 12px;
   font-size: 14px;
   color: #1f3850;
   background: #fff;
@@ -155,9 +186,9 @@ input:focus {
 button {
   margin-top: 4px;
   border: 1px solid #2ba8d9;
-  border-radius: 12px;
-  height: 44px;
-  font-size: 14px;
+  border-radius: var(--admin-control-radius, 14px);
+  height: var(--admin-button-height, 40px);
+  font-size: 13px;
   font-weight: 700;
   cursor: pointer;
   color: #fff;
@@ -182,7 +213,7 @@ button:disabled {
   color: #aa3648;
   background: #ffecef;
   border: 1px solid #f3bfca;
-  border-radius: 10px;
+  border-radius: 12px;
   font-size: 13px;
   padding: 9px 11px;
 }
@@ -193,7 +224,7 @@ button:disabled {
   }
 
   h1 {
-    font-size: 36px;
+    font-size: 30px;
   }
 }
 </style>

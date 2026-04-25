@@ -306,8 +306,8 @@ defineExpose({ goToSlide })
 <style scoped>
 .hero-banner {
   position: relative;
-  height: 100vh;
-  min-height: 720px;
+  height: 100svh;
+  min-height: min(720px, 100svh);
   width: 100%;
   overflow: hidden;
   background:
@@ -366,7 +366,7 @@ defineExpose({ goToSlide })
   z-index: 3;
   display: flex;
   align-items: center;
-  padding: 140px 108px 110px;
+  padding: clamp(96px, 12vh, 140px) clamp(32px, 5.6vw, 108px) clamp(72px, 10vh, 110px);
   pointer-events: none;
 }
 
@@ -414,9 +414,9 @@ defineExpose({ goToSlide })
 
 .hero-copy h1 {
   max-width: 12ch;
-  font-size: clamp(44px, 5vw, 76px);
-  line-height: 0.96;
-  letter-spacing: -0.04em;
+  font-size: clamp(40px, 5vw, 76px);
+  line-height: 0.98;
+  letter-spacing: 0;
   text-shadow: 0 14px 35px rgba(0, 0, 0, 0.35);
 }
 
@@ -532,7 +532,7 @@ defineExpose({ goToSlide })
 
 @media (max-width: 992px) {
   .hero-banner {
-    min-height: 680px;
+    min-height: 100svh;
   }
 
   .hero-copy-shell {
@@ -547,11 +547,12 @@ defineExpose({ goToSlide })
 
 @media (max-width: 768px) {
   .hero-banner {
-    min-height: 600px;
+    min-height: 100svh;
   }
 
   .hero-copy-shell {
-    padding: 118px 22px 58px;
+    padding: 96px 20px 54px;
+    align-items: flex-end;
   }
 
   .hero-copy {
@@ -560,7 +561,7 @@ defineExpose({ goToSlide })
   }
 
   .hero-copy__subtitle {
-    font-size: 17px;
+    font-size: clamp(15px, 4vw, 17px);
   }
 
   .hero-copy__body {
@@ -576,6 +577,29 @@ defineExpose({ goToSlide })
 
   .hero-scroll {
     display: none;
+  }
+}
+
+@media (max-width: 480px) {
+  .hero-copy h1 {
+    max-width: 11ch;
+    font-size: clamp(30px, 9vw, 40px);
+  }
+
+  .hero-copy__eyebrow,
+  .hero-copy__crest {
+    letter-spacing: 0.12em;
+  }
+
+  .hero-copy__body {
+    display: -webkit-box;
+    -webkit-line-clamp: 4;
+    -webkit-box-orient: vertical;
+    overflow: hidden;
+  }
+
+  .hero-copy__divider span:nth-child(1) {
+    width: 72px;
   }
 }
 </style>

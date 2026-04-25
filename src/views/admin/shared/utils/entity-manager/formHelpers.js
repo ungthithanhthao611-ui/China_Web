@@ -240,17 +240,31 @@ export function createEntityManagerFormHelpers({
   const mediaUploadAccept = () =>
     config.value?.mediaUploadAccept || "image/*,video/*,application/pdf";
 
-  const mediaUploadAssetFolder = () =>
-    String(config.value?.cloudinaryAssetFolder || "").trim();
+  const mediaUploadAssetFolder = () => {
+    const configuredFolder = String(config.value?.cloudinaryAssetFolder || "").trim();
+    if (props.entityKey !== "products") {
+      return configuredFolder;
+    }
 
-  const mediaUploadPublicIdBase = () => {
-    const seed = uploadTitle.value || form.title || "";
-    return String(seed)
+    const productFolderName = slugify(
+      form.slug || form.name || form.sku || uploadTitle.value || "product",
+    );
+
+    return `products/${productFolderName}`;
+  };
+
+  const mediaUploadPublicIdBase = (fileName = "") => {
+    const normalizedFileName = String(fileName || "")
       .trim()
-      .toLowerCase()
-      .replace(/\.[a-z0-9]+$/i, "")
-      .replace(/[^a-z0-9]+/g, "-")
-      .replace(/^-+|-+$/g, "");
+      .replace(/\.[a-z0-9]+$/i, "");
+    const fileSeed = slugify(normalizedFileName);
+    const recordSeed = slugify(uploadTitle.value || form.name || form.title || form.slug || "");
+
+    if (props.entityKey === "products") {
+      return fileSeed || recordSeed || "product-file";
+    }
+
+    return recordSeed || fileSeed;
   };
 
   const inputType = (field) => {

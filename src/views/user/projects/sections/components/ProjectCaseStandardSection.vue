@@ -322,7 +322,9 @@ const topGallery = computed(() =>
 
 @media (max-width: 768px) {
   .case-standard {
-    overflow-y: auto;
+    height: auto;
+    min-height: auto;
+    overflow: visible;
   }
 
   .xhtop,
@@ -344,7 +346,14 @@ const topGallery = computed(() =>
 
   .sltBox,
   .topLeft {
-    height: 29vh;
+    height: auto;
+    min-height: 260px;
+  }
+
+  .leftLi,
+  .bottomLi,
+  .case-gallery {
+    height: clamp(260px, 62vw, 360px);
   }
 
   .topRight::before {
@@ -357,6 +366,7 @@ const topGallery = computed(() =>
 
   .topSum {
     display: block;
+    text-align: left;
   }
 
   .almore {
