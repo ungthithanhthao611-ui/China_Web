@@ -1,1 +1,0 @@
-import{t as e}from"./http-BKbxrl9U.js";function t(){return e(`/public/product-categories`)}function n({categorySlug:t=``,skip:n=0,limit:r=12}={}){let i={skip:n,limit:r};return t&&(i.category_slug=t),e(`/public/products`,{query:i})}function r(t){return e(`/public/products/${t}`)}function i(t){return e(`/public/inquiries`,{method:`POST`,body:t})}export{i,t as n,n as r,r as t};

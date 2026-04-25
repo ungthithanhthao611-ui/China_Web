@@ -1,1 +1,0 @@
-import{Q as e}from"./vendor-D0Ks6KZd.js";var t=e({isHeaderHidden:!1,isHeaderHovered:!1,isNavHidden:!1,isFooterHidden:!1});export{t};

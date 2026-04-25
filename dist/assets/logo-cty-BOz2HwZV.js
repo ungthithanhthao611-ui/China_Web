@@ -1,1 +1,0 @@
-var e=`/assets/logo-cty-znM0DkB5.png`;export{e as t};
