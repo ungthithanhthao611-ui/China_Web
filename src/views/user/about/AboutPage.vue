@@ -63,7 +63,6 @@ const leadershipTitle = computed(
 );
 
 const activeSection = ref("page1");
-const activeCultureTitle = ref("Giá trị cốt lõi");
 const visibleSections = ref(new Set(["page1"]));
 const videoOpen = ref(false);
 const chartOpen = ref(false);
@@ -117,15 +116,46 @@ const filteredSectionMeta = computed(() => {
 
 let observer;
 
-const activeCultureTitleInit = computed(() => cultureBlocks.value?.[0]?.title ?? "");
-watch(activeCultureTitleInit, (val) => {
-  if (val && !cultureBlocks.value.some((item) => item.title === activeCultureTitle.value)) {
-    activeCultureTitle.value = val;
+const cultureDisplayBlocks = computed(() => {
+  if (!cultureBlocks.value.length) {
+    return [
+      { title: "Giá trị cốt lõi", items: [] },
+      { title: "Slogan", items: [] },
+    ];
   }
-}, { immediate: true });
 
-const currentCultureBlock = computed(
-  () => cultureBlocks.value.find((item) => item.title === activeCultureTitle.value) ?? cultureBlocks.value[0] ?? { title: '', items: [] }
+  const normalizedBlocks = cultureBlocks.value.map((block) => ({
+    ...block,
+    normalizedTitle: String(block.title || "").trim().toLowerCase(),
+  }));
+
+  const coreValuesBlock =
+    normalizedBlocks.find((item) => item.normalizedTitle === "giá trị cốt lõi") ||
+    normalizedBlocks.find((item) => item.normalizedTitle.includes("cốt lõi")) ||
+    normalizedBlocks[0];
+
+  const sloganBlock =
+    normalizedBlocks.find((item) => item.normalizedTitle === "slogan") ||
+    normalizedBlocks.find((item) => item.normalizedTitle.includes("slogan")) ||
+    normalizedBlocks.find((item) => item.title !== coreValuesBlock.title) ||
+    null;
+
+  return sloganBlock
+    ? [coreValuesBlock, sloganBlock]
+    : [coreValuesBlock];
+});
+
+const cultureItemText = (item) => {
+  const text = String(item?.text || "").trim();
+  if (text) return text;
+  return String(item?.label || "").trim();
+};
+
+const cultureBlocksForRender = computed(() =>
+  cultureDisplayBlocks.value.map((block) => ({
+    title: block?.title || "Nội dung",
+    items: (block?.items || []).filter((item) => cultureItemText(item)),
+  })),
 );
 
 const timelineSlides = computed(() =>
@@ -513,27 +543,23 @@ onBeforeUnmount(() => {
           </div>
 
           <div class="culture-panel animate-item slide-left delay-1">
-            <article class="culture-card active">
-              <h3>{{ currentCultureBlock.title }}</h3>
-              <ul>
-                <li v-for="item in currentCultureBlock.items" :key="item.label">
-                  <strong>{{ item.label }}:</strong>
-                  <span>{{ item.text }}</span>
+            <article
+              v-for="(block, blockIndex) in cultureBlocksForRender"
+              :key="`${block.title}-${blockIndex}`"
+              class="culture-card active"
+            >
+              <h3>{{ block.title }}</h3>
+              <ul v-if="block.items.length">
+                <li
+                  v-for="(item, itemIndex) in block.items"
+                  :key="`${block.title}-${item.label}-${itemIndex}`"
+                >
+                  <strong v-if="item.label">{{ item.label }}:</strong>
+                  <span>{{ cultureItemText(item) }}</span>
                 </li>
               </ul>
+              <p v-else class="culture-empty">Đang cập nhật nội dung...</p>
             </article>
-
-            <div class="culture-tabs">
-              <button
-                v-for="block in cultureBlocks"
-                :key="block.title"
-                :class="['culture-tab', { active: activeCultureTitle === block.title }]"
-                type="button"
-                @click="activeCultureTitle = block.title"
-              >
-                {{ block.title }}
-              </button>
-            </div>
           </div>
         </div>
       </div>
@@ -1623,25 +1649,11 @@ onBeforeUnmount(() => {
   }
 }
 
-.culture-tabs {
-  display: grid;
-  gap: 18px;
-}
-
-.culture-tab {
-  text-align: left;
-  padding: 0 0 12px;
-  border: 0;
-  border-bottom: 1px solid rgba(179, 179, 179, 0.4);
-  background: transparent;
-  color: #a3a3a3;
-  font-size: 18px;
-  cursor: pointer;
-  transition: color 0.24s ease;
-
-  &.active {
-    color: #6b6b6b;
-  }
+.culture-empty {
+  margin: 0;
+  color: #8a8a8a;
+  font-size: 15px;
+  line-height: 1.5;
 }
 
 .partner-section {

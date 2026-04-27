@@ -325,6 +325,10 @@ export function createEntityManagerFormHelpers({
     field === "is_featured";
 
   const relationFetchTargetCount = (entityName) => {
+    if (String(entityName || "").trim() === "products") {
+      return 500;
+    }
+
     if (
       ["projects", "project_categories", "project_category_items"].includes(
         String(entityName || "").trim(),
@@ -413,7 +417,8 @@ export function createEntityManagerFormHelpers({
     intro_video: /^(video_button|video_url)$/,
     intro_paragraphs: /^paragraph_\d+$/,
     speech_body: /^(vision|mission)$/,
-    culture_values: /^value_\d+$/,
+    culture_values: /^(section_title|cover_image|value_\d+)$/,
+    culture_slogan: /^slogan_\d+$/,
     timeline: /^milestone_\d+$/,
     leadership_care_gallery: /^leader_\d+$/,
     org_chart_image: /^main_chart$/,

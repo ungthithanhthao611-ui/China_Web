@@ -275,13 +275,69 @@ function hasLink(record) {
   return !isEmpty(record?.link)
 }
 
+function resolveRecordBlockKey(record) {
+  const directBlockKey = normalizeText(record?.block_key).toLowerCase()
+  if (directBlockKey) return directBlockKey
+
+  const blockId = Number(record?.block_id || 0)
+  if (!blockId) return ''
+
+  const blockMeta = blocks.value.find((block) => Number(block?.id || 0) === blockId)
+  return normalizeText(blockMeta?.block_key).toLowerCase()
+}
+
+function schemaFieldsForRecord(record) {
+  const blockKey = resolveRecordBlockKey(record)
+  if (!blockKey) return []
+
+  const schema = getBlockSchema(blockKey)
+  if (!schema) return []
+
+  const itemKey = normalizeText(record?.item_key)
+  const fixedEntry = (schema.fixedItems || []).find((item) => normalizeText(item?.itemKey) === itemKey)
+  if (fixedEntry?.fields?.length) return fixedEntry.fields
+
+  if (schema.dynamicItems?.fields?.length) return schema.dynamicItems.fields
+  return []
+}
+
+function fieldsRequireImage(fields = []) {
+  return Array.isArray(fields) && fields.some((field) => field?.type === 'image' && field?.required)
+}
+
+function hasRequiredContentBySchema(record) {
+  const fields = schemaFieldsForRecord(record)
+  const requiredNonImageFields = fields.filter((field) => field?.required && field?.key !== 'image_id')
+  if (!requiredNonImageFields.length) {
+    return hasPrimaryContent(record)
+  }
+
+  return requiredNonImageFields.every((field) => !isEmpty(record?.[field.key]))
+}
+
+function recordRequiresImage(record) {
+  const fields = schemaFieldsForRecord(record)
+  if (!fields.length) return false
+  return fieldsRequireImage(fields)
+}
+
+function isRecordMissingContent(record) {
+  return !hasRequiredContentBySchema(record)
+}
+
+function isRecordMissingImage(record) {
+  return recordRequiresImage(record) && !hasImage(record)
+}
+
 function isRecordComplete(record) {
-  return hasPrimaryContent(record) && hasImage(record)
+  const contentReady = hasRequiredContentBySchema(record)
+  const imageReady = !recordRequiresImage(record) || hasImage(record)
+  return contentReady && imageReady
 }
 
 function matchesCompleteness(record) {
-  if (completenessFilter.value === 'missing_content') return !hasPrimaryContent(record)
-  if (completenessFilter.value === 'missing_image') return !hasImage(record)
+  if (completenessFilter.value === 'missing_content') return isRecordMissingContent(record)
+  if (completenessFilter.value === 'missing_image') return isRecordMissingImage(record)
   if (completenessFilter.value === 'missing_link') return !hasLink(record)
   if (completenessFilter.value === 'complete') return isRecordComplete(record)
   return true
@@ -297,6 +353,21 @@ function matchesKeyword(record, block) {
     record?.link,
     block?.title,
     block?.subtitle,
+    block?.block_key,
+    block?.block_type,
+  ]
+    .map((value) => String(value || '').toLowerCase())
+    .join(' ')
+  return haystack.includes(keyword)
+}
+
+function matchesKeywordOnBlock(block) {
+  const keyword = normalizeText(keywordFilter.value).toLowerCase()
+  if (!keyword) return true
+  const haystack = [
+    block?.title,
+    block?.subtitle,
+    block?.content,
     block?.block_key,
     block?.block_type,
   ]
@@ -1195,11 +1266,36 @@ async function deleteItem(record, block) {
 const sectionCards = computed(() => {
   const allowedSection = activeSectionFilter.value
   const blockMetaById = new Map(blocks.value.map((block) => [Number(block.id), block]))
+  const shouldIncludeEmptyBlocks =
+    completenessFilter.value === 'all' && !normalizeText(keywordFilter.value)
 
   return sectionDefinitions
     .filter((section) => allowedSection === 'all' || allowedSection === section.key)
     .map((section) => {
       const itemGroups = new Map()
+
+      if (shouldIncludeEmptyBlocks) {
+        blocks.value.forEach((blockMeta) => {
+          const blockId = Number(blockMeta.id || 0)
+          if (!blockId) return
+
+          const sectionKey =
+            normalizeText(blockMeta.section_key || getAboutSectionFromBlockKey(blockMeta.block_key)).toLowerCase()
+          if (sectionKey !== section.key) return
+          if (!matchesKeywordOnBlock(blockMeta)) return
+
+          itemGroups.set(blockId, {
+            id: blockId,
+            block_key: normalizeText(blockMeta.block_key).toLowerCase(),
+            block_type: blockMeta.block_type || '',
+            title: blockMeta.title || blockMeta.block_key || `Block #${blockId}`,
+            subtitle: blockMeta.subtitle || '',
+            content: blockMeta.content || '',
+            sort_order: Number(blockMeta.sort_order ?? 0),
+            items: [],
+          })
+        })
+      }
 
       items.value
         .filter((record) => matchesCompleteness(record))
@@ -1208,7 +1304,9 @@ const sectionCards = computed(() => {
           const blockMeta = blockMetaById.get(blockId) || null
           const blockKey = normalizeText(record.block_key || blockMeta?.block_key).toLowerCase()
           const inferredSectionKey =
-            normalizeText(record.section_key || getAboutSectionFromBlockKey(blockKey)).toLowerCase()
+            normalizeText(
+              record.section_key || blockMeta?.section_key || getAboutSectionFromBlockKey(blockKey),
+            ).toLowerCase()
 
           if (inferredSectionKey !== section.key) return
           if (!matchesKeyword(record, blockMeta || { block_key: blockKey, title: record.block_title })) return
@@ -1255,8 +1353,8 @@ const sectionCards = computed(() => {
             dynamicRecords,
             counts: {
               total: blockItems.length,
-              missingContent: blockItems.filter((record) => !hasPrimaryContent(record)).length,
-              missingImage: blockItems.filter((record) => !hasImage(record)).length,
+              missingContent: blockItems.filter((record) => isRecordMissingContent(record)).length,
+              missingImage: blockItems.filter((record) => isRecordMissingImage(record)).length,
               missingLink: blockItems.filter((record) => !hasLink(record)).length,
             },
           }
@@ -1274,8 +1372,8 @@ const sectionCards = computed(() => {
         counts: {
           blocks: sectionBlocks.length,
           items: sectionItems.length,
-          missingContent: sectionItems.filter((record) => !hasPrimaryContent(record)).length,
-          missingImage: sectionItems.filter((record) => !hasImage(record)).length,
+          missingContent: sectionItems.filter((record) => isRecordMissingContent(record)).length,
+          missingImage: sectionItems.filter((record) => isRecordMissingImage(record)).length,
           missingLink: sectionItems.filter((record) => !hasLink(record)).length,
         },
       }
@@ -1344,11 +1442,19 @@ function fieldPreviewText(field, draft) {
   return normalizeText(draft[field.key])
 }
 
-function fixedEntryStatus(entry) {
+function fixedEntryStatus(block, entry) {
   if (!entry.record) return 'Chưa tạo dữ liệu'
-  if (!hasPrimaryContent(entry.record) && !hasImage(entry.record)) return 'Thiếu dữ liệu chính'
-  if (!hasPrimaryContent(entry.record)) return 'Thiếu nội dung'
-  if (!hasImage(entry.record)) return 'Thiếu ảnh'
+  const record = {
+    ...entry.record,
+    block_key: normalizeText(entry.record?.block_key) || normalizeText(block?.block_key),
+  }
+  const contentReady = hasRequiredContentBySchema(record)
+  const imageRequired = fieldsRequireImage(entry?.fields || [])
+  const imageReady = !imageRequired || hasImage(record)
+
+  if (!contentReady && !imageReady) return 'Thiếu dữ liệu chính'
+  if (!contentReady) return 'Thiếu nội dung'
+  if (!imageReady) return 'Thiếu ảnh'
   return 'Đủ dữ liệu'
 }
 
@@ -1573,7 +1679,7 @@ watch(
                     <h4>{{ entry.label }}</h4>
                     <p v-if="entry.description" class="schema-card__description">{{ entry.description }}</p>
                   </div>
-                  <span class="status-chip">{{ fixedEntryStatus(entry) }}</span>
+                  <span class="status-chip">{{ fixedEntryStatus(block, entry) }}</span>
                 </div>
 
                 <div class="schema-form-grid">
@@ -1753,7 +1859,7 @@ watch(
 
                 <div class="schema-card__footer">
                   <div
-                    v-if="getMediaPreview(ensureFixedDraft(block, entry, entry.record).image_id)"
+                    v-if="fixedEntrySupportsImage(entry) && getMediaPreview(ensureFixedDraft(block, entry, entry.record).image_id)"
                     class="media-preview-chip"
                   >
                     <img
@@ -2290,7 +2396,7 @@ watch(
                 </div>
 
                 <div class="schema-card__footer">
-                  <div v-if="getMediaPreview(ensureRecordDraft(record, dynamicFieldsForBlock(block)).image_id)" class="media-preview-chip">
+                  <div v-if="dynamicBlockSupportsImage(block) && getMediaPreview(ensureRecordDraft(record, dynamicFieldsForBlock(block)).image_id)" class="media-preview-chip">
                     <img
                       :src="resolveMediaUrl(getMediaPreview(ensureRecordDraft(record, dynamicFieldsForBlock(block)).image_id)?.url)"
                       :alt="recordDisplayName(record, block)"

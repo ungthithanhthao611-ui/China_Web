@@ -282,6 +282,18 @@ input[type="checkbox"] {
   font-weight: 700;
 }
 
+.relation-combobox {
+  gap: 8px;
+}
+
+.relation-combobox input {
+  min-height: 40px;
+}
+
+.relation-combobox select {
+  min-height: 42px;
+}
+
 .selected-media-preview {
   display: grid;
   grid-template-columns: 88px minmax(0, 1fr);

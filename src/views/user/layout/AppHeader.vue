@@ -27,28 +27,68 @@ const bootstrapStore = useBootstrapStore()
 
 const productCategories = ref([])
 
-const flattenCategories = (nodes = []) => nodes.flatMap((category) => {
+const normalizeNavPath = (value) => String(value || '').split('#')[0].split('?')[0]
+
+const compareProductCategories = (left, right) => {
+  const leftSort = Number(left?.sort_order)
+  const rightSort = Number(right?.sort_order)
+  const normalizedLeftSort = Number.isFinite(leftSort) ? leftSort : Number.MAX_SAFE_INTEGER
+  const normalizedRightSort = Number.isFinite(rightSort) ? rightSort : Number.MAX_SAFE_INTEGER
+  if (normalizedLeftSort !== normalizedRightSort) return normalizedLeftSort - normalizedRightSort
+
+  const leftName = String(left?.name || '').trim()
+  const rightName = String(right?.name || '').trim()
+  if (leftName !== rightName) return leftName.localeCompare(rightName, 'vi')
+
+  return Number(left?.id || 0) - Number(right?.id || 0)
+}
+
+const normalizeProductCategoryTree = (nodes = []) => (
+  [...nodes]
+    .sort(compareProductCategories)
+    .map((category) => ({
+      ...category,
+      children: normalizeProductCategoryTree(category.children || []),
+    }))
+)
+
+const isProductNavItem = (item) => normalizeNavPath(item?.path) === '/products'
+
+const buildProductNavNodes = (nodes = [], depth = 0) => nodes
+  .filter((category) => category?.slug && category?.is_active !== false)
+  .map((category) => ({
+    name: category.name,
+    path: `/products?category=${category.slug}`,
+    depth,
+    isProductCategory: true,
+    children: buildProductNavNodes(category.children || [], depth + 1),
+  }))
+
+const flattenProductNavNodes = (nodes = []) => nodes.flatMap((node) => {
   const current = {
-    ...category,
+    ...node,
     children: undefined,
   }
-  return [current, ...flattenCategories(category.children || [])]
+  return [current, ...flattenProductNavNodes(node.children || [])]
 })
+
+const mobileDropdownChildren = (item) => {
+  if (!isProductNavItem(item)) return item.children || []
+  return flattenProductNavNodes(item.children || [])
+}
 
 async function loadProductCategories() {
   try {
     const res = await listProductCategories()
-    productCategories.value = flattenCategories(res.items || [])
+    productCategories.value = normalizeProductCategoryTree(res.items || [])
   } catch {
     productCategories.value = []
   }
 }
 
 const productNavChildren = computed(() => {
-  const base = [{ name: 'Tất Cả Sản Phẩm', path: '/products' }]
-  const fromApi = productCategories.value
-    .filter((category) => category.is_active)
-    .map((category) => ({ name: category.name, path: `/products?category=${category.slug}` }))
+  const base = [{ name: 'Tất Cả Sản Phẩm', path: '/products', depth: 0, isProductCategory: true, children: [] }]
+  const fromApi = buildProductNavNodes(productCategories.value)
   return fromApi.length ? [...base, ...fromApi] : base
 })
 
@@ -92,15 +132,15 @@ const navItems = computed(() => {
   const sourceItems = headerMenuItems.value.length ? headerMenuItems.value : fallbackNavItems.value
 
   return sourceItems.map((item) => {
-    const normalizedPath = String(item.path || '').split('#')[0].split('?')[0]
+    const normalizedPath = normalizeNavPath(item.path)
 
-    if (normalizedPath !== '/products' || item.children?.length) {
+    if (normalizedPath !== '/products') {
       return item
     }
 
     return {
       ...item,
-      children: productNavChildren.value,
+      children: productNavChildren.value.length ? productNavChildren.value : (item.children || []),
     }
   })
 })
@@ -180,8 +220,13 @@ const isLinkActive = (path) => {
   return route.path.startsWith(normalizedPath)
 }
 
+const flattenNavItemsForSearch = (items = []) => items.flatMap((item) => [
+  item,
+  ...flattenNavItemsForSearch(item.children || []),
+])
+
 const searchLinks = computed(() =>
-  navItems.value.flatMap((item) => [item, ...(item.children || [])]).map((item) => ({
+  flattenNavItemsForSearch(navItems.value).map((item) => ({
     name: item.name,
     path: item.path,
   })),
@@ -348,15 +393,48 @@ onBeforeUnmount(() => {
                   {{ item.name }}
                 </component>
               </div>
-              <div v-if="item.children?.length" class="colum2">
-                <component
-                  v-for="child in item.children"
-                  :key="child.name"
-                  :is="child.external ? 'a' : 'router-link'"
-                  v-bind="getLinkProps(child)"
-                >
-                  {{ child.name }}
-                </component>
+              <div v-if="item.children?.length" :class="['colum2', { 'colum2--product': isProductNavItem(item) }]">
+                <template v-if="isProductNavItem(item)">
+                  <div
+                    v-for="child in item.children"
+                    :key="`${child.path || ''}-${child.name}`"
+                    :class="['product-dropdown-row', { 'has-children': child.children?.length }]"
+                  >
+                    <component
+                      :is="child.external ? 'a' : 'router-link'"
+                      v-bind="getLinkProps(child)"
+                      class="dropdown-link dropdown-link--product-parent"
+                    >
+                      <span class="dropdown-link__text">{{ child.name }}</span>
+                      <span v-if="child.children?.length" class="product-parent-indicator" aria-hidden="true" />
+                    </component>
+
+                    <div v-if="child.children?.length" class="colum3">
+                      <component
+                        v-for="grandChild in child.children"
+                        :key="`${grandChild.path || ''}-${grandChild.name}`"
+                        :is="grandChild.external ? 'a' : 'router-link'"
+                        v-bind="getLinkProps(grandChild)"
+                        class="dropdown-link dropdown-link--product-child"
+                      >
+                        <span class="dropdown-link__branch" aria-hidden="true" />
+                        <span class="dropdown-link__text">{{ grandChild.name }}</span>
+                      </component>
+                    </div>
+                  </div>
+                </template>
+
+                <template v-else>
+                  <component
+                    v-for="child in item.children"
+                    :key="`${child.path || ''}-${child.name}`"
+                    :is="child.external ? 'a' : 'router-link'"
+                    v-bind="getLinkProps(child)"
+                    class="dropdown-link"
+                  >
+                    <span class="dropdown-link__text">{{ child.name }}</span>
+                  </component>
+                </template>
               </div>
             </div>
           </nav>
@@ -414,13 +492,27 @@ onBeforeUnmount(() => {
             :class="{ 'is-open': isMobileGroupExpanded(item.name) }"
           >
             <component
-              v-for="child in item.children"
-              :key="`mobile-${child.name}`"
+              v-for="child in mobileDropdownChildren(item)"
+              :key="`mobile-${child.path || ''}-${child.name}`"
               :is="child.external ? 'a' : 'router-link'"
               v-bind="getLinkProps(child)"
+              :class="[
+                'dropdown-link',
+                {
+                  'dropdown-link--product': isProductNavItem(item) && child.isProductCategory,
+                  'is-parent': isProductNavItem(item) && child.isProductCategory && Number(child.depth || 0) === 0,
+                  'is-child': isProductNavItem(item) && child.isProductCategory && Number(child.depth || 0) > 0,
+                },
+              ]"
+              :style="isProductNavItem(item) && child.isProductCategory ? { '--depth': Number(child.depth || 0) } : null"
               @click="closeMobileMenu"
             >
-              {{ child.name }}
+              <span
+                v-if="isProductNavItem(item) && child.isProductCategory && Number(child.depth || 0) > 0"
+                class="dropdown-link__branch"
+                aria-hidden="true"
+              />
+              <span class="dropdown-link__text">{{ child.name }}</span>
             </component>
           </div>
         </div>
@@ -708,18 +800,128 @@ onBeforeUnmount(() => {
   transition: opacity 0.22s ease, transform 0.22s ease;
   backdrop-filter: blur(16px);
 
-  a {
-    display: block;
+  .dropdown-link {
+    display: flex;
+    align-items: center;
+    gap: 8px;
     padding: 10px 16px;
     color: var(--header-muted);
     font-size: 14px;
     line-height: 1.4;
+    text-decoration: none;
 
     &:hover {
       color: var(--header-accent-strong);
       background: rgba(214, 176, 116, 0.08);
     }
   }
+}
+
+.colum2--product {
+  min-width: 260px;
+  max-width: 280px;
+  overflow: visible;
+}
+
+.product-dropdown-row {
+  position: relative;
+}
+
+.dropdown-link--product-parent {
+  justify-content: space-between;
+  color: var(--header-text);
+  font-weight: 600;
+}
+
+.product-parent-indicator {
+  position: relative;
+  width: 10px;
+  height: 10px;
+  flex: 0 0 10px;
+}
+
+.product-parent-indicator::before,
+.product-parent-indicator::after {
+  content: '';
+  position: absolute;
+  right: 0;
+  top: 50%;
+  width: 7px;
+  height: 1px;
+  background: currentColor;
+  border-radius: 999px;
+  transform-origin: right center;
+}
+
+.product-parent-indicator::before {
+  transform: translateY(-50%) rotate(38deg);
+}
+
+.product-parent-indicator::after {
+  transform: translateY(-50%) rotate(-38deg);
+}
+
+.colum3 {
+  position: absolute;
+  top: -6px;
+  left: calc(100% - 2px);
+  z-index: 2260;
+  min-width: 240px;
+  max-width: min(320px, calc(100vw - 32px));
+  padding: 10px 0;
+  border-radius: 12px;
+  background: linear-gradient(180deg, rgba(11, 21, 43, 0.98), rgba(18, 33, 62, 0.96));
+  border: 1px solid rgba(214, 176, 116, 0.14);
+  box-shadow: 0 20px 34px rgba(5, 12, 24, 0.34);
+  opacity: 0;
+  visibility: hidden;
+  transform: translateX(8px);
+  transition: opacity 0.2s ease, transform 0.2s ease;
+}
+
+.product-dropdown-row:hover > .colum3 {
+  opacity: 1;
+  visibility: visible;
+  transform: translateX(0);
+}
+
+.dropdown-link--product-child {
+  color: var(--header-muted);
+  font-weight: 500;
+}
+
+.dropdown-link__branch {
+  position: relative;
+  width: 12px;
+  height: 12px;
+  flex: 0 0 12px;
+  color: rgba(214, 176, 116, 0.82);
+}
+
+.dropdown-link__branch::before,
+.dropdown-link__branch::after {
+  content: '';
+  position: absolute;
+  background: currentColor;
+  border-radius: 999px;
+}
+
+.dropdown-link__branch::before {
+  left: 2px;
+  top: 0;
+  width: 1px;
+  height: 10px;
+}
+
+.dropdown-link__branch::after {
+  left: 2px;
+  top: 9px;
+  width: 8px;
+  height: 1px;
+}
+
+.dropdown-link__text {
+  min-width: 0;
 }
 
 .header_actions {
@@ -872,10 +1074,27 @@ onBeforeUnmount(() => {
     margin-top: 12px;
   }
 
-  a {
+  .dropdown-link {
+    --depth: 0;
+    display: flex;
+    align-items: center;
+    gap: 8px;
     color: var(--header-muted);
     font-size: 14px;
     text-decoration: none;
+  }
+
+  .dropdown-link--product {
+    padding-left: calc(var(--depth) * 16px);
+  }
+
+  .dropdown-link--product.is-parent {
+    color: var(--header-text);
+    font-weight: 600;
+  }
+
+  .dropdown-link__branch {
+    color: rgba(214, 176, 116, 0.78);
   }
 }
 
@@ -1154,4 +1373,3 @@ onBeforeUnmount(() => {
   }
 }
 </style>
-

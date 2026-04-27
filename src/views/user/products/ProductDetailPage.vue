@@ -1,5 +1,5 @@
 <script setup>
-import { ref, computed, onMounted, watch } from 'vue'
+import { ref, computed, onMounted, onBeforeUnmount, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import {
   ChevronRight,
@@ -32,6 +32,8 @@ const error = ref(null)
 const activeMediaIndex = ref(0)
 const lightboxOpen = ref(false)
 const showInquiry = ref(false)
+const relatedPage = ref(0)
+const viewportWidth = ref(typeof window === 'undefined' ? 1200 : window.innerWidth)
 
 const primaryImage = computed(() => {
   const primaryUrl = String(product.value?.image_url || '').trim()
@@ -161,10 +163,30 @@ const mediaItems = computed(() => {
   return items
 })
 
+const defaultMediaIndex = computed(() => {
+  const videoIndex = mediaItems.value.findIndex((item) => item.type === 'video')
+  return videoIndex >= 0 ? videoIndex : 0
+})
+
 const currentMedia = computed(() => mediaItems.value[activeMediaIndex.value] || null)
 const videoPoster = computed(() => primaryImage.value?.url || gallery.value[0]?.url || '')
 const relatedProducts = computed(() => product.value?.related_products || [])
+const relatedPageSize = computed(() => (viewportWidth.value <= 560 ? 2 : 4))
+const totalRelatedPages = computed(() =>
+  Math.max(1, Math.ceil(relatedProducts.value.length / relatedPageSize.value)),
+)
+const pagedRelatedProducts = computed(() => {
+  const startIndex = relatedPage.value * relatedPageSize.value
+  return relatedProducts.value.slice(startIndex, startIndex + relatedPageSize.value)
+})
+const showRelatedPagination = computed(() => relatedProducts.value.length > relatedPageSize.value)
+const isFirstRelatedPage = computed(() => relatedPage.value === 0)
+const isLastRelatedPage = computed(() => relatedPage.value >= totalRelatedPages.value - 1)
 const hasPdf = computed(() => !!String(product.value?.catalog_pdf_url || '').trim())
+
+function updateViewportWidth() {
+  viewportWidth.value = window.innerWidth
+}
 
 const categorySlug = computed(() => {
   return String(product.value?.category_name || '')
@@ -220,7 +242,8 @@ async function fetchProduct() {
   try {
     const data = await getProduct(props.slug)
     product.value = data
-    activeMediaIndex.value = 0
+    activeMediaIndex.value = defaultMediaIndex.value
+    relatedPage.value = 0
 
     if (data?.name) {
       document.title = `${data.name} | Thiên Đồng Việt`
@@ -231,6 +254,16 @@ async function fetchProduct() {
   } finally {
     loading.value = false
   }
+}
+
+function prevRelatedPage() {
+  if (isFirstRelatedPage.value) return
+  relatedPage.value -= 1
+}
+
+function nextRelatedPage() {
+  if (isLastRelatedPage.value) return
+  relatedPage.value += 1
 }
 
 function openLightbox(index) {
@@ -273,12 +306,29 @@ watch(
   { immediate: true },
 )
 
+watch(
+  totalRelatedPages,
+  (pages) => {
+    const maxPage = Math.max(0, pages - 1)
+    if (relatedPage.value > maxPage) {
+      relatedPage.value = maxPage
+    }
+  },
+  { immediate: true },
+)
+
 watch(() => props.slug, fetchProduct)
 
 onMounted(() => {
   uiState.isHeaderHidden = false
   uiState.isFooterHidden = false
+  updateViewportWidth()
+  window.addEventListener('resize', updateViewportWidth, { passive: true })
   fetchProduct()
+})
+
+onBeforeUnmount(() => {
+  window.removeEventListener('resize', updateViewportWidth)
 })
 </script>
 
@@ -453,28 +503,56 @@ onMounted(() => {
             Khám phá thêm các mẫu cùng nhóm chất liệu để dễ so sánh bề mặt, màu sắc và lựa chọn giải pháp phù hợp cho công trình.
           </p>
 
-          <div class="prod-related__grid">
-            <article v-for="item in relatedProducts" :key="item.id" class="rel-card">
-              <router-link :to="`/products/${item.slug}`" class="rel-card__img">
-                <img :src="getRelatedProductImage(item)" :alt="item.name" />
-                <div class="rel-card__overlay">
-                  <span class="rel-card__overlay-chip">Xem chi tiết</span>
-                </div>
-              </router-link>
-              <div class="rel-card__body">
-                <div class="rel-card__meta">
-                  <span class="rel-card__badge">{{ item.category_name || product.category_name || 'Sản phẩm liên quan' }}</span>
-                  <p class="rel-card__sku">{{ item.sku }}</p>
-                </div>
-                <router-link :to="`/products/${item.slug}`" class="rel-card__name">
-                  {{ item.name }}
+          <div class="prod-related__carousel">
+            <button
+              v-if="showRelatedPagination"
+              type="button"
+              class="prod-related__nav"
+              :disabled="isFirstRelatedPage"
+              aria-label="Trang truoc san pham cung loai"
+              @click="prevRelatedPage"
+            >
+              <ChevronLeft :size="18" />
+            </button>
+
+            <div class="prod-related__grid">
+              <article v-for="item in pagedRelatedProducts" :key="item.id" class="rel-card">
+                <router-link :to="`/products/${item.slug}`" class="rel-card__img">
+                  <img :src="getRelatedProductImage(item)" :alt="item.name" />
+                  <div class="rel-card__overlay">
+                    <span class="rel-card__overlay-chip">Xem chi tiết</span>
+                  </div>
                 </router-link>
-                <router-link :to="`/products/${item.slug}`" class="rel-card__cta">
-                  Xem sản phẩm
-                  <ChevronRight :size="16" />
-                </router-link>
-              </div>
-            </article>
+                <div class="rel-card__body">
+                  <div class="rel-card__meta">
+                    <span class="rel-card__badge">{{ item.category_name || product.category_name || 'Sản phẩm liên quan' }}</span>
+                    <p class="rel-card__sku">{{ item.sku }}</p>
+                  </div>
+                  <router-link :to="`/products/${item.slug}`" class="rel-card__name">
+                    {{ item.name }}
+                  </router-link>
+                  <router-link :to="`/products/${item.slug}`" class="rel-card__cta">
+                    Xem sản phẩm
+                    <ChevronRight :size="16" />
+                  </router-link>
+                </div>
+              </article>
+            </div>
+
+            <button
+              v-if="showRelatedPagination"
+              type="button"
+              class="prod-related__nav"
+              :disabled="isLastRelatedPage"
+              aria-label="Trang tiep theo san pham cung loai"
+              @click="nextRelatedPage"
+            >
+              <ChevronRight :size="18" />
+            </button>
+          </div>
+
+          <div v-if="showRelatedPagination" class="prod-related__pager">
+            {{ relatedPage + 1 }} / {{ totalRelatedPages }}
           </div>
         </div>
       </section>
@@ -880,10 +958,47 @@ onMounted(() => {
   text-align: center;
 }
 
+.prod-related__carousel {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 14px;
+}
+
+.prod-related__nav {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 42px;
+  height: 42px;
+  border: 1px solid #d8d1c7;
+  background: #fff;
+  color: #15233a;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.prod-related__nav:hover:not(:disabled) {
+  border-color: #15233a;
+  transform: translateY(-1px);
+}
+
+.prod-related__nav:disabled {
+  opacity: 0.35;
+  cursor: not-allowed;
+}
+
+.prod-related__pager {
+  margin-top: 12px;
+  text-align: center;
+  color: #6b7280;
+  font-size: 13px;
+  letter-spacing: 0.04em;
+}
+
 .prod-related__grid {
   display: grid;
-  grid-template-columns: repeat(2, minmax(0, 280px));
-  justify-content: center;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
   gap: 24px;
 }
 
@@ -1146,6 +1261,15 @@ onMounted(() => {
   .prod-related__grid {
     grid-template-columns: 1fr 1fr;
   }
+
+  .prod-related__carousel {
+    gap: 10px;
+  }
+
+  .prod-related__nav {
+    width: 38px;
+    height: 38px;
+  }
 }
 
 @media (max-width: 560px) {
@@ -1168,7 +1292,32 @@ onMounted(() => {
   }
 
   .prod-related__grid {
-    grid-template-columns: 1fr;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 10px;
+  }
+
+  .prod-related__carousel {
+    grid-template-columns: auto minmax(0, 1fr) auto;
+    gap: 8px;
+  }
+
+  .prod-related__nav {
+    width: 34px;
+    height: 34px;
+  }
+
+  .rel-card__body {
+    padding: 10px 10px 12px;
+    gap: 8px;
+  }
+
+  .rel-card__name {
+    font-size: 18px;
+    line-height: 1.3;
+  }
+
+  .rel-card__cta {
+    font-size: 13px;
   }
 
   .rel-card__meta {

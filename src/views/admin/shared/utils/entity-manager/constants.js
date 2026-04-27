@@ -61,6 +61,7 @@ export const ABOUT_BLOCK_SECTION_MAP = {
   culture_mission: "corporate_culture",
   culture_spirit: "corporate_culture",
   culture_values: "corporate_culture",
+  culture_slogan: "corporate_culture",
   timeline: "development_course",
   leadership_care_gallery: "leadership_care",
 };
@@ -85,6 +86,7 @@ export const ABOUT_BLOCK_LABEL_MAP = {
   speech_signature: "Page 3 Tam nhin va Su menh",
   org_chart_image: "Page 4 So do to chuc",
   culture_values: "Page 5 Gia tri cot loi",
+  culture_slogan: "Page 5 Gia tri cot loi",
   timeline: "Page 6 Lich su phat trien",
   leadership_care_gallery: "Page 7 Ban lanh dao",
 };
@@ -186,6 +188,14 @@ const resolveDynamicAboutFieldLabel = (blockKey, itemKey) => {
       : null;
   if (valueIndex) {
     return `Gia tri cot loi ${valueIndex}`;
+  }
+
+  const sloganIndex =
+    normalizedBlockKey === "culture_slogan"
+      ? parseNumericSuffix(normalizedItemKey, "slogan")
+      : null;
+  if (sloganIndex) {
+    return `Slogan ${sloganIndex}`;
   }
 
   const milestoneIndex =

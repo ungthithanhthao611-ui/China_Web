@@ -174,6 +174,7 @@ function normalizeOrganizationChart(blocks) {
 function normalizeCorporateCulture(blocks) {
   const blockDefs = [
     { key: 'culture_values', fallbackTitle: 'Giá trị cốt lõi' },
+    { key: 'culture_slogan', fallbackTitle: 'Slogan' },
     { key: 'culture_purpose', fallbackTitle: 'Mục tiêu doanh nghiệp' },
     { key: 'culture_mission', fallbackTitle: 'Sứ mệnh doanh nghiệp' },
     { key: 'culture_spirit', fallbackTitle: 'Tinh thần doanh nghiệp' },

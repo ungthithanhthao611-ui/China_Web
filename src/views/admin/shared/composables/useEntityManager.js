@@ -160,6 +160,7 @@ export function useEntityManager(props, emit) {
   )
   const hasStatusFilter = computed(() => formFields.value.includes('status'))
   const hasMediaFields = computed(() => {
+    if (props.entityKey === 'videos') return false
     if (config.value?.cloudinaryAssetFolder) return true
     return formFields.value.some((field) => FIELD_GROUPS.media.includes(field))
   })
@@ -735,7 +736,30 @@ export function useEntityManager(props, emit) {
       )
         return
       relationEntries.forEach(([field, items]) => {
-        relationOptions[field] = items
+        let normalizedItems = items
+        if (
+          resolvedEntityKey.value === 'product_categories' &&
+          field === 'parent_id'
+        ) {
+          // Only show root categories as valid parent options.
+          normalizedItems = items.filter((option) => {
+            const parentId = option?.parent_id
+            return (
+              parentId === null ||
+              parentId === undefined ||
+              String(parentId).trim() === '' ||
+              Number(parentId) === 0
+            )
+          })
+
+          // Never allow selecting itself as parent while editing.
+          if (editingRecordId.value !== null) {
+            normalizedItems = normalizedItems.filter(
+              (option) => String(option.id) !== String(editingRecordId.value),
+            )
+          }
+        }
+        relationOptions[field] = normalizedItems
       })
       if (
         formFields.value.includes('entity_id') &&
@@ -747,6 +771,18 @@ export function useEntityManager(props, emit) {
           (option) => String(option.id) === String(form.entity_id),
         )
         if (!hasCurrentEntity) form.entity_id = null
+      }
+      if (
+        resolvedEntityKey.value === 'product_categories' &&
+        formFields.value.includes('parent_id') &&
+        form.parent_id !== '' &&
+        form.parent_id !== null &&
+        form.parent_id !== undefined
+      ) {
+        const hasCurrentParent = (relationOptions.parent_id || []).some(
+          (option) => String(option.id) === String(form.parent_id),
+        )
+        if (!hasCurrentParent) form.parent_id = null
       }
     } catch (error) {
       if (
@@ -921,6 +957,7 @@ export function useEntityManager(props, emit) {
     formMode.value = 'create'
     editingRecordId.value = null
     setDefaultFormValues()
+    void loadRelationOptions()
     formOpen.value = true
     void revealInlineEditor()
   }
@@ -929,6 +966,7 @@ export function useEntityManager(props, emit) {
     formMode.value = 'edit'
     editingRecordId.value = record.id
     setDefaultFormValues(record)
+    void loadRelationOptions()
     if (props.entityKey === 'content_block_items') {
       const legacyImageUrl = extractLegacyImageUrl(record)
       form.__legacy_image_url = legacyImageUrl

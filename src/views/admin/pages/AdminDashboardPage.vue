@@ -19,6 +19,7 @@ import BannersManager from '@/views/admin/features/system/pages/BannersManager.v
 import SiteSettingsManager from '@/views/admin/features/system/pages/SiteSettingsManager.vue'
 import MediaAssetsManager from '@/views/admin/features/system/pages/MediaAssetsManager.vue'
 import HonorsManager from '@/views/admin/features/honors/pages/HonorsManager.vue'
+import CapabilitySettingsManager from '@/views/admin/features/honors/pages/CapabilitySettingsManager.vue'
 import NavigationMenusManager from '@/views/admin/features/navigation/pages/NavigationMenusManager.vue'
 import NewsManager from '@/views/admin/features/news/pages/NewsManager.vue'
 
@@ -455,6 +456,15 @@ onBeforeUnmount(() => {
       <NavigationMenusManager
         v-else-if="activeSection === 'navigation'"
         ref="navigationManagerRef"
+        :token="token"
+        :active="true"
+        @notify-success="setSuccess"
+        @notify-error="setError"
+        @clear-notify="clearMessages"
+      />
+
+      <CapabilitySettingsManager
+        v-else-if="activeSection === 'capability_settings'"
         :token="token"
         :active="true"
         @notify-success="setSuccess"

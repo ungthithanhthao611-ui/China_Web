@@ -7,6 +7,7 @@ import {
   resolveAboutBlockDisplayName,
   resolveAboutItemDisplayName,
 } from '@/views/admin/shared/utils/entity-manager/constants.js'
+import { getBlockSchema } from '@/views/admin/features/about/config/aboutBlockSchemas.js'
 
 const props = defineProps({
   records: {
@@ -49,6 +50,20 @@ const sectionOrder = Object.keys(ABOUT_SECTION_LABEL_MAP)
 
 const normalizeText = (value) => String(value || '').trim()
 
+const schemaFieldsForRecord = (record) => {
+  const blockKey = normalizeText(record?.block_key || record?.block?.block_key).toLowerCase()
+  if (!blockKey) return []
+
+  const schema = getBlockSchema(blockKey)
+  if (!schema) return []
+
+  const itemKey = normalizeText(record?.item_key)
+  const fixedEntry = (schema.fixedItems || []).find((item) => normalizeText(item?.itemKey) === itemKey)
+  if (fixedEntry?.fields?.length) return fixedEntry.fields
+
+  return schema.dynamicItems?.fields || []
+}
+
 const mediaDescriptor = (record) => {
   const media = props.previewMedia(record)
   if (!media) return null
@@ -66,21 +81,26 @@ const contentHealth = (record) => {
   const content = normalizeText(record?.content)
   const link = normalizeText(record?.link)
   const media = mediaDescriptor(record)
+  const schemaFields = schemaFieldsForRecord(record)
+  const requiredNonImageFields = schemaFields.filter((field) => field?.required && field?.key !== 'image_id')
+  const requiresImage = schemaFields.some((field) => field?.type === 'image' && field?.required)
 
-  const hasMainContent = Boolean(title || subtitle || content)
+  const hasMainContent = requiredNonImageFields.length
+    ? requiredNonImageFields.every((field) => normalizeText(record?.[field.key]))
+    : Boolean(title || subtitle || content)
   const hasImage = Boolean(media?.kind === 'image' || media?.kind === 'video')
   const hasLink = Boolean(link)
 
   const missing = []
   if (!hasMainContent) missing.push('Thiếu nội dung')
-  if (!hasImage) missing.push('Thiếu ảnh')
+  if (requiresImage && !hasImage) missing.push('Thiếu ảnh')
   if (!hasLink) missing.push('Chưa có link')
 
   return {
     hasMainContent,
     hasImage,
     hasLink,
-    isComplete: hasMainContent && hasImage,
+    isComplete: hasMainContent && (!requiresImage || hasImage),
     summary: missing.length ? missing.join(' • ') : 'Đã có dữ liệu chính',
     tone: missing.length ? 'warning' : 'success',
   }

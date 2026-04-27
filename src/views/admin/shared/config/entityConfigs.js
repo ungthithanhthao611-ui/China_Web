@@ -131,8 +131,9 @@ export const ENTITY_MANAGER_CONFIGS = {
         'speech_signature': '8. Chữ ký Lãnh đạo',
         'org_chart_image': '9. Sơ đồ tổ chức',
         'culture_values': '10. Giá trị cốt lõi',
-        'timeline': '11. Lịch sử phát triển',
-        'leadership_care_gallery': '12. Ban lãnh đạo (Album)',
+        'culture_slogan': '11. Slogan',
+        'timeline': '12. Lịch sử phát triển',
+        'leadership_care_gallery': '13. Ban lãnh đạo (Album)',
       }
       const rawKey = String(record?.block_key || record?.title || '').toLowerCase().trim();
       // Try to find a match by comparing lowercase keys
@@ -179,7 +180,7 @@ export const ENTITY_MANAGER_CONFIGS = {
     helpText: {
       entity_type: 'Đối với trang Giới thiệu, hãy khóa giá trị này là `page`.',
       entity_id: 'Nhập ID của bản ghi trang mà khối này thuộc về.',
-      block_key: 'Mã định danh ổn định. Ví dụ: intro_paragraphs (giới thiệu), speech_body (tầm nhìn), culture_values (giá trị), timeline (lịch sử), leadership_profiles (lãnh đạo).',
+      block_key: 'Mã định danh ổn định. Ví dụ: intro_paragraphs (giới thiệu), speech_body (tầm nhìn), culture_values/culture_slogan (giá trị & slogan), timeline (lịch sử), leadership_profiles (lãnh đạo).',
       block_type: 'Phân loại loại khối: rich_text_list, media_profile, timeline, carousel_cards.',
       sort_order: 'Dùng 10, 20, 30... để kiểm soát thứ tự khối trong cùng một trang.',
     },
@@ -597,30 +598,37 @@ export const ENTITY_MANAGER_CONFIGS = {
   },
   videos: {
     label: 'Video',
-    eyebrow: 'Thư viện video',
-    description: 'Quản lý video trưng bày với tiêu đề, đường dẫn video trực tiếp và trạng thái hiển thị.',
+    eyebrow: 'Thu vien video',
+    description: 'Quan ly video san pham: gan video voi san pham, ho tro upload file hoac dan URL video.',
     titleField: 'title',
-    table: ['id', 'title', 'video_url', 'status'],
-    required: ['title', 'video_url'],
-    fields: ['title', 'video_url', 'status'],
+    table: ['id', 'title', 'product_name', 'video_url', 'status'],
+    required: ['title', 'product_id', 'video_url'],
+    fields: ['title', 'product_id', 'video_url', 'status'],
     statusOptions: CONTENT_STATUS_OPTIONS,
     defaultStatus: 'draft',
     preview: () => '/video',
     cloudinaryAssetFolder: 'videos',
     fieldLabels: {
-      title: 'Tiêu Đề Video',
-      video_url: 'Đường Dẫn Video',
-      status: 'Trạng Thái Hiển Thị',
+      title: 'Tieu De Video',
+      product_id: 'San Pham Lien Ket',
+      product_name: 'San Pham',
+      video_url: 'Duong Dan Video',
+      status: 'Trang Thai Hien Thi',
     },
     placeholders: {
-      title: 'Ví dụ: Video demo sản phẩm',
-      video_url: 'https://cdn.example.com/showcase/video.mp4 hoặc URL YouTube/Vimeo',
+      title: 'Vi du: Video demo san pham',
+      product_id: 'Tim kiem hoac chon san pham',
+      video_url: 'https://cdn.example.com/showcase/video.mp4 hoac URL YouTube/Vimeo',
     },
     helpText: {
-      video_url: 'Dùng URL MP4/WebM trực tiếp hoặc liên kết YouTube/Vimeo/share hợp lệ. Frontend sẽ mở bằng player cao cấp.',
-      status: 'Chỉ video có trạng thái xuất bản mới hiển thị trên trang public.',
+      product_id: 'Moi video phai thuoc mot san pham. Ban co the go tim theo ten, SKU hoac slug.',
+      video_url: 'Dung URL MP4/WebM truc tiep hoac lien ket YouTube/Vimeo/share hop le. Frontend se mo bang player cao cap.',
+      status: 'Chi video co trang thai xuat ban moi hien thi tren trang public.',
     },
-    featuredTableFields: ['video_url', 'status'],
+    relationEntities: {
+      product_id: 'products',
+    },
+    featuredTableFields: ['product_name', 'video_url', 'status'],
   },
   media_assets: {
     label: 'Thư Viện Media',
@@ -728,15 +736,20 @@ export const ENTITY_MANAGER_CONFIGS = {
   product_categories: {
     label: 'Danh Mục Sản Phẩm',
     eyebrow: 'Product taxonomy',
-    description: 'Quản lý danh mục sản phẩm. Mỗi danh mục có tên, slug, mô tả và ảnh đại diện.',
+    description: 'Quản lý danh mục sản phẩm theo cây phân cấp cha/con. Mỗi danh mục có tên, slug, mô tả và ảnh đại diện.',
     titleField: 'name',
     editorPresentation: 'modal',
-    table: ['id', 'name', 'slug', 'sort_order', 'is_active'],
+    table: ['id', 'name', 'parent_name', 'slug', 'sort_order', 'is_active'],
     required: ['name', 'slug'],
-    fields: ['name', 'slug', 'description', 'image_url', 'sort_order', 'is_active'],
+    fields: ['name', 'slug', 'parent_id', 'description', 'image_url', 'sort_order', 'is_active'],
+    relationEntities: {
+      parent_id: 'product_categories',
+    },
     fieldLabels: {
       name: 'Tên Danh Mục',
       slug: 'Slug (URL)',
+      parent_id: 'Danh Mục Cha',
+      parent_name: 'Thuộc Danh Mục',
       description: 'Mô Tả',
       image_url: 'Ảnh Đại Diện (URL)',
       sort_order: 'Thứ Tự Hiển Thị',
@@ -745,11 +758,13 @@ export const ENTITY_MANAGER_CONFIGS = {
     placeholders: {
       name: 'Ví dụ: Sàn Gỗ',
       slug: 'san-go',
+      parent_id: 'Để trống nếu là danh mục gốc',
       description: 'Mô tả ngắn về danh mục sản phẩm.',
       image_url: 'https://cdn.example.com/category-thumbnail.jpg',
     },
     helpText: {
       slug: 'Dùng cho URL và lọc sản phẩm. Viết thường, không dấu, dùng dấu gạch ngang.',
+      parent_id: 'Chọn danh mục cha để tạo danh mục con. Để trống nếu là danh mục cấp 1.',
       sort_order: 'Dùng 10, 20, 30... để dễ sắp xếp lại sau này.',
     },
     preview: (record) => `/products?category=${record.slug}`,
@@ -841,10 +856,24 @@ export const ADMIN_SECTION_GROUPS = [
     title: 'NĂNG LỰC',
     items: [
       {
+        key: 'capability_settings',
+        label: 'Cấu Hình Trang Năng Lực',
+        description: 'Quản lý hero, tổng quan nhà máy, gallery, chỉ số và năng lực sản xuất.',
+      },
+      {
+        key: 'honor_categories',
+        label: 'Danh Mục Năng Lực',
+        description: 'Thêm, sửa, xóa danh mục năng lực; quản lý phân cấp, trạng thái và thứ tự hiển thị.',
+      },
+      {
         key: 'honors',
-        label: 'Chứng Nhận & Năng Lực',
-        description: 'Quản lý Chứng nhận (ISO, CE), Hình ảnh nhà máy, Công nghệ, Công suất.',
-        children: [{ key: 'media_assets', label: 'Thư Viện Ảnh Nhà Máy' }],
+        label: 'Mục Năng Lực / Chứng Nhận',
+        description: 'Thêm, sửa, xóa các mục chứng nhận, danh hiệu và nội dung hiển thị trong trang năng lực.',
+      },
+      {
+        key: 'media_assets',
+        label: 'Thư Viện Ảnh Nhà Máy',
+        description: 'Quản lý ảnh dùng cho nhà máy, công nghệ sản xuất, chứng nhận và toàn bộ media liên quan.',
       },
     ],
   },
@@ -889,3 +918,4 @@ function flattenSectionItems(items, collector = []) {
 }
 
 export const ADMIN_SECTION_INDEX = Object.fromEntries(ADMIN_SECTION_GROUPS.flatMap((group) => flattenSectionItems(group.items)).map((item) => [item.key, item]))
+

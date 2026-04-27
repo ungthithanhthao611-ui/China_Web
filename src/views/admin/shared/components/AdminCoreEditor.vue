@@ -1,5 +1,5 @@
 <script setup>
-import { computed, ref } from "vue";
+import { computed, reactive, ref } from "vue";
 
 const props = defineProps({
   formOpen: {
@@ -319,6 +319,51 @@ const optionLabelRenderer = computed(() =>
     ? props.config.optionLabel
     : null,
 );
+const relationSearchKeyword = reactive({});
+
+const relationOptionText = (option, field) => {
+  if (typeof optionLabelRenderer.value === "function") {
+    return String(optionLabelRenderer.value(option, field) || "").trim();
+  }
+  if (field === "product_id") {
+    const name = String(option?.name || option?.title || option?.slug || `#${option?.id || ""}`).trim();
+    const sku = String(option?.sku || "").trim();
+    return sku ? `${name} [${sku}]` : name;
+  }
+  return String(
+    option?.title ||
+      option?.name ||
+      option?.slug ||
+      option?.sku ||
+      option?.code ||
+      `#${option?.id || ""}`,
+  ).trim();
+};
+
+const relationSearchValue = (field) =>
+  String(relationSearchKeyword?.[field] || "").trim();
+
+const updateRelationSearch = (field, value) => {
+  relationSearchKeyword[field] = String(value || "");
+};
+
+const isSearchableRelationField = (field) =>
+  props.isVideosEntity && field === "product_id";
+
+const filteredRelationOptions = (field) => {
+  const options = Array.isArray(props.relationOptions?.[field])
+    ? props.relationOptions[field]
+    : [];
+  const keyword = relationSearchValue(field).toLowerCase();
+  if (!keyword) return options;
+
+  return options.filter((option) => {
+    const searchableText = `${option?.id || ""} ${relationOptionText(option, field)} ${option?.sku || ""} ${option?.slug || ""}`
+      .toLowerCase()
+      .trim();
+    return searchableText.includes(keyword);
+  });
+};
 
 const isContentBlockItemsEditor = computed(
   () => props.entityKey === "content_block_items",
@@ -566,6 +611,37 @@ const previewHasContent = computed(
             </div>
           </div>
 
+          <div
+            v-else-if="relationOptions[field] && isSearchableRelationField(field)"
+            class="field-stack relation-combobox"
+          >
+            <input
+              type="text"
+              :value="relationSearchValue(field)"
+              :placeholder="fieldPlaceholder(field) || 'Tim kiem san pham theo ten, SKU, slug...'"
+              @input="updateRelationSearch(field, $event.target.value)"
+            />
+            <select
+              :value="relationSelectValue(field)"
+              @change="emit('update:relation-field', field, $event.target.value)"
+            >
+              <option value="">-- Chon san pham --</option>
+              <option
+                v-for="option in filteredRelationOptions(field)"
+                :key="option.id"
+                :value="String(option.id)"
+              >
+                #{{ option.id }} - {{ relationOptionText(option, field) }}
+              </option>
+            </select>
+            <small
+              v-if="relationSearchValue(field) && !filteredRelationOptions(field).length"
+              class="field-help"
+            >
+              Khong tim thay san pham phu hop voi tu khoa.
+            </small>
+          </div>
+
           <select
             v-else-if="relationOptions[field]"
             :value="relationSelectValue(field)"
@@ -635,21 +711,21 @@ const previewHasContent = computed(
                   @change="emit('video-file-change', $event)"
                 />
                 <span class="video-file-row__name">
-                  {{ videoUploadFile?.name || "Chưa chọn file video" }}
+                  {{ videoUploadFile?.name || "Chua chon file video" }}
                 </span>
               </div>
               <small class="field-help">
-                Chọn file video từ máy tính rồi bấm Upload để tự động đưa link vào Video URL.
+                Chon file video tu may tinh roi bam Upload de tu dong dien vao Video URL.
               </small>
               <div class="video-library-select">
                 <select @change="emit('video-library-select', $event.target.value)">
-                  <option value="">-- Chọn từ Thư viện Media --</option>
+                  <option value="">-- Chon tu Thu vien Media --</option>
                   <option v-for="media in videoLibraryOptions" :key="media.id" :value="media.url">
                     #{{ media.id }} - {{ media.title || media.file_name }}
                   </option>
                 </select>
                 <small v-if="videoLibraryOptions.length">
-                  Hoặc chọn từ {{ videoLibraryOptions.length }} video đã tải lên
+                  Hoac chon tu {{ videoLibraryOptions.length }} video da tai len
                 </small>
               </div>
             </div>
@@ -1004,4 +1080,5 @@ const previewHasContent = computed(
 <style scoped>
 @import '@/views/admin/shared/components/AdminCoreEditor.css';
 </style>
+
 

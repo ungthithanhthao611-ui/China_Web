@@ -259,6 +259,7 @@ function resetAboutFilters() {
 
         <EntityManagerRecordsTable
           v-else
+          :entity-key="resolvedEntityKey"
           :records="records"
           :table-columns="tableColumns"
           :field-label="fieldLabel"

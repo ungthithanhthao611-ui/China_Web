@@ -351,6 +351,15 @@ export const ABOUT_BLOCK_SCHEMAS = {
         ],
         sortOrder: 5,
       },
+      {
+        itemKey: 'cover_image',
+        label: 'Ảnh nền chung Page 5',
+        fields: [
+          FIELD.image('Ảnh nền phần Giá trị cốt lõi', { required: true }),
+          FIELD.title('Caption ảnh (nếu có)', { placeholder: 'Tùy chọn' }),
+        ],
+        sortOrder: 10,
+      },
     ],
     dynamicItems: {
       keyPrefix: 'value',
@@ -361,7 +370,6 @@ export const ABOUT_BLOCK_SCHEMAS = {
           required: true,
           placeholder: 'Mô tả ý nghĩa của giá trị cốt lõi này...',
         }),
-        FIELD.image('Biểu tượng / Icon (nếu có)'),
       ],
       sortOrderStep: 10,
     },
@@ -370,6 +378,26 @@ export const ABOUT_BLOCK_SCHEMAS = {
   // ═══════════════════════════════════════════════════════════
   // PAGE 6 — LỊCH SỬ PHÁT TRIỂN
   // ═══════════════════════════════════════════════════════════
+  culture_slogan: {
+    label: 'Slogan',
+    description: 'Khẩu hiệu công ty hiển thị dưới phần Giá trị cốt lõi.',
+    dynamicItems: {
+      keyPrefix: 'slogan',
+      label: 'Slogan mới',
+      fields: [
+        FIELD.title('Tiêu đề slogan', { required: true, placeholder: 'Ví dụ: Slogan' }),
+        FIELD.content('Nội dung slogan', {
+          required: true,
+          placeholder: 'Ví dụ: Uy tín từ những điều nhỏ nhất',
+        }),
+      ],
+      sortOrderStep: 10,
+    },
+  },
+
+  // ═══════════════════════════════════════════════════════════════════════════
+  // PAGE 6 — LỊCH SỬ PHÁT TRIỂN
+  // ═══════════════════════════════════════════════════════════════════════════
   timeline: {
     label: 'Các mốc lịch sử phát triển',
     description: 'Mỗi mốc gồm năm, tháng (nếu có), tiêu đề sự kiện và ảnh minh họa.',

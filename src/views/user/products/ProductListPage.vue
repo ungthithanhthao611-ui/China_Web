@@ -1,7 +1,7 @@
 <script setup>
-import { computed, onMounted, ref, watch } from 'vue'
+import { computed, onBeforeUnmount, onMounted, ref, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
-import { ChevronRight, Home, Play, Search, X, SlidersHorizontal } from 'lucide-vue-next'
+import { ChevronDown, ChevronRight, Home, Play, Search, X, SlidersHorizontal } from 'lucide-vue-next'
 import { uiState } from '@/shared/utils/uiState'
 import { listProductCategories, listProducts } from '@/views/user/services/productsApi'
 
@@ -15,7 +15,12 @@ const loadingCategories = ref(false)
 const activeCategorySlug = ref('')
 const searchQuery = ref('')
 const currentPage = ref(1)
-const PAGE_SIZE = 9
+const viewportWidth = ref(typeof window === 'undefined' ? 1200 : window.innerWidth)
+const categoryPanelOpen = ref(false)
+
+const MOBILE_BREAKPOINT = 560
+const DESKTOP_PAGE_SIZE = 9
+const MOBILE_PAGE_SIZE = 6
 
 const normalizeText = (value) => String(value || '')
   .toLowerCase()
@@ -74,12 +79,14 @@ const filteredProducts = computed(() => {
 })
 
 const totalProducts = computed(() => filteredProducts.value.length)
-const totalPages = computed(() => Math.max(1, Math.ceil(totalProducts.value / PAGE_SIZE)))
+const isMobileView = computed(() => viewportWidth.value <= MOBILE_BREAKPOINT)
+const currentPageSize = computed(() => (isMobileView.value ? MOBILE_PAGE_SIZE : DESKTOP_PAGE_SIZE))
+const totalPages = computed(() => Math.max(1, Math.ceil(totalProducts.value / currentPageSize.value)))
 const rootProductCount = computed(() => rootCategory.value?.product_count || products.value.length)
 
 const paginatedProducts = computed(() => {
-  const start = (currentPage.value - 1) * PAGE_SIZE
-  return filteredProducts.value.slice(start, start + PAGE_SIZE)
+  const start = (currentPage.value - 1) * currentPageSize.value
+  return filteredProducts.value.slice(start, start + currentPageSize.value)
 })
 
 const hasVideoUrl = (product) => Boolean(String(product?.video_url || '').trim())
@@ -117,6 +124,15 @@ function isKnownCategorySlug(slug) {
   return sidebarCategories.value.some((category) => category.slug === slug)
 }
 
+function updateViewportWidth() {
+  viewportWidth.value = window.innerWidth
+}
+
+function toggleCategoryPanel() {
+  if (!isMobileView.value) return
+  categoryPanelOpen.value = !categoryPanelOpen.value
+}
+
 function syncActiveCategoryFromRoute() {
   const categoryFromQuery = typeof route.query.category === 'string' ? route.query.category : ''
   activeCategorySlug.value = isKnownCategorySlug(categoryFromQuery) ? categoryFromQuery : ''
@@ -126,6 +142,9 @@ function selectCategory(slug) {
   const nextSlug = isKnownCategorySlug(slug) ? slug : ''
   activeCategorySlug.value = nextSlug
   currentPage.value = 1
+  if (isMobileView.value) {
+    categoryPanelOpen.value = false
+  }
   router.replace({ query: nextSlug ? { category: nextSlug } : {} })
 }
 
@@ -146,6 +165,14 @@ watch(totalPages, (pageCount) => {
 })
 
 watch(
+  isMobileView,
+  (mobile) => {
+    categoryPanelOpen.value = !mobile
+  },
+  { immediate: true },
+)
+
+watch(
   () => route.query.category,
   async () => {
     syncActiveCategoryFromRoute()
@@ -156,9 +183,15 @@ watch(
 onMounted(async () => {
   uiState.isHeaderHidden = false
   uiState.isFooterHidden = false
+  updateViewportWidth()
+  window.addEventListener('resize', updateViewportWidth, { passive: true })
   await fetchCategoryTree()
   syncActiveCategoryFromRoute()
   await fetchProducts()
+})
+
+onBeforeUnmount(() => {
+  window.removeEventListener('resize', updateViewportWidth)
 })
 </script>
 
@@ -186,11 +219,23 @@ onMounted(async () => {
       <!-- Sidebar: Categories -->
       <aside class="prod-sidebar">
         <div class="prod-sidebar__header">
-          <SlidersHorizontal :size="16" />
-          <span>Danh mục</span>
+          <div class="prod-sidebar__header-main">
+            <SlidersHorizontal :size="16" />
+            <span>Danh m&#7909;c</span>
+          </div>
+          <button
+            v-if="isMobileView"
+            type="button"
+            class="prod-sidebar__toggle"
+            @click="toggleCategoryPanel"
+          >
+            <span>{{ activeSidebarCategory.name }}</span>
+            <span class="prod-cat-count">{{ rootProductCount }}</span>
+            <ChevronDown :size="14" :class="['prod-sidebar__toggle-icon', { open: categoryPanelOpen }]" />
+          </button>
         </div>
 
-        <div class="prod-sidebar__tree">
+        <div v-if="categoryPanelOpen" class="prod-sidebar__tree">
           <div class="prod-cat-root">
             <div>
               <span class="prod-cat-root__label">DANH MỤC</span>
@@ -332,11 +377,15 @@ onMounted(async () => {
             aria-label="Trang trước"
           >←</button>
           <button
+            v-if="!isMobileView"
             v-for="page in totalPages"
             :key="page"
             :class="['prod-page-num', { active: currentPage === page }]"
             @click="goToPage(page)"
           >{{ page }}</button>
+          <span v-else class="prod-page-summary">
+            {{ currentPage }} / {{ totalPages }}
+          </span>
           <button
             class="prod-page-arrow"
             :disabled="currentPage === totalPages"
@@ -463,6 +512,24 @@ onMounted(async () => {
   font-weight: 700;
   letter-spacing: 0.16em;
   text-transform: uppercase;
+}
+
+.prod-sidebar__header-main {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.prod-sidebar__toggle {
+  display: none;
+}
+
+.prod-sidebar__toggle-icon {
+  transition: transform 0.2s ease;
+}
+
+.prod-sidebar__toggle-icon.open {
+  transform: rotate(180deg);
 }
 
 .prod-sidebar__tree {
@@ -983,6 +1050,14 @@ onMounted(async () => {
   transition: all 0.2s;
 }
 
+.prod-page-summary {
+  min-width: 74px;
+  text-align: center;
+  color: #4a5568;
+  font-size: 13px;
+  font-weight: 700;
+}
+
 .prod-page-num:hover,
 .prod-page-arrow:hover:not(:disabled) {
   border-color: #c40011;
@@ -1027,7 +1102,8 @@ onMounted(async () => {
   }
 
   .prod-grid {
-    grid-template-columns: 1fr;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 16px;
   }
   .prod-toolbar {
     align-items: stretch;
@@ -1038,7 +1114,69 @@ onMounted(async () => {
   }
 }
 
-@media (max-width: 430px) {
+@media (max-width: 560px) {
+  .prod-shell {
+    gap: 16px;
+    padding-top: 18px;
+  }
+
+  .prod-sidebar__header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    width: 100%;
+    margin-bottom: 10px;
+    gap: 10px;
+    letter-spacing: 0.12em;
+  }
+
+  .prod-sidebar__toggle {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    max-width: 70%;
+    padding: 7px 10px;
+    border: 1px solid rgba(29, 40, 61, 0.15);
+    border-radius: 999px;
+    background: #fff;
+    color: #1d283d;
+    font-size: 11px;
+    font-weight: 700;
+    text-transform: none;
+  }
+
+  .prod-sidebar__toggle > span:first-child {
+    min-width: 0;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
+  .prod-sidebar__tree {
+    padding: 14px 12px;
+    border-radius: 16px;
+  }
+
+  .prod-cat-root {
+    margin-bottom: 10px;
+    padding-bottom: 10px;
+  }
+
+  .prod-cat-root__title {
+    font-size: 18px;
+  }
+
+  .prod-cat-tree {
+    gap: 4px;
+  }
+
+  .prod-cat-item {
+    padding: 8px 10px;
+    padding-left: calc(10px + (var(--depth) * 14px));
+    border-radius: 10px;
+    font-size: 13px;
+  }
+
   .prod-hero__content {
     width: 100%;
     padding-left: 18px;
@@ -1061,12 +1199,51 @@ onMounted(async () => {
     min-width: 0;
   }
 
+  .prod-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 12px;
+  }
+
+  .prod-card__body {
+    padding: 10px;
+  }
+
+  .prod-card__desc,
+  .prod-card__specs,
+  .prod-card__video {
+    display: none;
+  }
+
+  .prod-card__name {
+    font-size: 14px;
+    margin-bottom: 6px;
+  }
+
   .prod-card__footer {
     flex-direction: column;
   }
 
+  .prod-card__detail-btn,
+  .prod-card__inquiry-btn {
+    padding: 7px 8px;
+    font-size: 12px;
+  }
+
   .prod-pagination {
-    flex-wrap: wrap;
+    margin-top: 24px;
+    gap: 10px;
+  }
+
+  .prod-page-arrow {
+    width: 34px;
+    height: 34px;
+    border-radius: 999px;
+  }
+}
+
+@media (max-width: 430px) {
+  .prod-card__footer {
+    gap: 6px;
   }
 }
 </style>

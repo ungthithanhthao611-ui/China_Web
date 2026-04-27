@@ -1,5 +1,11 @@
 <script setup>
+import { computed } from 'vue'
+
 const props = defineProps({
+  entityKey: {
+    type: String,
+    required: true,
+  },
   records: {
     type: Array,
     required: true,
@@ -159,6 +165,104 @@ const emit = defineEmits(["edit", "delete", "set-page", "update:pageSize"]);
 const richPreviewCard = (record) => props.previewCard(record) || null;
 const richPreviewMedia = (record) => props.previewMedia(record) || null;
 
+const isProductCategoriesEntity = computed(() => props.entityKey === 'product_categories');
+
+const recordMapById = computed(() => {
+  const map = new Map();
+  props.records.forEach((record) => {
+    if (record?.id !== undefined && record?.id !== null) {
+      map.set(String(record.id), record);
+    }
+  });
+  return map;
+});
+
+const isRootCategoryRecord = (record) => {
+  const parentId = record?.parent_id;
+  return (
+    parentId === null ||
+    parentId === undefined ||
+    String(parentId).trim() === '' ||
+    Number(parentId) === 0
+  );
+};
+
+const resolveCategoryDepth = (record, trail = new Set()) => {
+  if (!record || !isProductCategoriesEntity.value || isRootCategoryRecord(record)) return 0;
+  const recordIdKey = String(record.id || '');
+  if (recordIdKey && trail.has(recordIdKey)) return 0;
+  if (recordIdKey) trail.add(recordIdKey);
+
+  const parent = recordMapById.value.get(String(record.parent_id));
+  if (!parent) return 0;
+  return Math.min(resolveCategoryDepth(parent, trail) + 1, 8);
+};
+
+const categoryDepthById = computed(() => {
+  const map = new Map();
+  props.records.forEach((record) => {
+    map.set(String(record.id || ''), resolveCategoryDepth(record));
+  });
+  return map;
+});
+
+const productCategoryDepth = (record) => categoryDepthById.value.get(String(record?.id || '')) || 0;
+
+const compareCategoryRows = (left, right) => {
+  const leftSort = Number(left?.sort_order);
+  const rightSort = Number(right?.sort_order);
+  const normalizedLeftSort = Number.isFinite(leftSort) ? leftSort : Number.MAX_SAFE_INTEGER;
+  const normalizedRightSort = Number.isFinite(rightSort) ? rightSort : Number.MAX_SAFE_INTEGER;
+  if (normalizedLeftSort !== normalizedRightSort) return normalizedLeftSort - normalizedRightSort;
+
+  const leftName = String(left?.name || '').trim();
+  const rightName = String(right?.name || '').trim();
+  if (leftName !== rightName) return leftName.localeCompare(rightName, 'vi');
+
+  return Number(left?.id || 0) - Number(right?.id || 0);
+};
+
+const displayedRecords = computed(() => {
+  if (!isProductCategoriesEntity.value) return props.records;
+
+  const source = [...props.records].sort(compareCategoryRows);
+  if (!source.length) return [];
+
+  const idSet = new Set(source.map((record) => String(record.id)));
+  const childrenByParent = new Map();
+  source.forEach((record) => {
+    const parentKey = !isRootCategoryRecord(record) && idSet.has(String(record.parent_id))
+      ? String(record.parent_id)
+      : '__root__';
+    if (!childrenByParent.has(parentKey)) childrenByParent.set(parentKey, []);
+    childrenByParent.get(parentKey).push(record);
+  });
+
+  const ordered = [];
+  const walk = (parentKey, stack = new Set()) => {
+    const siblings = childrenByParent.get(parentKey) || [];
+    siblings.forEach((record) => {
+      const key = String(record.id);
+      if (stack.has(key)) return;
+      ordered.push(record);
+      const nextStack = new Set(stack);
+      nextStack.add(key);
+      walk(key, nextStack);
+    });
+  };
+
+  walk('__root__');
+
+  if (ordered.length < source.length) {
+    const seen = new Set(ordered.map((record) => String(record.id)));
+    source.forEach((record) => {
+      if (!seen.has(String(record.id))) ordered.push(record);
+    });
+  }
+
+  return ordered;
+});
+
 const getThumbnailFallback = (record, column) => {
   if (column !== 'image_url') return null;
   if (record.image_url) return props.resolveMediaUrl(record.image_url);
@@ -218,10 +322,10 @@ const getThumbnailFallback = (record, column) => {
           <tr v-if="loading" class="table-empty-row">
             <td :colspan="tableColumns.length + 2">Đang tải dữ liệu...</td>
           </tr>
-          <tr v-else-if="!records.length" class="table-empty-row">
+          <tr v-else-if="!displayedRecords.length" class="table-empty-row">
             <td :colspan="tableColumns.length + 2">Không tìm thấy bản ghi nào.</td>
           </tr>
-          <tr v-for="record in records" v-else :key="record.id" class="entity-row">
+          <tr v-for="record in displayedRecords" v-else :key="record.id" class="entity-row">
             <td
               v-for="column in tableColumns"
               :key="`${record.id}-${column}`"
@@ -293,6 +397,28 @@ const getThumbnailFallback = (record, column) => {
                     {{ videoUrlHint(record[column]) }}
                   </small>
                 </div>
+              </template>
+              <template v-else-if="isProductCategoriesEntity && column === 'name'">
+                <div
+                  class="category-tree-cell"
+                  :style="{ '--depth': productCategoryDepth(record) }"
+                >
+                  <span class="category-tree-cell__branch" aria-hidden="true" />
+                  <strong v-if="productCategoryDepth(record) === 0">
+                    {{ formatCell(record[column]) }}
+                  </strong>
+                  <span v-else>{{ formatCell(record[column]) }}</span>
+                </div>
+              </template>
+              <template v-else-if="isProductCategoriesEntity && column === 'parent_name'">
+                <span
+                  :class="[
+                    'category-parent-pill',
+                    { 'is-root': isRootCategoryRecord(record) },
+                  ]"
+                >
+                  {{ isRootCategoryRecord(record) ? 'Danh mục gốc' : formatCell(record[column]) }}
+                </span>
               </template>
               <template v-else-if="column === 'title' || column === 'block_key' || column === 'item_key'">
                 <strong>{{ recordDisplayName(record) }}</strong>
