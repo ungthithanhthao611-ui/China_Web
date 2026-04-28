@@ -229,21 +229,21 @@ const mediaStateOptions = computed(() => [
     <div class="filters__actions">
       <button
         type="button"
-        class="btn btn-secondary"
+        class="btn btn-secondary btn-sm"
         :disabled="loading"
         @click="emit('search')"
       >
-        {{ loading ? 'Đang lọc...' : 'Áp dụng bộ lọc' }}
+        {{ loading ? '...' : 'Áp dụng' }}
       </button>
 
       <button
         v-if="hasAdvancedAboutFilters"
         type="button"
-        class="btn btn-ghost"
+        class="btn btn-ghost btn-sm"
         :disabled="loading"
         @click="emit('reset-about-filters')"
       >
-        Reset About
+        Reset
       </button>
     </div>
   </div>
@@ -277,7 +277,7 @@ const mediaStateOptions = computed(() => [
 .filters__label {
   color: #6a8097;
   font-size: var(--admin-label-size, 11px);
-  font-weight: 800;
+  font-weight: 500;
   text-transform: uppercase;
   letter-spacing: 0.12em;
 }
@@ -322,29 +322,21 @@ select:focus {
   padding: 0 12px;
   cursor: pointer;
   font-size: 12px;
-  font-weight: 700;
+  font-weight: 500;
   white-space: nowrap;
-  transition:
-    transform 0.22s ease,
-    box-shadow 0.22s ease,
-    background 0.22s ease,
-    border-color 0.22s ease;
-}
-
-.btn:hover:not(:disabled) {
-  transform: translateY(-1px);
+  transition: all 0.2s;
 }
 
 .btn-secondary {
-  color: #284767;
-  background: linear-gradient(180deg, rgba(255, 255, 255, 0.98), rgba(241, 247, 252, 0.96));
-  border-color: rgba(198, 216, 233, 0.95);
+  color: #475569;
+  background: #f1f5f9;
+  border-color: #e2e8f0;
 }
 
 .btn-ghost {
-  color: #385c7d;
-  background: rgba(237, 244, 251, 0.85);
-  border-color: rgba(198, 216, 233, 0.95);
+  color: #64748b;
+  background: #fff;
+  border-color: #e2e8f0;
 }
 
 button:disabled {

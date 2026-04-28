@@ -122,141 +122,108 @@ defineExpose({
 
 <template>
   <section class="nav-manager">
-    <header class="nav-manager__header">
-      <div class="title-wrap">
-        <p class="crumb">Bảng điều khiển <span>/</span> Menu điều hướng</p>
-        <h2>Menu điều hướng</h2>
-      </div>
-      <div class="head-actions">
-        <button type="button" class="btn btn-ghost">Xuất XML</button>
-        <button type="button" class="btn btn-ghost" :disabled="loadingNavigation" @click="refreshAll">
-          {{ loadingNavigation ? 'Đang làm mới...' : 'Làm mới' }}
-        </button>
-        <AddNavigationMenu @trigger="openCreateMenuDrawer" />
-      </div>
-    </header>
-
-    <section class="filters">
-      <label class="filter-box">
-        <span>Từ khóa tìm kiếm</span>
-        <input v-model="searchKeyword" type="text" placeholder="Tên menu..." />
-      </label>
-      <label class="filter-box">
-        <span>Trạng thái</span>
-        <select v-model="statusFilter">
-          <option value="all">Tất cả trạng thái</option>
-          <option value="active">Đang hiển thị</option>
-          <option value="inactive">Đang ẩn</option>
-        </select>
-      </label>
-      <label class="filter-box">
-        <span>Loại mục</span>
-        <select v-model="typeFilter">
-          <option value="all">Tất cả loại</option>
-          <option value="parent">Mục cha</option>
-          <option value="child">Mục con</option>
-        </select>
-      </label>
-      <label class="filter-box">
-        <span>Phạm vi menu</span>
-        <select v-model="selectedNavMenuId">
-          <option value="">Chọn menu</option>
-          <option v-for="menu in navMenus" :key="menu.id" :value="String(menu.id)">
-            {{ menu.name }} ({{ menu.location || 'chưa có vị trí' }})
-          </option>
-        </select>
-      </label>
-      <button type="button" class="btn btn-filter" @click="applyFilters">Áp dụng bộ lọc</button>
-    </section>
-
-    <section class="table-card">
-      <div class="table-scroll">
-        <table>
-        <thead>
-          <tr>
-            <th>STT</th>
-            <th>Tên menu</th>
-            <th>Slug</th>
-            <th>Loại</th>
-            <th>Mục cha</th>
-            <th>Thứ tự</th>
-            <th>Trạng thái</th>
-            <th>Thao tác</th>
-          </tr>
-        </thead>
-        <tbody>
-          <tr v-for="(row, idx) in pagedRows" :key="row.node._cid" class="nav-row">
-            <td data-label="STT">{{ (currentPage - 1) * pageSize + idx + 1 }}</td>
-            <td data-label="Tên menu">
-              <span class="title-cell" :style="{ paddingLeft: `${row.depth * 18}px` }">{{ row.node.title }}</span>
-            </td>
-            <td data-label="Slug">{{ itemSlugFromUrl(row.node.url) }}</td>
-            <td data-label="Loại">
-              <span class="pill" :class="row.rowType">{{ row.rowType === 'parent' ? 'MỤC CHA' : 'MỤC CON' }}</span>
-            </td>
-            <td data-label="Mục cha">{{ row.parentTitle || '-' }}</td>
-            <td data-label="Thứ tự">{{ row.node.sort_order ?? 0 }}</td>
-            <td data-label="Trạng thái">
-              <span class="status-chip" :class="{ inactive: !selectedMenu?.is_active }">
-                {{ selectedMenu?.is_active ? 'Đang hiển thị' : 'Đang ẩn' }}
-              </span>
-            </td>
-            <td data-label="Thao tác">
-              <div class="row-actions">
-                <button type="button" class="btn btn-mini btn-ghost" @click="openEditNodeDrawer(row.node._cid)">
-                  Sửa
-                </button>
-                <button type="button" class="btn btn-mini btn-ghost" @click="openCreateChildNodeDrawer(row.node._cid)">
-                  + Mục con
-                </button>
-                <button type="button" class="btn btn-mini btn-danger-outline" @click="removeNode(row.node._cid)">
-                  Xóa
-                </button>
-              </div>
-            </td>
-          </tr>
-          <tr v-if="!pagedRows.length" class="table-empty-row">
-            <td colspan="8" class="empty-row">Chưa có mục điều hướng nào.</td>
-          </tr>
-        </tbody>
-        </table>
-      </div>
-
-      <footer class="table-footer">
-        <p>Hiển thị {{ showingFrom }}-{{ showingTo }} trên tổng {{ rowsCount }} mục</p>
-        <div class="pagination">
-          <button type="button" class="page-btn" :disabled="currentPage <= 1" @click="setPage(currentPage - 1)">
-            &lt;
-          </button>
-          <button
-            v-for="page in totalPages"
-            :key="page"
-            type="button"
-            class="page-btn"
-            :class="{ active: page === currentPage }"
-            @click="setPage(page)"
-          >
-            {{ page }}
-          </button>
-          <button
-            type="button"
-            class="page-btn"
-            :disabled="currentPage >= totalPages"
-            @click="setPage(currentPage + 1)"
-          >
-            &gt;
-          </button>
+    <div class="ultimate-clean-workspace">
+      <!-- 1. Unified Header -->
+      <header class="intro-card">
+        <div class="intro-copy">
+          <p class="intro-eyebrow">Quản trị hệ thống</p>
+          <h2>Menu điều hướng</h2>
+          <p>Tạo, sửa, xóa và sắp xếp phân cấp các menu điều hướng trên toàn hệ thống.</p>
         </div>
-        <div class="footer-actions">
-          <button type="button" class="btn btn-secondary" @click="openCreateRootNodeDrawer">Thêm mục gốc</button>
-          <EditNavigationMenu :disabled="!selectedMenu" @trigger="openEditMenuDrawer" />
-          <DeleteNavigationMenu :disabled="!selectedMenu || savingNavigation" @trigger="openDeleteConfirm" />
-          <button type="button" class="btn btn-primary" :disabled="!selectedMenu || savingNavigation" @click="handleSaveTree">
-            Lưu thay đổi
+        <div class="intro-actions">
+          <button type="button" class="btn btn-ghost btn-sm">Xuất XML</button>
+          <button type="button" class="btn btn-ghost btn-sm" :disabled="loadingNavigation" @click="refreshAll">
+            {{ loadingNavigation ? 'Đang làm mới...' : 'Làm mới' }}
           </button>
+          <AddNavigationMenu @trigger="openCreateMenuDrawer" />
         </div>
-      </footer>
-    </section>
+      </header>
+
+      <section class="editor-head" style="padding: 24px 32px 16px; border-top: 1px solid #f1f5f9;">
+        <div class="toolbar-grid" style="grid-template-columns: 1.2fr 1fr 1fr 1.2fr auto; gap: 12px; width: 100%;">
+          <input v-model="searchKeyword" type="text" class="form-control" placeholder="Tìm tên menu..." />
+          <select v-model="statusFilter" class="form-control">
+            <option value="all">Tất cả trạng thái</option>
+            <option value="active">Đang hiển thị</option>
+            <option value="inactive">Đang ẩn</option>
+          </select>
+          <select v-model="typeFilter" class="form-control">
+            <option value="all">Tất cả loại</option>
+            <option value="parent">Mục cha</option>
+            <option value="child">Mục con</option>
+          </select>
+          <select v-model="selectedNavMenuId" class="form-control">
+            <option value="">Chọn menu phạm vi</option>
+            <option v-for="menu in navMenus" :key="menu.id" :value="String(menu.id)">
+              {{ menu.name }} ({{ menu.location || 'N/A' }})
+            </option>
+          </select>
+          <button type="button" class="btn btn-secondary btn-sm" @click="applyFilters">Lọc</button>
+        </div>
+      </section>
+
+      <section class="section-list-unified">
+        <div class="table-wrap" style="padding: 0 32px 32px;">
+          <table class="ultimate-table">
+            <thead>
+              <tr>
+                <th style="width: 60px;">STT</th>
+                <th>Tên mục menu</th>
+                <th style="width: 140px;">Loại</th>
+                <th style="width: 180px;">Mục cha</th>
+                <th style="width: 80px;">Thứ tự</th>
+                <th style="width: 100px;">Trạng thái</th>
+                <th style="width: 220px;">Thao tác</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr v-for="(row, idx) in pagedRows" :key="row.node._cid">
+                <td>{{ (currentPage - 1) * pageSize + idx + 1 }}</td>
+                <td>
+                  <div class="table-cell-title" :style="{ paddingLeft: `${row.depth * 18}px` }">
+                    <span>{{ row.node.title }}</span>
+                    <p class="table-cell-subtext">{{ itemSlugFromUrl(row.node.url) }}</p>
+                  </div>
+                </td>
+                <td>
+                  <span class="badge" :class="row.rowType === 'parent' ? 'badge-active' : 'badge-inactive'">
+                    {{ row.rowType === 'parent' ? 'MỤC CHA' : 'MỤC CON' }}
+                  </span>
+                </td>
+                <td>{{ row.parentTitle || '-' }}</td>
+                <td>{{ row.node.sort_order ?? 0 }}</td>
+                <td>
+                  <span :class="selectedMenu?.is_active ? 'badge-active' : 'badge-inactive'" class="badge">
+                    {{ selectedMenu?.is_active ? 'Hiện' : 'Ẩn' }}
+                  </span>
+                </td>
+                <td class="table-actions">
+                  <button type="button" class="btn btn-secondary-inline" @click="openEditNodeDrawer(row.node._cid)">Sửa</button>
+                  <button type="button" class="btn btn-soft-inline" @click="openCreateChildNodeDrawer(row.node._cid)">+ Con</button>
+                  <button type="button" class="btn btn-danger-inline" @click="removeNode(row.node._cid)">Xóa</button>
+                </td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+
+        <footer class="table-pagination">
+          <p class="pagination-meta">Hiển thị {{ showingFrom }}-{{ showingTo }} / {{ rowsCount }} mục</p>
+          <div class="pagination-actions">
+            <button type="button" class="btn btn-secondary btn-sm" :disabled="currentPage <= 1" @click="setPage(currentPage - 1)">Trước</button>
+            <button type="button" class="btn btn-secondary btn-sm" :disabled="currentPage >= totalPages" @click="setPage(currentPage + 1)">Sau</button>
+          </div>
+          <div class="footer-actions">
+            <button type="button" class="btn btn-secondary btn-sm" @click="openCreateRootNodeDrawer">Thêm mục gốc</button>
+            <EditNavigationMenu :disabled="!selectedMenu" @trigger="openEditMenuDrawer" />
+            <DeleteNavigationMenu :disabled="!selectedMenu || savingNavigation" @trigger="openDeleteConfirm" />
+            <button type="button" class="btn btn-primary btn-sm" :disabled="!selectedMenu || savingNavigation" @click="handleSaveTree">
+              Lưu thay đổi
+            </button>
+          </div>
+        </footer>
+      </section>
+    </div>
 
     <transition name="confirm-fade">
       <div v-if="confirmDialog.open" class="confirm-overlay" @click="closeConfirmDialog(false)"></div>
@@ -365,433 +332,105 @@ defineExpose({
 
 <style scoped>
 .nav-manager {
-  margin-top: var(--admin-section-gap, 16px);
-  background: rgba(255, 255, 255, 0.76);
-  border: var(--admin-card-border, 1px solid #dde3ee);
-  border-radius: var(--admin-card-radius, 22px);
-  padding: clamp(10px, 1.2vw, 14px);
-  position: relative;
+  display: grid;
+  gap: 24px;
+}
+
+.ultimate-clean-workspace {
+  background: #fff;
+  border-radius: 12px;
+  border: 1px solid #e2e8f0;
   overflow: hidden;
-  box-shadow: var(--admin-card-shadow-soft, 0 10px 24px rgba(18, 43, 71, 0.08));
 }
 
-.nav-manager__header {
+.intro-card {
+  padding: 24px 32px;
   display: flex;
-  align-items: center;
   justify-content: space-between;
-  gap: 10px;
+  align-items: center;
+  border-bottom: 1px solid #f1f5f9;
 }
 
-.title-wrap h2 {
-  margin: 4px 0 0;
-  font-size: clamp(22px, 2.4vw, 30px);
-  line-height: 0.98;
-  font-weight: 600;
-  color: #151b2d;
+.intro-copy h2 {
+  margin: 4px 0;
+  font-size: 22px;
+  font-weight: 500;
+  color: #1e293b;
 }
 
-.crumb {
+.intro-copy p {
   margin: 0;
-  color: #5f6f86;
+  font-size: 13px;
+  color: #64748b;
+}
+
+.intro-eyebrow {
   font-size: 11px;
-  letter-spacing: 0.14em;
+  font-weight: 500;
   text-transform: uppercase;
-  font-weight: 600;
+  color: #94a3b8;
+  letter-spacing: 0.05em;
 }
 
-.crumb span {
-  margin: 0 8px;
-  color: #374a70;
-}
-
-.head-actions {
+.intro-actions {
   display: flex;
   gap: 8px;
-  align-items: center;
-  flex-wrap: wrap;
-  justify-content: flex-end;
 }
 
-.filters {
-  margin-top: 10px;
-  display: grid;
-  grid-template-columns: 1.2fr 1fr 1fr 1fr auto;
-  gap: 10px;
-  align-items: stretch;
-}
-
-.filter-box {
-  border: 1px solid #dbe4f2;
-  background: #fff;
-  border-radius: var(--admin-control-radius, 14px);
-  padding: 8px 9px;
-  display: grid;
-  gap: 5px;
-}
-
-.filter-box span {
-  font-size: var(--admin-label-size, 11px);
-  text-transform: uppercase;
-  letter-spacing: 0.08em;
-  color: #73839a;
-  font-weight: 500;
-}
-
-.filter-box input,
-.filter-box select {
-  border: 0;
-  background: transparent;
-  min-height: 24px;
-  font-size: 14px;
-  color: #1f3249;
-}
-
-.filter-box input:focus,
-.filter-box select:focus {
-  outline: none;
-}
-
-.table-card {
-  margin-top: 10px;
-  border: 1px solid #dbe4f2;
-  border-radius: 14px;
-  background: #fff;
-  overflow: hidden;
-  box-shadow: 0 8px 18px rgba(17, 41, 67, 0.06);
-}
-
-.table-scroll {
+.ultimate-table {
   width: 100%;
-  overflow-x: auto;
-}
-
-table {
-  width: 100%;
-  min-width: 860px;
   border-collapse: collapse;
 }
 
-th,
-td {
-  padding: 9px 10px;
-  border-bottom: 1px solid #edf2f8;
+.ultimate-table th {
   text-align: left;
+  padding: 12px 16px;
   font-size: 12px;
-  color: #334864;
-}
-
-th {
-  background: #f7f9fc;
-  text-transform: uppercase;
-  letter-spacing: 0.06em;
-  font-size: 10px;
-  font-weight: 600;
-  color: #6f8199;
-}
-
-.title-cell {
   font-weight: 500;
-  color: #1f2f45;
-  display: inline-block;
-  line-height: 1.45;
+  color: #64748b;
+  border-bottom: 1px solid #f1f5f9;
+  background: #f8fafc;
 }
 
-.pill {
-  border-radius: 999px;
-  font-size: 10px;
-  padding: 4px 8px;
-  font-weight: 600;
-  letter-spacing: 0.04em;
-}
-
-.pill.parent {
-  background: #ecefff;
-  color: #5058bd;
-}
-
-.pill.child {
-  background: #eef6ff;
-  color: #2f7bc7;
-}
-
-.status-chip {
-  color: #4138d2;
-  font-weight: 500;
-}
-
-.status-chip.inactive {
-  color: #95a3b8;
-}
-
-.row-actions {
-  display: flex;
-  gap: 6px;
-  flex-wrap: wrap;
-}
-
-.table-footer {
-  padding: 10px 12px;
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  flex-wrap: wrap;
-  gap: 12px;
-  background: #fbfcff;
-}
-
-.table-footer p {
-  margin: 0;
-  color: #6f8199;
+.ultimate-table td {
+  padding: 12px 16px;
   font-size: 13px;
+  color: #334155;
+  border-bottom: 1px solid #f1f5f9;
 }
 
-.pagination {
-  display: flex;
-  align-items: center;
-  gap: 6px;
-  flex-wrap: wrap;
-}
-
-.page-btn {
-  min-width: 30px;
-  height: 30px;
-  border-radius: 8px;
-  border: 1px solid #d4deed;
-  background: #fff;
-  color: #495f7b;
-  font-size: 12px;
+.table-cell-title span {
+  display: block;
   font-weight: 500;
-  cursor: pointer;
+  color: #1e293b;
 }
 
-.page-btn.active {
-  border-color: #3830c9;
-  background: #2f2bbf;
-  color: #fff;
-}
-
-.page-btn:disabled {
-  opacity: 0.5;
-  cursor: not-allowed;
-}
-
-.footer-actions {
-  display: flex;
-  gap: 8px;
-  flex-wrap: wrap;
-  justify-content: flex-end;
-}
-
-.empty-row {
-  text-align: center;
-  color: #8394aa;
-}
-
-.table-empty-row td {
-  text-align: center;
-}
-
-.drawer-overlay {
-  position: fixed;
-  inset: 0;
-  background: rgba(18, 27, 42, 0.35);
-  z-index: 39;
-}
-
-.drawer {
-  position: fixed;
-  top: 0;
-  right: 0;
-  width: min(340px, 100vw);
-  height: 100vh;
-  background: #fff;
-  border-left: 4px solid #4c42e7;
-  box-shadow: -18px 0 32px rgba(22, 38, 70, 0.18);
-  z-index: 40;
-  transform: translateX(100%);
-  transition: transform 0.28s ease;
-  display: grid;
-  grid-template-rows: auto 1fr auto;
-}
-
-.drawer.open {
-  transform: translateX(0);
-}
-
-.drawer-toggle {
-  position: absolute;
-  left: -18px;
-  top: 50%;
-  transform: translateY(-50%);
-  width: 18px;
-  height: 40px;
-  border: 0;
-  border-radius: 12px 0 0 12px;
-  background: #4c42e7;
-  color: #fff;
-  font-size: 13px;
-  cursor: pointer;
-}
-
-.drawer-header {
-  padding: 12px 14px;
-  border-bottom: 1px solid #e8edf5;
-  display: flex;
-  justify-content: space-between;
-  gap: 10px;
-  align-items: flex-start;
-}
-
-.drawer-header h3 {
-  margin: 0;
-  font-size: clamp(22px, 1.8vw, 28px);
-  line-height: 0.98;
-  color: #1b2368;
-}
-
-.drawer-header p {
-  margin: 6px 0 0;
-  font-size: 12px;
-  color: #77869b;
-  text-transform: uppercase;
-  letter-spacing: 0.08em;
-  font-weight: 500;
-}
-
-.close-btn {
-  border: 0;
-  background: transparent;
-  color: #8b96aa;
-  font-size: 24px;
-  line-height: 1;
-  cursor: pointer;
-}
-
-.drawer-body {
-  padding: 12px 14px;
-  overflow: auto;
-  display: grid;
-  align-content: start;
-  gap: 8px;
-}
-
-.drawer-body label {
-  display: grid;
-  gap: 6px;
-}
-
-.drawer-body label span {
+.table-cell-subtext {
   font-size: 11px;
-  text-transform: uppercase;
-  letter-spacing: 0.08em;
-  color: #728197;
-  font-weight: 500;
+  color: #94a3b8;
+  margin-top: 2px;
 }
 
-.drawer-body input,
-.drawer-body select {
-  border: 1px solid #d6e1ee;
-  border-radius: var(--admin-control-radius, 14px);
-  background: #f8fbff;
-  padding: 10px 12px;
-  font-size: 14px;
-  color: #22354d;
-}
-
-.drawer-body input:focus,
-.drawer-body select:focus {
-  outline: none;
-  border-color: #7a84ff;
-  box-shadow: 0 0 0 3px rgba(116, 125, 249, 0.2);
-}
-
-.grid-2 {
-  display: grid;
-  grid-template-columns: 1fr 1fr;
-  gap: 10px;
-}
-
-.toggle-row {
-  display: flex !important;
-  align-items: center;
-  gap: 10px;
-  padding: 10px 12px;
-  border: 1px solid #dde6f3;
-  border-radius: var(--admin-control-radius, 14px);
-  background: #f7f8ff;
-}
-
-.toggle-row input {
-  width: 16px;
-  height: 16px;
-}
-
-.drawer-footer {
-  border-top: 1px solid #e8edf5;
-  padding: 10px 14px;
+.table-actions {
   display: flex;
-  justify-content: flex-end;
-  gap: 8px;
+  gap: 6px;
 }
 
-.btn {
-  min-height: var(--admin-button-height, 40px);
-  border-radius: var(--admin-control-radius, 14px);
+.badge {
+  display: inline-flex;
+  padding: 2px 8px;
+  border-radius: 4px;
+  font-size: 10px;
+  font-weight: 500;
+  text-transform: uppercase;
+}
+
+.badge-active { background: #dcfce7; color: #166534; }
+.badge-inactive { background: #f1f5f9; color: #475569; }
+
+.form-control {
+  height: 36px;
   padding: 0 12px;
-  font-size: 12px;
-  font-weight: 500;
-  cursor: pointer;
-  border: 1px solid transparent;
-  transition: all 0.2s ease;
-  white-space: nowrap;
-}
-
-.btn-mini {
-  min-height: 32px;
-  padding: 0 10px;
-  border-radius: 8px;
-  font-size: 11px;
-}
-
-.btn-primary {
-  border-color: #4138d2;
-  background: linear-gradient(135deg, #2f2bc4 0%, #5348ea 100%);
-  color: #fff;
-}
-
-.btn-primary:hover {
-  transform: translateY(-1px);
-  box-shadow: 0 8px 16px rgba(56, 52, 199, 0.28);
-}
-
-.btn-secondary {
-  border-color: #c8d6ea;
-  background: #eef4ff;
-  color: #324968;
-}
-
-.btn-secondary:hover {
-  background: #e4edfb;
-}
-
-.btn-ghost {
-  border-color: #d5e0ee;
-  background: #fff;
-  color: #405a79;
-}
-
-.btn-ghost:hover {
-  background: #f6f9fd;
-}
-
-.btn-danger-outline {
-  border-color: #e5bbc4 !important;
-  background: #fff6f8 !important;
-  color: #a34256 !important;
-}
-
-.btn-danger-outline:hover {
-  background: #ffedf1 !important;
 }
 
 .btn-filter {

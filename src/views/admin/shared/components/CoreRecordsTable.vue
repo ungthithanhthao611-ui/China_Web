@@ -610,18 +610,18 @@ const getThumbnailFallback = (record, column) => {
               <div class="row-actions">
                 <button
                   type="button"
-                  class="btn btn-secondary"
+                  class="btn btn-secondary btn-sm"
                   @click="emit('edit', record)"
                 >
                   {{ editLabel }}
                 </button>
                 <button
                   type="button"
-                  class="btn btn-danger"
+                  class="btn btn-danger-inline"
                   :disabled="deletingId === record.id"
                   @click="emit('delete', record)"
                 >
-                  {{ deletingId === record.id ? "Đang xóa..." : "Xóa" }}
+                  {{ deletingId === record.id ? "..." : "Xóa" }}
                 </button>
               </div>
             </td>
@@ -639,6 +639,8 @@ const getThumbnailFallback = (record, column) => {
 
       <div class="pagination__actions">
         <select
+          class="form-control"
+          style="width: auto; height: 32px; font-size: 12px;"
           :value="pageSize"
           aria-label="Số bản ghi mỗi trang"
           @change="emit('update:pageSize', Number($event.target.value))"
@@ -649,19 +651,19 @@ const getThumbnailFallback = (record, column) => {
         </select>
         <button
           type="button"
-          class="btn btn-secondary"
+          class="btn btn-secondary btn-sm"
           :disabled="currentPage <= 1"
           @click="emit('set-page', currentPage - 1)"
         >
-          Trang trước
+          Trước
         </button>
         <button
           type="button"
-          class="btn btn-secondary"
+          class="btn btn-secondary btn-sm"
           :disabled="currentPage >= totalPages"
           @click="emit('set-page', currentPage + 1)"
         >
-          Trang tiếp
+          Sau
         </button>
       </div>
     </div>

@@ -79,11 +79,11 @@ if (getStoredAdminToken() && route.name === 'AdminLogin') {
 <template>
   <section class="admin-login">
     <div class="login-card">
-      <p class="eyebrow">Admin Access</p>
-      <h1>CHINA ADMIN</h1>
-      <p class="hint">Sign in with your admin account to manage menu and content data.</p>
+      <p class="eyebrow">Quản Trị Hệ Thống</p>
+      <h1>CÔNG TY TNHH THƯƠNG MẠI QUỐC TẾ THIÊN ĐỒNG VIỆT NAM</h1>
+      <p class="hint">Đăng nhập tài khoản quản trị để quản lý nội dung và dữ liệu hệ thống.</p>
 
-      <label for="admin-login-username">Username</label>
+      <label for="admin-login-username">Tên đăng nhập</label>
       <input
         id="admin-login-username"
         v-model="username"
@@ -93,7 +93,7 @@ if (getStoredAdminToken() && route.name === 'AdminLogin') {
         @keyup.enter="handleLogin"
       />
 
-      <label for="admin-login-password">Password</label>
+      <label for="admin-login-password">Mật khẩu</label>
       <input
         id="admin-login-password"
         v-model="password"
@@ -106,7 +106,7 @@ if (getStoredAdminToken() && route.name === 'AdminLogin') {
       <p v-if="errorMessage" class="error">{{ errorMessage }}</p>
 
       <button type="button" :disabled="loading" @click="handleLogin">
-        {{ loading ? 'Signing in...' : 'Sign In' }}
+        {{ loading ? 'Đang đăng nhập...' : 'Đăng Nhập' }}
       </button>
     </div>
   </section>
@@ -146,9 +146,12 @@ if (getStoredAdminToken() && route.name === 'AdminLogin') {
 
 h1 {
   margin: 0;
-  font-size: clamp(30px, 4vw, 38px);
-  line-height: 0.98;
-  color: #1e3650;
+  font-size: clamp(16px, 2.5vw, 22px);
+  line-height: 1.3;
+  color: #1e293b;
+  font-weight: 500;
+  text-transform: uppercase;
+  letter-spacing: 0.02em;
 }
 
 .hint {
@@ -159,11 +162,11 @@ h1 {
 }
 
 label {
-  color: #4c627c;
+  color: #64748b;
   font-size: 12px;
   text-transform: uppercase;
   letter-spacing: 0.08em;
-  font-weight: 700;
+  font-weight: 500;
 }
 
 input {
@@ -184,21 +187,20 @@ input:focus {
 }
 
 button {
-  margin-top: 4px;
-  border: 1px solid #2ba8d9;
+  margin-top: 12px;
+  border: 1px solid transparent;
   border-radius: var(--admin-control-radius, 14px);
   height: var(--admin-button-height, 40px);
   font-size: 13px;
-  font-weight: 700;
+  font-weight: 500;
   cursor: pointer;
   color: #fff;
-  background: linear-gradient(135deg, #2c9fd4 0%, #45bce9 100%);
-  transition: transform 0.2s ease, box-shadow 0.2s ease;
+  background: #3b82f6;
+  transition: all 0.2s ease;
 }
 
 button:hover {
-  transform: translateY(-1px);
-  box-shadow: 0 10px 18px rgba(31, 121, 168, 0.28);
+  background: #2563eb;
 }
 
 button:disabled {

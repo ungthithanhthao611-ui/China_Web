@@ -42,16 +42,16 @@ const safeDescription = computed(
     <div class="toolbar-actions">
       <button
         type="button"
-        class="btn btn-secondary"
+        class="btn btn-secondary btn-sm"
         :disabled="loading"
         @click="emit('refresh')"
       >
-        {{ loading ? 'Đang làm mới...' : 'Làm mới' }}
+        {{ loading ? '...' : 'Làm mới' }}
       </button>
       <button
         v-if="canCreate"
         type="button"
-        class="btn btn-primary"
+        class="btn btn-primary btn-sm"
         @click="emit('create')"
       >
         Thêm mới
@@ -153,14 +153,13 @@ h2 {
 
 .btn-primary {
   color: #fff;
-  background: linear-gradient(135deg, #1f7ae0 0%, #4fa7ff 100%);
-  box-shadow: 0 12px 22px rgba(31, 122, 224, 0.2);
+  background: #3b82f6;
 }
 
 .btn-secondary {
-  color: #284767;
-  background: linear-gradient(180deg, rgba(255, 255, 255, 0.98), rgba(241, 247, 252, 0.96));
-  border-color: rgba(198, 216, 233, 0.95);
+  color: #475569;
+  background: #f1f5f9;
+  border-color: #e2e8f0;
 }
 
 button:disabled {

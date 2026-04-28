@@ -1,7 +1,13 @@
 .entity-manager {
   margin-top: var(--admin-section-gap, 16px);
-  display: grid;
-  gap: var(--admin-section-gap, 16px);
+  display: flex;
+  flex-direction: column;
+  /* Main Single Card Style */
+  border-radius: var(--admin-card-radius, 16px);
+  border: var(--admin-card-border, 1px solid rgba(198, 216, 233, 0.6));
+  background: #fff;
+  box-shadow: var(--admin-card-shadow-soft, 0 8px 24px rgba(18, 43, 71, 0.04));
+  overflow: hidden; /* Giữ các góc bo tròn */
 }
 
 .records-panel--after-inline-editor {
@@ -13,12 +19,19 @@
 .records-panel,
 .upload-panel {
   position: relative;
-  border-radius: var(--admin-card-radius, 22px);
-  border: var(--admin-card-border, 1px solid rgba(198, 216, 233, 0.72));
-  background: var(--admin-card-bg, linear-gradient(180deg, rgba(255, 255, 255, 0.96), rgba(244, 249, 255, 0.94)));
-  box-shadow:
-    var(--admin-card-shadow-soft, 0 12px 28px rgba(18, 43, 71, 0.08)),
-    inset 0 1px 0 rgba(255, 255, 255, 0.82);
+  /* Remove individual card styles */
+  border-radius: 0;
+  border: 0;
+  background: transparent;
+  box-shadow: none;
+}
+
+/* Thêm Dividers giữa các khối */
+.manager-toolbar:not(:last-child),
+.filters:not(:last-child),
+.records-panel:not(:last-child),
+.upload-panel:not(:last-child) {
+  border-bottom: 1px solid rgba(198, 216, 233, 0.4);
 }
 
 .manager-toolbar::before,
@@ -88,6 +101,7 @@ h3 {
 .manager-toolbar h2 {
   font-size: var(--admin-heading-size, clamp(22px, 2vw, 30px));
   line-height: 1.08;
+  font-weight: 500; /* Bỏ in đậm */
 }
 
 .description {
@@ -202,20 +216,19 @@ textarea {
 
 .btn-primary {
   color: #fff;
-  background: linear-gradient(135deg, #1f7ae0 0%, #4fa7ff 100%);
-  box-shadow: 0 12px 22px rgba(31, 122, 224, 0.2);
+  background: #3b82f6;
 }
 
 .btn-secondary {
-  color: #284767;
-  background: linear-gradient(180deg, rgba(255, 255, 255, 0.98), rgba(241, 247, 252, 0.96));
-  border-color: rgba(198, 216, 233, 0.95);
+  color: #475569;
+  background: #f1f5f9;
+  border-color: #e2e8f0;
 }
 
 .btn-danger {
-  color: #fff;
-  background: linear-gradient(135deg, #d84762 0%, #ef7288 100%);
-  box-shadow: 0 12px 22px rgba(216, 71, 98, 0.16);
+  color: #ef4444;
+  background: #fef2f2;
+  border-color: #fee2e2;
 }
 
 button:disabled {
@@ -234,14 +247,14 @@ button:disabled {
   align-items: flex-start;
   justify-content: space-between;
   gap: 12px;
-  padding: 12px 14px;
-  border-bottom: 1px solid rgba(221, 231, 242, 0.95);
-  background: linear-gradient(180deg, rgba(251, 253, 255, 0.96), rgba(245, 250, 255, 0.92));
+  padding: 24px 32px;
+  border-bottom: 1px solid #f1f5f9;
 }
 
 .records-panel__header h3 {
   margin-top: 4px;
   font-size: var(--admin-subheading-size, clamp(20px, 1.8vw, 26px));
+  font-weight: 500; /* Bỏ in đậm */
 }
 
 .records-panel__summary {

@@ -136,7 +136,7 @@ const companyLogoUrl = computed(() => defaultLogoUrl)
 
 const contactItems = computed(() => {
   const fallbackAddressLines = [
-    'Địa chỉ: 52 Ấp Đồng Chinh, Phước Hòa,',
+    'Địa chỉ: 52 Ấp Đồng Chinh, Xã Phước Hoà,',
     'Huyện Phú Giáo, Tỉnh Bình Dương'
   ]
   const fallbackPhone = '0948.929.744'

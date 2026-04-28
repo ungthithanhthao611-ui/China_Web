@@ -12,7 +12,7 @@ const HEADER_CONTACT_FALLBACK = Object.freeze({
   email: 'Thiendongvnit@gmail.com',
   phone: '0982 818 273',
   phoneSecondary: '0968 297 104',
-  location: '52 Ấp Đồng Chinh, Phước Hòa, Phú Giáo, Bình Dương',
+  location: '52 Ấp Đồng Chinh, Xã Phước Hoà, Huyện Phú Giáo, Tỉnh Bình Dương',
   brandPrimary: 'THIÊN ĐỒNG',
   brandSecondary: 'VIỆT NAM',
 })

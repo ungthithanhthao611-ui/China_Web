@@ -1,4 +1,4 @@
-﻿<script setup>
+<script setup>
 import { onMounted, ref } from 'vue'
 
 import { env } from '@/shared/config/env'
@@ -51,7 +51,7 @@ onMounted(loadProducts)
 
 <template>
   <section class="home-products" ref="rootRef">
-    <div class="container shell home-reveal" :class="{ 'is-visible': isVisible }">
+    <div class="shell home-reveal" :class="{ 'is-visible': isVisible }">
       <header class="section-head" data-reveal-item>
         <p>Sản phẩm chủ lực</p>
         <h2>Sản phẩm nổi bật mới nhất</h2>
@@ -105,8 +105,10 @@ onMounted(loadProducts)
 }
 
 .shell {
-  width: min(var(--home-content-max, 1260px), calc(100% - 40px));
+  width: 100%;
+  max-width: min(1320px, calc(100% - 48px));
   margin: 0 auto;
+  padding: 0;
 }
 
 .section-head {
@@ -163,27 +165,39 @@ onMounted(loadProducts)
   line-height: 1.5;
 }
 
+/* ── Product card row – pure Flexbox ── */
 .grid {
-  display: grid;
-  grid-template-columns: repeat(4, minmax(0, 1fr));
-  gap: clamp(9px, 0.82vw, 12px);
+  display: flex;
+  flex-wrap: wrap;
+  gap: 16px;
   margin-top: 32px;
+  align-items: stretch;
 }
 
 .card {
-  display: grid;
-  grid-template-rows: auto 1fr;
+  /* Desktop: 4 cột — trừ gap 3×16px = 48px chia cho 4 */
+  flex: 1 1 calc(25% - 12px);
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
   border-radius: 16px;
   border: 1px solid rgba(17, 24, 39, 0.06);
   background: #fff;
   overflow: hidden;
   box-shadow: 0 14px 32px rgba(17, 24, 39, 0.06);
+  transition: box-shadow 0.22s ease, transform 0.22s ease;
+}
+
+.card:hover {
+  box-shadow: 0 20px 48px rgba(17, 24, 39, 0.12);
+  transform: translateY(-3px);
 }
 
 .visual {
   position: relative;
-  aspect-ratio: 1/1;
+  aspect-ratio: 4/3;
   background: linear-gradient(160deg, #f3f5f8, #e9edf3);
+  flex-shrink: 0;
 }
 
 .visual img {
@@ -222,10 +236,11 @@ onMounted(loadProducts)
 }
 
 .body {
-  display: grid;
-  grid-template-rows: auto auto 1fr auto;
-  gap: 7px;
-  padding: 10px 10px 9px;
+  display: flex;
+  flex-direction: column;
+  flex: 1;
+  gap: 8px;
+  padding: 14px 14px 12px;
 }
 
 .category {
@@ -251,15 +266,21 @@ onMounted(loadProducts)
 }
 
 .summary {
+  flex: 1;
   margin: 0;
   color: #4b5563;
   font-size: 13px;
   line-height: 1.7;
   font-family: var(--home-font-body, 'Segoe UI', Arial, sans-serif);
+  display: -webkit-box;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 4;
+  overflow: hidden;
 }
 
 .card-foot {
-  margin-top: 2px;
+  margin-top: auto;
+  padding-top: 10px;
   display: flex;
   align-items: center;
   justify-content: space-between;
@@ -325,9 +346,10 @@ onMounted(loadProducts)
   font-weight: 800;
 }
 
-@media (max-width: 1200px) {
-  .grid {
-    grid-template-columns: repeat(2, minmax(0, 1fr));
+/* ── Tablet: 2 cột ── */
+@media (max-width: 900px) {
+  .card {
+    flex: 1 1 calc(50% - 8px);
   }
 
   .section-head::before,
@@ -336,10 +358,11 @@ onMounted(loadProducts)
   }
 
   .body h3 {
-    font-size: clamp(17px, 1.8vw, 21px);
+    font-size: clamp(17px, 2.4vw, 21px);
   }
 }
 
+/* ── Mobile chung ── */
 @media (max-width: 767px) {
   .home-products {
     padding: 44px 0 54px;
@@ -371,8 +394,7 @@ onMounted(loadProducts)
   }
 
   .grid {
-    grid-template-columns: repeat(2, minmax(0, 1fr));
-    gap: 9px;
+    gap: 12px;
     margin-top: 16px;
   }
 
@@ -381,7 +403,7 @@ onMounted(loadProducts)
   }
 
   .body {
-    padding: 10px 10px 12px;
+    padding: 12px;
     gap: 6px;
   }
 
@@ -392,12 +414,9 @@ onMounted(loadProducts)
 
   .summary {
     font-size: 11.5px;
-    line-height: 1.45;
-    display: -webkit-box;
-    -webkit-box-orient: vertical;
-    -webkit-line-clamp: 6;
+    line-height: 1.5;
+    -webkit-line-clamp: 4;
     overflow: hidden;
-    min-height: calc(1.45em * 6);
   }
 
   .cat-badge {
@@ -406,10 +425,6 @@ onMounted(loadProducts)
     min-height: 26px;
     padding: 0 9px;
     font-size: 9px;
-  }
-
-  .card-foot {
-    margin-top: 0;
   }
 
   .detail-link {
@@ -436,14 +451,22 @@ onMounted(loadProducts)
   }
 }
 
-@media (max-width: 480px) {
+/* ── Mobile nhỏ: 1 cột ── */
+@media (max-width: 600px) {
+  .card {
+    flex: 1 1 100%;
+  }
+
   .section-head h2 {
-    font-size: 33px;
+    font-size: 30px;
+  }
+
+  .visual {
+    aspect-ratio: 16/9;
   }
 
   .summary {
-    -webkit-line-clamp: 5;
-    min-height: calc(1.45em * 5);
+    -webkit-line-clamp: 3;
   }
 }
 </style>

@@ -404,29 +404,27 @@ onBeforeUnmount(() => {
           <div v-if="activeSection === 'dashboard'">
             <p class="eyebrow">{{ currentSectionMeta.eyebrow }}</p>
             <h1>{{ currentTitle }}</h1>
-            <p>{{ currentBreadcrumb }}</p>
           </div>
           <div v-else>
-            <!-- Chỉ hiện Breadcrumb khi vào module để tránh 2 cái tiêu đề to đè nhau -->
             <p class="breadcrumb-mini">{{ currentBreadcrumb }}</p>
           </div>
         </div>
 
         <div class="session-panel">
           <div class="session-card">
-            <strong>{{ userLabel }}</strong>
-            <span>{{ userRole }}</span>
+            <span class="user-name">{{ userLabel }}</span>
+            <span class="user-role">{{ userRole }}</span>
           </div>
           <button 
             v-if="activeSection === 'dashboard'"
-            class="btn btn-secondary" 
+            class="btn btn-secondary btn-sm" 
             type="button" 
             @click="loadDashboardSummary" 
             :disabled="loadingSummary"
           >
-            {{ loadingSummary ? 'Refreshing...' : 'Refresh' }}
+            {{ loadingSummary ? '...' : 'Làm mới' }}
           </button>
-          <button class="btn btn-primary" type="button" @click="handleLogout">Logout</button>
+          <button class="btn btn-primary btn-sm" type="button" @click="handleLogout">Đăng xuất</button>
         </div>
       </header>
 
@@ -613,13 +611,10 @@ onBeforeUnmount(() => {
   width: var(--admin-sidebar-width);
   height: 100vh;
   overflow-y: auto;
-  padding: var(--admin-sidebar-padding) var(--admin-sidebar-padding) 14px;
+  padding: 24px 16px;
   color: #fff;
-  background:
-    linear-gradient(180deg, rgba(10, 24, 45, 0.96) 0%, rgba(16, 39, 68, 0.94) 48%, rgba(20, 52, 88, 0.92) 100%),
-    radial-gradient(circle at top right, rgba(88, 163, 255, 0.22), transparent 28%);
-  border-right: 1px solid rgba(255, 255, 255, 0.08);
-  box-shadow: 14px 0 30px rgba(9, 24, 42, 0.14);
+  background: #0f172a;
+  border-right: 1px solid rgba(255, 255, 255, 0.05);
   z-index: 20;
 }
 
@@ -673,11 +668,9 @@ onBeforeUnmount(() => {
 }
 
 .nav-group {
-  padding: 10px;
-  border-radius: 14px;
-  background: rgba(255, 255, 255, 0.04);
-  border: 1px solid rgba(255, 255, 255, 0.06);
-  backdrop-filter: blur(10px);
+  padding: 0;
+  background: transparent;
+  border: 0;
 }
 
 .nav-group-title {
@@ -731,9 +724,8 @@ onBeforeUnmount(() => {
 }
 
 .nav-item.active {
-  border-color: rgba(255, 255, 255, 0.16);
-  background: linear-gradient(135deg, rgba(45, 129, 231, 0.9) 0%, rgba(77, 194, 238, 0.92) 100%);
-  box-shadow: 0 8px 14px rgba(35, 111, 205, 0.2);
+  background: #3b82f6;
+  color: #fff;
 }
 
 .nav-subitems {

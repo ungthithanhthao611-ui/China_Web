@@ -1480,131 +1480,140 @@ watch(
 
 <template>
   <section class="about-admin-shell">
-    <header class="about-admin-hero panel">
-      <div class="about-admin-hero__copy">
-        <p class="eyebrow">About CMS Workspace</p>
-        <h1>Quản lý toàn bộ trang Giới thiệu theo section</h1>
-        <p class="about-admin-hero__text">
-          Bản 2 đã chuyển sang form nghiệp vụ theo từng block: admin gần như không còn phải nhìn
-          thấy item_key kỹ thuật, chỉ tập trung vào nội dung thật sự của từng section.
-        </p>
+    <div class="ultimate-clean-workspace">
+      <!-- 1. Header & Stats -->
+      <header class="about-admin-hero">
+        <div class="about-admin-hero__copy">
+          <p class="eyebrow">About CMS Workspace</p>
+          <h1>Quản lý toàn bộ trang Giới thiệu theo section</h1>
+          <p class="about-admin-hero__text">
+            Bản 2 đã chuyển sang form nghiệp vụ theo từng block: tập trung vào nội dung thật sự của từng section.
+          </p>
+        </div>
+
+        <div class="about-admin-hero__stats">
+          <article class="hero-stat-card">
+            <span class="hero-stat-card__label">Section</span>
+            {{ dashboardSummary.sections }}
+          </article>
+          <article class="hero-stat-card">
+            <span class="hero-stat-card__label">Block</span>
+            {{ dashboardSummary.blocks }}
+          </article>
+          <article class="hero-stat-card">
+            <span class="hero-stat-card__label">Item</span>
+            {{ dashboardSummary.items }}
+          </article>
+          <article class="hero-stat-card hero-stat-card--warning">
+            <span class="hero-stat-card__label">Thiếu ảnh</span>
+            {{ dashboardSummary.missingImage }}
+          </article>
+        </div>
+      </header>
+
+      <!-- 2. Filter Toolbar -->
+      <section class="about-admin-toolbar">
+        <div class="toolbar-grid">
+          <label class="toolbar-field" for="about-section-filter">
+            <span>Section</span>
+            <select id="about-section-filter" v-model="activeSectionFilter">
+              <option value="all">Tất cả section</option>
+              <option v-for="section in sectionDefinitions" :key="section.key" :value="section.key">
+                {{ section.label }}
+              </option>
+            </select>
+          </label>
+
+          <label class="toolbar-field" for="about-completeness-filter">
+            <span>Trạng thái dữ liệu</span>
+            <select id="about-completeness-filter" v-model="completenessFilter">
+              <option value="all">Tất cả</option>
+              <option value="missing_content">Thiếu nội dung</option>
+              <option value="missing_image">Thiếu ảnh</option>
+              <option value="missing_link">Thiếu link</option>
+              <option value="complete">Đủ dữ liệu chính</option>
+            </select>
+          </label>
+
+          <label class="toolbar-field toolbar-field--wide" for="about-keyword-filter">
+            <span>Tìm theo nội dung</span>
+            <input
+              id="about-keyword-filter"
+              v-model="keywordFilter"
+              type="text"
+              placeholder="Ví dụ: sứ mệnh, lịch sử, đối tác, tổng giám đốc..."
+            />
+          </label>
+        </div>
+
+        <div class="toolbar-actions">
+          <button type="button" class="btn btn-secondary" @click="resetFilters">Reset filter</button>
+          <button type="button" class="btn btn-secondary" @click="collapseAllSections">Thu gọn tất cả</button>
+          <button type="button" class="btn btn-secondary" @click="expandAllSections">Mở tất cả</button>
+          <button type="button" class="btn btn-primary" :disabled="loading" @click="refreshAll">
+            {{ loading ? 'Đang tải...' : 'Làm mới dữ liệu' }}
+          </button>
+        </div>
+      </section>
+
+      <!-- 3. List Sections -->
+      <div v-if="loading" class="about-admin-empty">
+        <p>Đang tải dữ liệu...</p>
       </div>
-
-      <div class="about-admin-hero__stats">
-        <article class="hero-stat-card">
-          <span class="hero-stat-card__label">Section</span>
-          <strong>{{ dashboardSummary.sections }}</strong>
-        </article>
-        <article class="hero-stat-card">
-          <span class="hero-stat-card__label">Block</span>
-          <strong>{{ dashboardSummary.blocks }}</strong>
-        </article>
-        <article class="hero-stat-card">
-          <span class="hero-stat-card__label">Item</span>
-          <strong>{{ dashboardSummary.items }}</strong>
-        </article>
-        <article class="hero-stat-card hero-stat-card--warning">
-          <span class="hero-stat-card__label">Thiếu ảnh</span>
-          <strong>{{ dashboardSummary.missingImage }}</strong>
-        </article>
+      <div v-else-if="!sectionCards.length" class="about-admin-empty">
+        <p>Không có dữ liệu khớp bộ lọc</p>
       </div>
-    </header>
+      <div v-else class="about-admin-sections-list">
+        <article
+          v-for="section in sectionCards"
+          :key="section.key"
+          class="section-workspace"
+          :class="[{ 'section-workspace--active': isSectionExpanded(section.key) }, section.accentClass]"
+          :id="`about-section-${section.key}`"
+        >
+          <header class="section-card__summary">
+            <div class="section-card__main">
+              <div class="section-thumb-clean" :class="{ 'section-thumb-clean--empty': !section.image_id }">
+                <img
+                  v-if="section.image_id"
+                  :src="resolveMediaUrl(getMediaPreview(section.image_id)?.url)"
+                  :alt="section.label"
+                />
+                <div v-else class="section-thumb-clean__placeholder">
+                  <span>{{ section.label.slice(0, 1) }}</span>
+                </div>
+              </div>
 
-    <section class="about-admin-toolbar panel">
-      <div class="toolbar-grid">
-        <label class="toolbar-field" for="about-section-filter">
-          <span>Section</span>
-          <select id="about-section-filter" v-model="activeSectionFilter">
-            <option value="all">Tất cả section</option>
-            <option v-for="section in sectionDefinitions" :key="section.key" :value="section.key">
-              {{ section.label }}
-            </option>
-          </select>
-        </label>
+              <div class="section-card__info">
+                <p class="section-card__eyebrow">{{ section.eyebrow || 'Module' }}</p>
+                <h2>{{ section.label }}</h2>
+                <div class="section-card__stats">
+                  <span class="section-chip">{{ section.counts.blocks }} blocks</span>
+                  <span class="section-chip">{{ section.counts.items }} items</span>
+                </div>
+              </div>
+            </div>
 
-        <label class="toolbar-field" for="about-completeness-filter">
-          <span>Trạng thái dữ liệu</span>
-          <select id="about-completeness-filter" v-model="completenessFilter">
-            <option value="all">Tất cả</option>
-            <option value="missing_content">Thiếu nội dung</option>
-            <option value="missing_image">Thiếu ảnh</option>
-            <option value="missing_link">Thiếu link</option>
-            <option value="complete">Đủ dữ liệu chính</option>
-          </select>
-        </label>
+            <div class="section-card__actions">
+              <button
+                v-if="section.previewHref"
+                type="button"
+                class="btn btn-ghost btn-sm"
+                @click="openPreview(section.previewHref)"
+              >
+                Xem
+              </button>
+              <button
+                type="button"
+                class="btn btn-secondary btn-sm"
+                @click="toggleSection(section.key)"
+              >
+                {{ isSectionExpanded(section.key) ? 'Thu gọn' : 'Chỉnh sửa' }}
+              </button>
+            </div>
+          </header>
 
-        <label class="toolbar-field toolbar-field--wide" for="about-keyword-filter">
-          <span>Tìm theo nội dung</span>
-          <input
-            id="about-keyword-filter"
-            v-model="keywordFilter"
-            type="text"
-            placeholder="Ví dụ: sứ mệnh, lịch sử, đối tác, tổng giám đốc..."
-          />
-        </label>
-      </div>
-
-      <div class="toolbar-actions">
-        <button type="button" class="btn btn-secondary" @click="resetFilters">Reset filter</button>
-        <button type="button" class="btn btn-secondary" @click="collapseAllSections">Thu gọn tất cả</button>
-        <button type="button" class="btn btn-secondary" @click="expandAllSections">Mở tất cả</button>
-        <button type="button" class="btn btn-primary" :disabled="loading" @click="refreshAll">
-          {{ loading ? 'Đang tải...' : 'Làm mới dữ liệu' }}
-        </button>
-      </div>
-    </section>
-
-    <section v-if="loading" class="about-admin-empty panel">
-      <h2>Đang tải workspace About...</h2>
-      <p>Hệ thống đang dựng form chuyên biệt cho từng block nội dung.</p>
-    </section>
-
-    <section v-else-if="!sectionCards.length" class="about-admin-empty panel">
-      <h2>Không có dữ liệu khớp bộ lọc</h2>
-      <p>Hãy đổi filter hoặc làm mới dữ liệu để tiếp tục quản trị trang Giới thiệu.</p>
-    </section>
-
-    <section v-else class="about-admin-sections">
-      <article
-        v-for="section in sectionCards"
-        :key="section.key"
-        class="section-workspace panel"
-        :class="section.accentClass"
-        :id="`about-section-${section.key}`"
-      >
-        <header class="section-workspace__header">
-          <div>
-            <p class="eyebrow">{{ section.label }}</p>
-            <h2>{{ section.label }}</h2>
-            <p class="section-workspace__summary">
-              {{ section.counts.blocks }} block · {{ section.counts.items }} item ·
-              {{ section.counts.missingContent }} thiếu nội dung ·
-              {{ section.counts.missingImage }} thiếu ảnh
-            </p>
-          </div>
-
-          <div class="section-workspace__actions">
-            <a
-              v-if="section.previewHref"
-              :href="section.previewHref"
-              class="btn btn-ghost"
-              target="_blank"
-              rel="noreferrer"
-            >
-              Xem ngoài web
-            </a>
-            <button
-              type="button"
-              class="btn btn-secondary"
-              :aria-expanded="isSectionExpanded(section.key)"
-              @click="toggleSection(section.key)"
-            >
-              {{ isSectionExpanded(section.key) ? 'Thu gọn' : 'Mở section' }}
-            </button>
-          </div>
-        </header>
-
-        <div v-if="isSectionExpanded(section.key)" class="section-workspace__body">
+          <div v-if="isSectionExpanded(section.key)" class="section-workspace__body">
           <div v-if="section.previewHref" class="section-live-preview">
             <div class="section-live-preview__header">
               <div>
@@ -2442,7 +2451,8 @@ watch(
           </article>
         </div>
       </article>
-    </section>
+      </div>
+    </div>
 
     <CoreConfirmDialog
       :visible="confirmDialog.visible"
@@ -2463,14 +2473,9 @@ watch(
 .panel {
   position: relative;
   overflow: hidden;
-  border: 1px solid #dbe6f3;
-  border-radius: 28px;
-  background:
-    radial-gradient(circle at top right, rgba(77, 147, 255, 0.12), transparent 30%),
-    linear-gradient(180deg, #ffffff, #f8fbff);
-  box-shadow:
-    0 20px 44px rgba(31, 55, 90, 0.08),
-    inset 0 1px 0 rgba(255, 255, 255, 0.8);
+  border: 1px solid #e2e8f0;
+  border-radius: 16px;
+  background: #ffffff;
 }
 
 .eyebrow,
@@ -2479,8 +2484,8 @@ watch(
 .section-live-preview__eyebrow {
   margin: 0 0 8px;
   font-size: 11px;
-  font-weight: 800;
-  letter-spacing: 0.18em;
+  font-weight: 500; /* Bỏ in đậm 800 */
+  letter-spacing: 0.12em;
   text-transform: uppercase;
   color: #5d7fa6;
 }
@@ -2495,8 +2500,9 @@ watch(
 .about-admin-hero__copy h1 {
   margin: 0;
   color: #14314f;
-  font-size: clamp(28px, 4vw, 40px);
+  font-size: clamp(28px, 4vw, 32px);
   line-height: 1.08;
+  font-weight: 500; /* Bỏ in đậm */
 }
 
 .about-admin-hero__text {
@@ -2515,29 +2521,30 @@ watch(
 
 .hero-stat-card {
   display: grid;
-  gap: 8px;
-  padding: 18px;
-  border-radius: 22px;
-  border: 1px solid #d6e4f2;
-  background: linear-gradient(180deg, #ffffff, #f4f8fc);
+  gap: 6px;
+  padding: 16px;
+  border-radius: 12px;
+  border: 1px solid #e2e8f0;
+  background: #f8fafc;
 }
 
 .hero-stat-card strong {
-  color: #14314f;
-  font-size: 30px;
+  color: #1e293b;
+  font-size: 24px;
   line-height: 1;
+  font-weight: 500;
 }
 
 .hero-stat-card__label {
-  color: #7189a3;
-  font-size: 12px;
+  color: #64748b;
+  font-size: 11px;
   text-transform: uppercase;
-  letter-spacing: 0.14em;
+  letter-spacing: 0.1em;
 }
 
 .hero-stat-card--warning {
-  border-color: #ffd6b8;
-  background: linear-gradient(180deg, #fff6ef, #fffaf5);
+  border-color: #fed7aa;
+  background: #fffaf5;
 }
 
 .about-admin-toolbar {
@@ -2564,7 +2571,7 @@ watch(
 .upload-inline span {
   color: #5e7793;
   font-size: 12px;
-  font-weight: 700;
+  font-weight: 500; /* Bỏ in đậm */
   letter-spacing: 0.04em;
 }
 
@@ -2577,13 +2584,76 @@ watch(
   background: linear-gradient(180deg, rgba(47, 124, 255, 0.06), rgba(85, 178, 255, 0.03));
 }
 
+.section-card__summary {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 12px 24px;
+  gap: 20px;
+}
+
+.section-card__main {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  flex: 1;
+}
+
+.section-card__info h2 {
+  margin: 0;
+  font-size: 16px;
+  font-weight: 500;
+  color: #1e293b;
+}
+
+.section-thumb-clean {
+  width: 80px;
+  height: 50px;
+  border-radius: 4px;
+  overflow: hidden;
+  background: #f8fafc;
+  border: 1px solid #f1f5f9;
+}
+
+.section-thumb-clean img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.section-card__actions {
+  display: flex;
+  flex-direction: row;
+  align-items: center;
+  gap: 8px;
+}
+
+.btn-sm {
+  padding: 6px 12px;
+  font-size: 13px;
+  height: 32px;
+  min-width: auto;
+}
+
+.section-chip {
+  display: inline-flex;
+  align-items: center;
+  height: 26px;
+  padding: 0 10px;
+  border-radius: 4px;
+  background: #f1f5f9;
+  color: #475569;
+  font-size: 11px;
+  font-weight: 400;
+}
+
 .upload-target-preview__label {
   margin: 0;
-  font-size: 11px;
-  font-weight: 700;
-  letter-spacing: 0.08em;
+  font-size: 10px;
+  font-weight: 500;
+  letter-spacing: 0.06em;
   text-transform: uppercase;
-  color: #2f5f95;
+  color: #64748b;
 }
 
 .upload-target-preview code {
@@ -2591,6 +2661,59 @@ watch(
   line-height: 1.5;
   color: #14314f;
   word-break: break-all;
+}
+
+/* --- Ultimate Clean Design --- */
+.ultimate-clean-workspace {
+  background: #fff;
+  border-radius: var(--admin-card-radius, 16px);
+  border: 1px solid rgba(198, 216, 233, 0.5);
+  box-shadow: 0 8px 32px rgba(18, 43, 71, 0.04);
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+}
+
+.about-admin-hero {
+  padding: 32px;
+  display: grid;
+  grid-template-columns: 1fr auto;
+  gap: 32px;
+  border-bottom: 1px solid rgba(198, 216, 233, 0.3);
+}
+
+.about-admin-toolbar {
+  padding: 24px 32px;
+  border-bottom: 1px solid rgba(198, 216, 233, 0.3);
+}
+
+.section-workspace:not(:last-child) {
+  border-bottom: 1px solid rgba(198, 216, 233, 0.3);
+}
+
+.section-workspace__header {
+  padding: 24px 32px;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  border-left: 3px solid transparent; /* Thanh accent mảnh hơn */
+  transition: all 0.2s ease;
+}
+
+.section-workspace.accent-hero .section-workspace__header { border-left-color: #2f89ee; }
+.section-workspace.accent-company .section-workspace__header { border-left-color: #26c9c3; }
+.section-workspace.accent-speech .section-workspace__header { border-left-color: #9b6bff; }
+.section-workspace.accent-org .section-workspace__header { border-left-color: #ff9f43; }
+
+.section-workspace:hover {
+  background: rgba(248, 251, 255, 0.6);
+}
+
+.about-admin-empty {
+  padding: 48px;
+  text-align: center;
+  color: #64748b;
+  border-bottom: 1px solid rgba(198, 216, 233, 0.3);
 }
 
 .toolbar-field input,

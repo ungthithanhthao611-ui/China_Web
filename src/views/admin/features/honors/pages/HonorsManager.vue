@@ -1,4 +1,4 @@
-﻿<script setup>
+<script setup>
 import { computed, reactive, ref, watch } from 'vue'
 
 import { uploadAdminMediaAsset } from '@/views/admin/shared/api/adminApi.js'
@@ -754,41 +754,45 @@ watch(pageSize, async (nextSize, previousSize) => {
 
 <template>
   <section class="honors-admin">
-    <header class="panel header-panel">
-      <div>
-        <p class="eyebrow">Quản trị năng lực</p>
-        <h2>{{ headerMeta.title }}</h2>
-        <p class="subtext">{{ headerMeta.description }}</p>
-      </div>
-      <div class="header-actions">
-        <button
-          v-if="showHonorsSection"
-          type="button"
-          class="btn btn-secondary"
-          :disabled="resyncingImages || loading"
-          @click="resyncHonorImages"
-        >
-          {{ resyncingImages ? 'Đang đồng bộ...' : 'Đồng bộ ảnh' }}
-        </button>
-        <button v-if="showCategorySection" type="button" class="btn btn-secondary" @click="openCreateCategoryForm">Thêm danh mục</button>
-        <button v-if="showHonorsSection" type="button" class="btn btn-primary" @click="openCreateHonorForm">Thêm mục năng lực</button>
-        <button
-          v-if="showCategorySection && !showHonorsSection"
-          type="button"
-          class="btn btn-secondary"
-          :disabled="loading"
-          @click="refreshAll"
-        >
-          {{ loading ? 'Đang tải...' : 'Làm mới' }}
-        </button>
-      </div>
-    </header>
+    <div class="ultimate-clean-workspace">
+      <!-- 1. Unified Header -->
+      <header class="intro-card">
+        <div class="intro-copy">
+          <p class="intro-eyebrow">Quản trị năng lực</p>
+          <h2>{{ headerMeta.title }}</h2>
+          <p>{{ headerMeta.description }}</p>
+        </div>
+        <div class="intro-actions">
+          <button
+            v-if="showHonorsSection"
+            type="button"
+            class="btn btn-secondary btn-sm"
+            :disabled="resyncingImages || loading"
+            @click="resyncHonorImages"
+          >
+            {{ resyncingImages ? 'Đang đồng bộ...' : 'Đồng bộ ảnh' }}
+          </button>
+          <button v-if="showCategorySection" type="button" class="btn btn-secondary btn-sm" @click="openCreateCategoryForm">Thêm danh mục</button>
+          <button v-if="showHonorsSection" type="button" class="btn btn-primary btn-sm" @click="openCreateHonorForm">Thêm mục năng lực</button>
+          <button
+            v-if="showCategorySection && !showHonorsSection"
+            type="button"
+            class="btn btn-secondary btn-sm"
+            :disabled="loading"
+            @click="refreshAll"
+          >
+            {{ loading ? 'Đang tải...' : 'Làm mới' }}
+          </button>
+        </div>
+      </header>
 
-    <section v-if="showCategorySection" class="panel category-panel">
-      <div class="panel-head">
-        <h3>Danh mục năng lực</h3>
-        <button type="button" class="btn btn-secondary" @click="openCreateCategoryForm">Tạo danh mục</button>
-      </div>
+      <section v-if="showCategorySection" class="section-list-unified">
+        <div class="editor-head" style="padding: 24px 32px 16px;">
+          <div>
+            <p class="editor-eyebrow">Phân loại</p>
+            <h4>Danh mục năng lực</h4>
+          </div>
+        </div>
       <div v-if="loading" class="empty">Đang tải danh mục...</div>
       <div v-else-if="!categories.length" class="empty">Chưa có danh mục nào.</div>
       <div v-else class="table-wrap">
@@ -833,89 +837,75 @@ watch(pageSize, async (nextSize, previousSize) => {
       </div>
     </section>
 
-    <section v-if="showHonorsSection" class="panel filters-panel">
-      <input v-model="filters.keyword" type="search" placeholder="Tìm theo tiêu đề, đơn vị cấp, mô tả..." />
-      <select v-model="filters.categoryId">
-        <option value="">Tất cả danh mục</option>
-        <option v-for="category in categories" :key="category.id" :value="category.id">{{ category.name }}</option>
-      </select>
-      <select v-model="filters.status">
-        <option value="all">Tất cả trạng thái</option>
-        <option value="active">Đang hiển thị</option>
-        <option value="inactive">Đang ẩn</option>
-      </select>
-      <select v-model.number="pageSize" :disabled="loading">
-        <option :value="10">10 / trang</option>
-        <option :value="20">20 / trang</option>
-        <option :value="50">50 / trang</option>
-      </select>
-      <button type="button" class="btn btn-secondary" :disabled="loading" @click="applyHonorsFilters">
-        {{ loading ? 'Đang tải...' : 'Áp dụng bộ lọc' }}
-      </button>
-      <button type="button" class="btn btn-secondary" :disabled="loading" @click="refreshAll">
-        {{ loading ? 'Đang tải...' : 'Làm mới' }}
-      </button>
-    </section>
+      <section v-if="showHonorsSection" class="editor-head" style="padding: 24px 32px 16px; border-top: 1px solid #f1f5f9;">
+        <div class="toolbar-grid" style="grid-template-columns: repeat(4, 1fr); gap: 12px; width: 100%;">
+          <input v-model="filters.keyword" type="search" class="form-control" placeholder="Tìm kiếm..." />
+          <select v-model="filters.categoryId" class="form-control">
+            <option value="">Tất cả danh mục</option>
+            <option v-for="category in categories" :key="category.id" :value="category.id">{{ category.name }}</option>
+          </select>
+          <select v-model="filters.status" class="form-control">
+            <option value="all">Tất cả trạng thái</option>
+            <option value="active">Đang hiển thị</option>
+            <option value="inactive">Đang ẩn</option>
+          </select>
+          <div style="display: flex; gap: 8px;">
+            <button type="button" class="btn btn-secondary btn-sm" :disabled="loading" @click="applyHonorsFilters">Lọc</button>
+            <button type="button" class="btn btn-secondary btn-sm" :disabled="loading" @click="refreshAll">Tải lại</button>
+          </div>
+        </div>
+      </section>
 
-    <section v-if="showHonorsSection" class="panel table-panel">
-      <div class="panel-head">
-        <h3>Mục năng lực</h3>
-        <button type="button" class="btn btn-primary" @click="openCreateHonorForm">Tạo mục năng lực</button>
-      </div>
-      <div v-if="loading" class="empty">Đang tải dữ liệu năng lực...</div>
-      <div v-else-if="!honors.length" class="empty">Chưa có mục năng lực nào.</div>
-      <div v-else class="table-wrap">
-        <table>
-          <thead>
-            <tr>
-              <th>Hình ảnh</th>
-              <th>Tiêu đề</th>
-              <th>Danh mục</th>
-              <th>Năm</th>
-              <th>Thứ tự</th>
-              <th>Trạng thái</th>
-              <th>Thao tác</th>
-            </tr>
-          </thead>
-          <tbody>
-            <tr v-for="item in honors" :key="item.id" class="honor-row">
-              <td data-label="Hình ảnh">
-                <img
-                  v-if="item.image_url && !brokenImageIds.has(item.id)"
-                  class="thumb"
-                  :src="resolveImageUrl(item.image_url)"
-                  :alt="item.title"
-                  @error="onHonorImageError(item.id)"
-                />
-                <div v-else class="thumb thumb-empty">Chưa có ảnh</div>
-              </td>
-              <td data-label="Tiêu đề">
-                <p class="title">{{ item.title }}</p>
-                <p class="meta">{{ item.issued_by || 'Chưa có đơn vị cấp' }}</p>
-              </td>
-              <td data-label="Danh mục">{{ categoryName(item.category_id) }}</td>
-              <td data-label="Năm">{{ item.year || '-' }}</td>
-              <td data-label="Thứ tự">{{ item.sort_order || 0 }}</td>
-              <td data-label="Trạng thái">
-                <span :class="statusBadgeClass(item.is_active)">{{ item.is_active ? 'Đang hiển thị' : 'Đang ẩn' }}</span>
-              </td>
-              <td data-label="Thao tác">
-                <div class="actions">
-                  <button type="button" class="btn btn-secondary" @click="openEditHonorForm(item)">Sửa</button>
-                  <button
-                    type="button"
-                    class="btn btn-secondary"
-                    @click="onToggleHonorActive(item, !item.is_active)"
-                  >
-                    {{ item.is_active ? 'Ẩn' : 'Hiển thị' }}
+      <section v-if="showHonorsSection" class="section-list-unified">
+        <div class="table-wrap">
+          <table class="ultimate-table">
+            <thead>
+              <tr>
+                <th style="width: 80px;">Ảnh</th>
+                <th>Thông tin năng lực</th>
+                <th style="width: 180px;">Danh mục</th>
+                <th style="width: 80px;">Trạng thái</th>
+                <th style="width: 180px;">Thao tác</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr v-for="item in honors" :key="item.id" class="honor-row">
+                <td>
+                  <div class="section-thumb-clean" style="width: 60px; height: 40px;">
+                    <img
+                      v-if="item.image_url && !brokenImageIds.has(item.id)"
+                      :src="resolveImageUrl(item.image_url)"
+                      :alt="item.title"
+                      @error="onHonorImageError(item.id)"
+                    />
+                    <div v-else class="section-thumb-clean__placeholder" style="font-size: 16px;">
+                      <span>{{ item.title.slice(0, 1) }}</span>
+                    </div>
+                  </div>
+                </td>
+                <td>
+                  <div class="table-cell-title">
+                    <span>{{ item.title }}</span>
+                    <p class="table-cell-subtext" style="font-weight: normal;">{{ item.issued_by || 'Chưa có đơn vị cấp' }}</p>
+                  </div>
+                </td>
+                <td>{{ categoryName(item.category_id) }}</td>
+                <td>
+                  <span :class="item.is_active ? 'badge badge-active' : 'badge badge-inactive'">
+                    {{ item.is_active ? 'Bật' : 'Ẩn' }}
+                  </span>
+                </td>
+                <td class="table-actions">
+                  <button type="button" class="btn btn-secondary btn-sm" @click="openEditHonorForm(item)">Sửa</button>
+                  <button type="button" class="btn btn-secondary btn-sm" @click="onToggleHonorActive(item, !item.is_active)">
+                    {{ item.is_active ? 'Ẩn' : 'Bật' }}
                   </button>
-                  <button type="button" class="btn btn-danger" @click="removeHonor(item)">Xóa</button>
-                </div>
-              </td>
-            </tr>
-          </tbody>
-        </table>
-      </div>
+                  <button type="button" class="btn btn-danger btn-sm" @click="removeHonor(item)">Xóa</button>
+                </td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
       <div v-if="totalRecords > 0" class="table-pagination">
         <p class="pagination-meta">
           Tổng {{ totalRecords }} bản ghi • Trang {{ currentPage }} / {{ totalPages }}
@@ -1143,214 +1133,136 @@ watch(pageSize, async (nextSize, previousSize) => {
       @cancel="cancelConfirmDialog"
       @accept="acceptConfirmDialog"
     />
+    </div>
   </section>
 </template>
 
 <style scoped>
 @import '@/views/admin/shared/components/AdminCoreEditor.css';
+
 .honors-admin {
-  margin-top: var(--admin-section-gap, 16px);
   display: grid;
-  gap: var(--admin-section-gap, 16px);
+  gap: 24px;
 }
 
-.panel {
-  background: rgba(255, 255, 255, 0.9);
-  border: 1px solid #d7e5f2;
-  border-radius: var(--admin-card-radius, 22px);
-  box-shadow: var(--admin-card-shadow-soft, 0 10px 24px rgba(19, 41, 67, 0.08));
-  padding: var(--admin-panel-padding, 16px);
+.ultimate-clean-workspace {
+  background: #fff;
+  border-radius: 12px;
+  border: 1px solid #e2e8f0;
+  overflow: hidden;
 }
 
-.header-panel {
+.intro-card {
+  padding: 24px 32px;
   display: flex;
   justify-content: space-between;
-  gap: 14px;
-  align-items: flex-start;
+  align-items: center;
+  border-bottom: 1px solid #f1f5f9;
 }
 
-.header-actions {
+.intro-copy h2 {
+  margin: 4px 0;
+  font-size: 22px;
+  font-weight: 500;
+  color: #1e293b;
+}
+
+.intro-copy p {
+  margin: 0;
+  font-size: 13px;
+  color: #64748b;
+}
+
+.intro-eyebrow, .editor-eyebrow {
+  font-size: 11px;
+  font-weight: 500;
+  text-transform: uppercase;
+  color: #94a3b8;
+  letter-spacing: 0.05em;
+}
+
+.intro-actions {
   display: flex;
   gap: 8px;
 }
 
-.panel-head {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 12px;
-  margin-bottom: 10px;
-}
-
-.panel-head h3 {
-  margin: 0;
-  color: #1f3850;
-  font-size: var(--admin-subheading-size, clamp(20px, 1.8vw, 26px));
-}
-
-.eyebrow {
-  margin: 0;
-  font-size: var(--admin-label-size, 11px);
-  text-transform: uppercase;
-  letter-spacing: 0.08em;
-  color: #59799c;
-}
-
-.header-panel h2 {
-  margin: 4px 0 0;
-  color: #203a55;
-  font-size: var(--admin-heading-size, clamp(22px, 2vw, 30px));
-  line-height: 1.08;
-}
-
-.subtext {
-  margin: 6px 0 0;
-  color: #617f9d;
-  font-size: var(--admin-body-size, 14px);
-  line-height: 1.55;
-}
-
-.filters-panel {
-  display: grid;
-  grid-template-columns: 1.5fr 1fr 1fr 130px auto auto;
-  gap: 10px;
-}
-
-input,
-select,
-textarea {
-  min-height: var(--admin-control-height, 42px);
-  border: 1px solid #cddced;
-  border-radius: var(--admin-control-radius, 14px);
-  padding: 10px 12px;
-  font: inherit;
-}
-
-textarea {
-  resize: vertical;
-  min-height: 100px;
-}
-
-.btn {
-  min-height: var(--admin-button-height, 40px);
-  border-radius: var(--admin-control-radius, 14px);
-  border: 1px solid transparent;
-  padding: 0 14px;
-  cursor: pointer;
-  font-weight: 700;
-  font-size: 13px;
-}
-
-.btn-primary {
-  color: #fff;
-  background: linear-gradient(135deg, #1f8ec9, #43b7e9);
-}
-
-.btn-secondary {
-  color: #2f4e6f;
-  background: #f3f7fb;
-  border-color: #ccdbec;
-}
-
-.btn-danger {
-  color: #a33345;
-  background: #fff1f3;
-  border-color: #edbbc4;
+.section-list-unified {
+  padding: 0;
 }
 
 .table-wrap {
+  padding: 0 32px 32px;
   overflow-x: auto;
 }
 
-table {
+.ultimate-table {
   width: 100%;
   border-collapse: collapse;
-  min-width: 980px;
 }
 
-th,
-td {
-  border-bottom: 1px solid #e4edf6;
-  padding: 9px 10px;
-  vertical-align: top;
+.ultimate-table th {
   text-align: left;
-  color: #24405d;
-}
-
-th {
-  color: #4d6a88;
-  font-size: 13px;
-}
-
-.thumb {
-  width: 96px;
-  height: 72px;
-  border-radius: 10px;
-  object-fit: cover;
-  border: 1px solid #d7e4f1;
-}
-
-.thumb-empty {
-  display: grid;
-  place-items: center;
+  padding: 12px 16px;
   font-size: 12px;
-  color: #6f89a3;
-  background: #f4f8fc;
+  font-weight: 500;
+  color: #64748b;
+  border-bottom: 1px solid #f1f5f9;
+  background: #f8fafc;
 }
 
-.title {
-  margin: 0;
-  font-weight: 700;
+.ultimate-table td {
+  padding: 12px 16px;
+  font-size: 14px;
+  color: #334155;
+  border-bottom: 1px solid #f1f5f9;
 }
 
-.meta {
-  margin: 4px 0 0;
-  color: #6784a0;
-  font-size: 13px;
+.table-cell-title span {
+  display: block;
+  font-weight: 500;
+  color: #1e293b;
+}
+
+.table-cell-subtext {
+  font-size: 12px;
+  color: #94a3b8;
+  margin-top: 2px;
+}
+
+.table-actions {
+  display: flex;
+  gap: 6px;
 }
 
 .badge {
   display: inline-flex;
-  padding: 4px 8px;
+  padding: 4px 10px;
   border-radius: 999px;
   font-size: 11px;
-  font-weight: 700;
+  font-weight: 500;
 }
 
 .badge-active {
-  background: #e9f9ef;
-  color: #1e7d44;
+  background: #f0fdf4;
+  color: #16a34a;
+  border: 1px solid #bbf7d0;
 }
 
 .badge-inactive {
-  background: #fff2f4;
-  color: #ad3f50;
-}
-
-.actions {
-  display: flex;
-  gap: 8px;
-  flex-wrap: wrap;
-}
-
-.empty {
-  text-align: center;
-  color: #5f7a97;
-  padding: 16px;
+  background: #fef2f2;
+  color: #dc2626;
+  border: 1px solid #fecaca;
 }
 
 .table-pagination {
-  margin-top: 12px;
+  margin: 16px 32px 32px;
   display: flex;
   justify-content: space-between;
   align-items: center;
-  gap: 12px;
-  flex-wrap: wrap;
 }
 
 .pagination-meta {
-  margin: 0;
-  color: #5f7a97;
+  color: #64748b;
   font-size: 13px;
 }
 
@@ -1359,262 +1271,77 @@ th {
   gap: 8px;
 }
 
-.overlay {
-  position: fixed;
-  inset: 0;
-  background: rgba(13, 27, 42, 0.45);
-  z-index: 50;
-  padding: 16px;
+.form-control {
+  height: 38px;
+  border: 1px solid #e2e8f0;
+  border-radius: 8px;
+  padding: 0 12px;
+  font-size: 14px;
+  color: #1e293b;
+  width: 100%;
+}
+
+.form-control:focus {
+  outline: none;
+  border-color: #3b82f6;
+  box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.1);
+}
+
+.section-thumb-clean {
+  border-radius: 8px;
+  border: 1px solid #f1f5f9;
+  overflow: hidden;
+  background: #f8fafc;
+}
+
+.section-thumb-clean img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.section-thumb-clean__placeholder {
   display: grid;
   place-items: center;
+  height: 100%;
+  color: #94a3b8;
+  font-weight: 500;
 }
 
-.form-panel,
-.category-form-panel {
-  width: min(980px, 100%);
-  max-height: calc(100vh - 32px);
-  overflow: auto;
-}
-
-.category-form-panel {
-  width: min(760px, 100%);
-}
-
-.form-head {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-}
-
-.form-head h3 {
-  margin: 0;
-  color: #203a55;
-  font-size: var(--admin-subheading-size, clamp(20px, 1.8vw, 26px));
-}
-
-.icon-btn {
-  width: 36px;
-  height: 36px;
-  border: 1px solid #cfdeee;
-  border-radius: 10px;
-  background: #fff;
-  cursor: pointer;
-  font-size: 20px;
-  line-height: 1;
-}
-
-.errors {
-  margin-top: 10px;
-  border: 1px solid #edbcc5;
-  border-radius: 12px;
-  background: #fff0f3;
-  color: #a13749;
-  padding: 10px;
-}
-
-.errors p {
-  margin: 0;
-}
-
-.upload-row {
-  margin-top: 12px;
-  display: grid;
-  grid-template-columns: 1fr 1fr 1fr auto;
-  gap: 8px;
-}
-
-.upload-feedback {
-  margin-top: 8px;
-  display: grid;
-  gap: 6px;
-}
-
-.upload-badge {
-  display: inline-flex;
-  width: fit-content;
-  min-height: 28px;
-  align-items: center;
-  padding: 0 10px;
-  border-radius: 999px;
+.btn-secondary-inline, .btn-danger-inline, .btn-soft-inline {
+  padding: 6px 12px;
   font-size: 12px;
-  font-weight: 700;
+  border-radius: 6px;
   border: 1px solid transparent;
+  cursor: pointer;
+  font-weight: 500;
+  transition: all 0.2s;
 }
 
-.upload-badge-cloudinary {
-  background: #e7f4ff;
-  border-color: #b8dbfa;
-  color: #1b5e8f;
+.btn-secondary-inline {
+  background: #f1f5f9;
+  color: #475569;
 }
 
-.upload-badge-local {
-  background: #fff3e9;
-  border-color: #f2d3b6;
-  color: #8a4d1f;
+.btn-danger-inline {
+  background: #fef2f2;
+  color: #dc2626;
 }
 
-.upload-fallback {
-  margin: 0;
-  color: #8a4d1f;
-  font-size: 13px;
+.btn-soft-inline {
+  background: #f0f9ff;
+  color: #0369a1;
 }
 
-.form-grid {
-  margin-top: 14px;
-  display: grid;
-  grid-template-columns: repeat(2, minmax(0, 1fr));
-  gap: 10px;
-}
+.btn-secondary-inline:hover { background: #e2e8f0; }
+.btn-danger-inline:hover { background: #fecaca; }
+.btn-soft-inline:hover { background: #e0f2fe; }
 
-label {
-  display: grid;
-  gap: 6px;
-  color: #486582;
-  font-size: 13px;
-  font-weight: 700;
-}
-
-label.wide,
-.form-actions {
-  grid-column: 1 / -1;
-}
-
-.form-actions {
-  display: flex;
-  justify-content: flex-end;
-  gap: 8px;
-}
-
-button:disabled {
-  opacity: 0.6;
-  cursor: not-allowed;
-}
-
-@media (max-width: 1100px) {
-  .filters-panel {
-    grid-template-columns: 1fr 1fr;
-  }
-}
-
-@media (max-width: 920px) {
-  .header-panel {
-    display: grid;
-  }
-
-  .header-actions {
-    width: 100%;
-    display: grid;
-    grid-template-columns: 1fr 1fr;
-  }
-}
-
-@media (max-width: 820px) {
-  .upload-row,
-  .form-grid,
-  .form-actions {
-    grid-template-columns: 1fr;
-    display: grid;
-  }
-
-  .header-actions {
-    grid-template-columns: 1fr;
-  }
-}
-
-@media (max-width: 760px) {
-  .table-wrap {
-    overflow: visible;
-  }
-
-  table {
-    min-width: 0;
-    display: block;
-  }
-
-  thead {
-    display: none;
-  }
-
-  tbody {
-    display: grid;
-    gap: 10px;
-  }
-
-  .category-row,
-  .honor-row {
-    display: block;
-    border: 1px solid #d7e5f2;
-    border-radius: 10px;
-    background: #fff;
-    overflow: hidden;
-  }
-
-  .category-row td,
-  .honor-row td {
-    display: grid;
-    grid-template-columns: minmax(95px, 38%) minmax(0, 1fr);
-    gap: 10px;
-    align-items: start;
-    border-bottom: 1px dashed #e4edf6;
-    padding: 10px 12px;
-  }
-
-  .category-row td:last-child,
-  .honor-row td:last-child {
-    border-bottom: 0;
-  }
-
-  .category-row td::before,
-  .honor-row td::before {
-    content: attr(data-label);
-    color: #5f7a97;
-    font-size: 10px;
-    text-transform: uppercase;
-    letter-spacing: 0.1em;
-    font-weight: 700;
-    line-height: 1.4;
-    padding-top: 2px;
-  }
-
-  .actions {
-    justify-content: flex-start;
-  }
-}
-
-@media (max-width: 560px) {
-  .panel {
-    padding: 12px;
-  }
-
-  .header-panel h2 {
-    font-size: 26px;
-  }
-
-  .table-pagination,
-  .pagination-actions {
-    display: grid;
-    grid-template-columns: 1fr;
-  }
-
-  .pagination-actions > *,
-  .header-actions > *,
-  .form-actions > * {
-    width: 100%;
-  }
-
-  .category-row td,
-  .honor-row td {
-    grid-template-columns: 1fr;
-    gap: 6px;
-  }
-
-  .overlay {
-    padding: 12px;
-  }
-
-  .form-panel,
-  .category-form-panel {
-    max-height: calc(100vh - 24px);
+@media (max-width: 768px) {
+  .intro-card {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 16px;
   }
 }
 </style>

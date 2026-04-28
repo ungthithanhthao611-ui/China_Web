@@ -1765,135 +1765,105 @@ watch(
 
 <template>
   <section class="capability-page">
-    <header class="intro-card">
-      <div class="intro-copy">
-        <p class="intro-eyebrow">Capability Admin</p>
-        <h2>Quản lý cấu hình trang Năng lực</h2>
-        <p>
-          Giao diện quản trị này dùng cấu trúc theo section như About, đồng thời hỗ trợ quản lý ảnh
-          theo 2 chế độ: tải file trực tiếp hoặc import từ URL, có preview realtime trước khi lưu.
-        </p>
+    <div class="ultimate-clean-workspace">
+      <!-- 1. Header & Stats Combined -->
+      <header class="intro-card">
+        <div class="intro-copy">
+          <p class="intro-eyebrow">CAPABILITY ADMIN</p>
+          <h2>Quản lý cấu hình trang Năng lực</h2>
+          <p>Hỗ trợ quản lý ảnh 2 chế độ: tải file hoặc import từ URI, có preview realtime trước khi lưu.</p>
+        </div>
+
+        <div class="intro-actions">
+          <button
+            type="button"
+            class="btn btn-ghost"
+            :disabled="loading || saving"
+            @click="loadCapabilitySettings"
+          >
+            Tải lại dữ liệu
+          </button>
+          <button
+            type="button"
+            class="btn btn-primary"
+            :disabled="loading || saving"
+            @click="saveCapabilitySettings"
+          >
+            {{ saving ? 'Đang lưu...' : 'Lưu toàn bộ cấu hình' }}
+          </button>
+        </div>
+      </header>
+
+      <section class="summary-grid-unified">
+        <article
+          v-for="card in summaryCards"
+          :key="card.key"
+          class="summary-card-clean"
+        >
+          <span class="summary-value">{{ card.value }}</span>
+          <strong>{{ card.label }}</strong>
+          <p>{{ card.hint }}</p>
+        </article>
+      </section>
+
+      <!-- 2. List Sections Unified -->
+      <div v-if="loading" class="loading-card-clean">
+        <p>Đang tải cấu hình module Năng lực...</p>
       </div>
 
-      <div class="intro-actions">
-        <button
-          type="button"
-          class="btn btn-soft"
-          :disabled="loading || saving"
-          @click="loadCapabilitySettings"
+      <div v-else class="section-list-unified">
+        <article
+          v-for="section in capabilitySections"
+          :key="section.key"
+          class="section-workspace"
+          :class="[{ 'section-workspace--active': activeSection === section.key }, `accent-${section.key}`]"
+          :id="`capability-section-${section.key}`"
         >
-          Tải lại dữ liệu
-        </button>
-        <button
-          type="button"
-          class="btn btn-primary"
-          :disabled="loading || saving"
-          @click="saveCapabilitySettings"
-        >
-          {{ saving ? 'Đang lưu...' : 'Lưu toàn bộ cấu hình' }}
-        </button>
-      </div>
-    </header>
-
-    <section class="summary-grid">
-      <article
-        v-for="card in summaryCards"
-        :key="card.key"
-        class="summary-card"
-      >
-        <span class="summary-value">{{ card.value }}</span>
-        <strong>{{ card.label }}</strong>
-        <p>{{ card.hint }}</p>
-      </article>
-    </section>
-
-    <section v-if="loading" class="loading-card">
-      Đang tải cấu hình module Năng lực...
-    </section>
-
-    <section v-else class="section-list">
-      <article
-        v-for="section in capabilitySections"
-        :key="section.key"
-        class="section-card"
-        :class="{ 'section-card--active': activeSection === section.key }"
-      >
-        <div class="section-card__summary">
-          <div class="section-card__accent" :class="`accent-${section.key}`" />
-
-          <div class="section-thumb" :class="{ 'section-thumb--empty': !previewImageForSection(section.key) }">
-            <img
-              v-if="previewImageForSection(section.key)"
-              :src="resolvePreviewUrl(previewImageForSection(section.key))"
-              :alt="section.title"
-            />
-            <div v-else class="section-thumb__placeholder">
-              <span>{{ section.title.slice(0, 1) }}</span>
-            </div>
-
-            <div class="section-thumb__overlay">
-              <strong>{{ previewCaptionForSection(section.key) }}</strong>
-              <span>{{ previewMetricForSection(section.key) }}</span>
-            </div>
-          </div>
-
-          <div class="section-card__content">
-            <div class="section-card__header">
-              <div>
-                <p class="section-card__eyebrow">{{ section.eyebrow }}</p>
-                <h3>{{ section.title }}</h3>
+          <header class="section-card__summary">
+            <div class="section-card__main">
+              <div class="section-thumb-clean" :class="{ 'section-thumb-clean--empty': !previewImageForSection(section.key) }">
+                <img
+                  v-if="previewImageForSection(section.key)"
+                  :src="resolvePreviewUrl(previewImageForSection(section.key))"
+                  :alt="section.title"
+                />
+                <div v-else class="section-thumb-clean__placeholder">
+                  <span>{{ section.title.slice(0, 1) }}</span>
+                </div>
               </div>
 
-              <span
-                class="status-badge"
-                :class="`status-badge--${sectionStatusMeta(section.key).tone}`"
-              >
-                {{ sectionStatusMeta(section.key).label }}
-              </span>
+              <div class="section-card__info">
+                <p class="section-card__eyebrow">{{ section.eyebrow }}</p>
+                <h2>{{ section.title }}</h2>
+                <div class="section-card__stats">
+                  <span
+                    v-for="item in section.stats"
+                    :key="item"
+                    class="section-chip"
+                  >
+                    {{ item }}
+                  </span>
+                </div>
+              </div>
             </div>
 
-            <p class="section-card__description">
-              {{ section.description }}
-            </p>
-
-            <div class="section-card__stats">
-              <span
-                v-for="item in section.stats"
-                :key="item"
-                class="section-chip"
+            <div class="section-card__actions">
+              <button
+                type="button"
+                class="btn btn-ghost btn-sm"
+                @click="openPreview(section.previewPath)"
               >
-                {{ item }}
-              </span>
+                Xem
+              </button>
+              <button
+                type="button"
+                class="btn btn-secondary btn-sm"
+                @click="toggleSection(section.key)"
+              >
+                {{ activeSection === section.key ? 'Thu gọn' : 'Chỉnh sửa' }}
+              </button>
             </div>
-          </div>
-
-          <div class="section-card__actions">
-            <button
-              v-if="isListSection(section.key)"
-              type="button"
-              class="btn btn-inline"
-              :disabled="loading || saving"
-              @click="addListItemFromSection(section.key)"
-            >
-              + {{ listSectionAddLabel(section.key) }}
-            </button>
-
-            <button
-              type="button"
-              class="btn btn-outline"
-              @click="openPreview(section.previewPath)"
-            >
-              {{ section.previewLabel }}
-            </button>
-            <button
-              type="button"
-              class="btn btn-section"
-              @click="toggleSection(section.key)"
-            >
-              {{ activeSection === section.key ? 'Thu gọn section' : 'Mở section' }}
-            </button>
-          </div>
-        </div>
+          </header>
 
         <div v-if="activeSection === section.key" class="section-card__editor">
           <template v-if="section.key === 'hero'">
@@ -2417,28 +2387,28 @@ watch(
 
           <div class="editor-footer">
             <div class="editor-footer__status">
-              <strong>Trạng thái dữ liệu:</strong>
-              <span v-if="lastLoadedAt"> tải lần cuối lúc {{ lastLoadedAt }}</span>
-              <span v-else> chưa tải dữ liệu</span>
+              <span v-if="lastLoadedAt">Cập nhật: {{ lastLoadedAt }}</span>
+              <span v-else>Chưa có dữ liệu</span>
             </div>
 
             <div class="editor-footer__actions">
-              <button type="button" class="btn btn-soft" @click="openSection('')">
+              <button type="button" class="btn btn-soft btn-sm" @click="openSection('')">
                 Thu gọn
               </button>
               <button
                 type="button"
-                class="btn btn-primary"
+                class="btn btn-primary btn-sm"
                 :disabled="loading || saving"
                 @click="saveCapabilitySection(section.key)"
               >
-                {{ saving ? 'Đang lưu...' : 'Lưu section này' }}
+                {{ saving ? 'Đang lưu...' : 'Lưu section' }}
               </button>
             </div>
           </div>
         </div>
-      </article>
-    </section>
+        </article>
+      </div>
+    </div>
 
     <Teleport to="body">
       <div v-if="itemModal.visible" class="item-modal-overlay" @click.self="closeItemModal">
@@ -2672,69 +2642,88 @@ watch(
 }
 
 .intro-copy h2 {
-  margin: 6px 0 12px;
-  color: #0f2744;
-  font-size: clamp(32px, 3vw, 42px);
-  line-height: 1.02;
-  letter-spacing: -0.045em;
+  margin: 4px 0 8px;
+  color: #1a3353;
+  font-size: 28px;
+  font-weight: 500;
+  letter-spacing: -0.02em;
 }
 
 .intro-copy p {
   margin: 0;
-  max-width: 900px;
-  color: #526a84;
-  line-height: 1.78;
-  font-size: 15px;
+  max-width: 800px;
+  color: #64748b;
+  line-height: 1.5;
+  font-size: 13px;
 }
 
 .intro-eyebrow,
 .section-card__eyebrow,
 .editor-eyebrow {
   margin: 0;
-  color: #6c87a7;
+  color: #64748b;
   text-transform: uppercase;
-  letter-spacing: 0.2em;
+  letter-spacing: 0.08em;
   font-size: 11px;
-  font-weight: 900;
+  font-weight: 500;
 }
 
 .intro-actions {
   display: flex;
-  gap: 12px;
+  gap: 8px;
+  align-items: center;
 }
 
-.summary-grid {
+.intro-actions .btn {
+  height: 36px;
+  padding: 0 16px;
+  font-size: 14px;
+}
+
+.summary-grid-unified {
   display: grid;
   grid-template-columns: repeat(3, minmax(0, 1fr));
+  padding: 0 32px 32px;
+  border-bottom: 1px solid rgba(198, 216, 233, 0.3);
   gap: 18px;
 }
 
-.summary-card {
-  padding: 22px 24px;
-  border-radius: 26px;
+.summary-grid-unified {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  padding: 0 32px 32px;
+  border-bottom: 1px solid #f1f5f9;
+  gap: 16px;
+}
+
+.summary-card-clean {
+  padding: 20px;
+  border-radius: 12px;
+  border: 1px solid #e2e8f0;
+  background: #ffffff;
 }
 
 .summary-value {
   display: block;
-  margin-bottom: 10px;
-  color: #1d4ed8;
-  font-size: 36px;
-  font-weight: 900;
-  letter-spacing: -0.04em;
+  margin-bottom: 2px;
+  color: #2563eb;
+  font-size: 24px;
+  font-weight: 500;
+  letter-spacing: -0.01em;
 }
 
-.summary-card strong {
+.summary-card-clean strong {
   display: block;
-  margin-bottom: 6px;
-  color: #102443;
-  font-size: 15px;
+  margin-bottom: 4px;
+  color: #334155;
+  font-size: 14px;
+  font-weight: 500;
 }
 
-.summary-card p {
+.summary-card-clean p {
   margin: 0;
-  color: #62778f;
-  font-size: 13px;
-  line-height: 1.6;
+  color: #64748b;
+  font-size: 12px;
 }
 
 .loading-card {
@@ -2742,53 +2731,94 @@ watch(
   color: #37506f;
 }
 
-.section-list {
-  display: grid;
-  gap: 18px;
+/* --- Ultimate Clean Design --- */
+.ultimate-clean-workspace {
+  background: #fff;
+  border-radius: var(--admin-card-radius, 16px);
+  border: 1px solid rgba(198, 216, 233, 0.5);
+  box-shadow: 0 8px 32px rgba(18, 43, 71, 0.04);
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
 }
 
-.section-card {
-  padding: 0;
+.intro-card {
+  padding: 24px 32px;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 32px;
 }
 
-.section-card--active {
-  border-color: rgba(96, 165, 250, 0.82);
-  box-shadow:
-    0 28px 80px rgba(37, 99, 235, 0.12),
-    inset 0 1px 0 rgba(255, 255, 255, 0.9);
+.section-list-unified {
+  display: flex;
+  flex-direction: column;
+}
+
+.section-workspace:not(:last-child) {
+  border-bottom: 1px solid rgba(198, 216, 233, 0.3);
 }
 
 .section-card__summary {
-  display: grid;
-  grid-template-columns: 6px 180px minmax(0, 1fr) auto;
-  gap: 20px;
-  padding: 24px 24px 24px 24px;
+  display: flex;
+  justify-content: space-between;
   align-items: center;
+  padding: 12px 24px;
+  gap: 20px;
 }
 
-.section-card__accent {
-  align-self: stretch;
-  border-radius: 999px;
+.section-card__main {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  flex: 1;
 }
 
-.accent-hero {
-  background: linear-gradient(180deg, #3b82f6, #60a5fa);
+.section-workspace:hover {
+  background: rgba(248, 251, 255, 0.6);
 }
 
-.accent-overview {
-  background: linear-gradient(180deg, #14b8a6, #2dd4bf);
+.section-card__info h2 {
+  margin: 0;
+  font-size: 16px;
+  font-weight: 500;
+  color: #1e293b;
 }
 
-.accent-stats {
-  background: linear-gradient(180deg, #8b5cf6, #a78bfa);
+.section-thumb-clean {
+  width: 80px;
+  height: 50px;
+  border-radius: 4px;
+  overflow: hidden;
+  background: #f8fafc;
+  border: 1px solid #f1f5f9;
 }
 
-.accent-production {
-  background: linear-gradient(180deg, #f59e0b, #fbbf24);
+.section-thumb-clean img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
 }
 
-.accent-gallery {
-  background: linear-gradient(180deg, #ec4899, #f472b6);
+.section-workspace:hover {
+  background: #f8fafc;
+}
+
+.section-workspace--active {
+  background: #f1f5f9;
+  border-left-color: #3b82f6;
+}
+
+.accent-hero, .accent-overview, .accent-stats, .accent-production, .accent-gallery {
+  border-left-color: #cbd5e1;
+}
+
+.section-workspace--active.accent-hero,
+.section-workspace--active.accent-overview,
+.section-workspace--active.accent-stats,
+.section-workspace--active.accent-production,
+.section-workspace--active.accent-gallery {
+  border-left-color: #3b82f6;
 }
 
 .section-thumb {
@@ -2816,9 +2846,9 @@ watch(
 .section-thumb__placeholder {
   display: grid;
   place-items: center;
-  color: #2563eb;
-  font-size: 46px;
-  font-weight: 900;
+  color: #94a3b8;
+  font-size: 32px;
+  font-weight: 500;
 }
 
 .section-thumb__overlay {
@@ -2879,34 +2909,39 @@ watch(
 .section-chip {
   display: inline-flex;
   align-items: center;
-  min-height: 36px;
-  padding: 0 14px;
-  border-radius: 999px;
-  border: 1px solid rgba(191, 219, 254, 0.85);
-  background: rgba(239, 246, 255, 0.9);
-  color: #2c5174;
-  font-size: 12px;
-  font-weight: 800;
+  height: 26px;
+  padding: 0 10px;
+  border-radius: 4px;
+  background: #f1f5f9;
+  color: #475569;
+  font-size: 11px;
+  font-weight: 400;
 }
 
 
 .section-card__actions {
   display: flex;
-  flex-direction: column;
-  align-items: stretch;
-  gap: 10px;
+  flex-direction: row; /* Chuyển về hàng ngang */
+  align-items: center;
+  gap: 8px;
+}
+
+.btn-sm {
+  padding: 6px 12px;
+  font-size: 13px;
+  height: 32px;
+  min-width: auto; /* Không cho phép nút bị kéo bự */
 }
 
 .status-badge {
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  min-height: 36px;
-  padding: 0 14px;
-  border-radius: 999px;
-  border: 1px solid transparent;
-  font-size: 12px;
-  font-weight: 900;
+  height: 28px;
+  padding: 0 12px;
+  border-radius: 6px;
+  font-size: 11px;
+  font-weight: 500;
   white-space: nowrap;
 }
 
@@ -3057,9 +3092,31 @@ watch(
 .btn.btn-soft-inline,
 .btn.btn-danger-inline,
 .btn.btn-inline {
-  min-height: 34px;
+  min-height: 32px;
   padding: 0 12px;
-  border-radius: 999px;
+  border-radius: 6px;
+  font-weight: 500;
+  font-size: 13px;
+}
+
+.btn-danger-inline {
+  color: #ef4444;
+  background: #fef2f2;
+  border: 1px solid #fee2e2;
+}
+
+.btn-danger-inline:hover {
+  background: #fee2e2;
+}
+
+.btn-secondary-inline {
+  color: #6366f1;
+  background: #eef2ff;
+  border: 1px solid #e0e7ff;
+}
+
+.btn-secondary-inline:hover {
+  background: #e0e7ff;
 }
 
 .image-manager--compact {
@@ -3327,6 +3384,23 @@ watch(
   box-shadow: 0 16px 30px rgba(37, 99, 235, 0.22);
 }
 
+.workspace-filters {
+  background: #fff;
+  border-radius: var(--admin-card-radius, 16px);
+  border: 1px solid rgba(198, 216, 233, 0.5);
+  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.02);
+  margin-bottom: 24px;
+}
+
+.filters-head {
+  padding: 16px 24px;
+  border-bottom: 1px solid rgba(198, 216, 233, 0.3);
+}
+
+.filters-body {
+  padding: 24px;
+}
+
 .btn-soft,
 .btn-outline,
 .btn-section,
@@ -3463,10 +3537,12 @@ watch(
   justify-content: space-between;
 }
 
-.item-modal__head h3 {
+.workspace-header h1 {
   margin: 0;
-  font-size: 20px;
-  color: #0f172a;
+  font-size: 32px;
+  line-height: 1.1;
+  color: #1a3353;
+  font-weight: 500; /* Bỏ in đậm */
 }
 
 .btn-close {

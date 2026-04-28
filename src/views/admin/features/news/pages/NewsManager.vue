@@ -1,82 +1,92 @@
 <template>
   <div class="news-mgr" :class="{ 'news-mgr--embedded': embedded }">
-    <!-- Header -->
-    <div class="news-mgr__header">
-      <h1 class="news-mgr__title">Quản lý tin tức</h1>
-      <div class="news-mgr__actions">
-        <button class="btn btn--outline" @click="showCrawlModal = true">
-          <Download :size="16" /> Crawl từ URL
-        </button>
-        <button type="button" class="btn btn--primary" @click="goToCreate">
-          <Plus :size="16" /> Tạo bài viết
-        </button>
-      </div>
-    </div>
+    <div class="ultimate-clean-workspace">
+      <!-- 1. Unified Header -->
+      <header class="intro-card">
+        <div class="intro-copy">
+          <p class="intro-eyebrow">Nội dung & Truyền thông</p>
+          <h2>Quản lý tin tức</h2>
+          <p>Tạo và biên tập các bài viết tin tức, thông cáo báo chí của doanh nghiệp.</p>
+        </div>
+        <div class="intro-actions">
+          <button class="btn btn-ghost btn-sm" @click="showCrawlModal = true">
+            <Download :size="14" /> Crawl URL
+          </button>
+          <button type="button" class="btn btn-primary btn-sm" @click="goToCreate">
+            <Plus :size="14" /> Tạo bài viết
+          </button>
+        </div>
+      </header>
 
-    <!-- Table -->
-    <div class="news-mgr__table-wrap">
-      <table class="news-mgr__table">
-        <thead>
-          <tr>
-            <th class="col-img">Ảnh</th>
-            <th class="col-title">Tiêu đề</th>
-            <th class="col-status">Trạng thái</th>
-            <th class="col-date">Ngày xuất bản</th>
-            <th class="col-actions">Thao tác</th>
-          </tr>
-        </thead>
-        <tbody>
-          <!-- Loading -->
-          <tr v-if="loading">
-            <td colspan="5" class="text-center py-12">
-              <Loader2 :size="24" class="spin inline-block" />
-              <span class="ml-2 text-sub">Đang tải...</span>
-            </td>
-          </tr>
+      <!-- 2. Table Area -->
+      <section class="section-list-unified">
+        <div class="table-wrap" style="padding: 0 32px 32px;">
+          <table class="ultimate-table">
+            <thead>
+              <tr>
+                <th style="width: 80px;">Ảnh</th>
+                <th>Tiêu đề bài viết</th>
+                <th style="width: 140px;">Trạng thái</th>
+                <th style="width: 160px;">Ngày xuất bản</th>
+                <th style="width: 120px;">Thao tác</th>
+              </tr>
+            </thead>
+            <tbody>
+              <!-- Loading -->
+              <tr v-if="loading">
+                <td colspan="5" class="text-center py-12">
+                  <span class="text-sub">Đang tải dữ liệu...</span>
+                </td>
+              </tr>
 
-          <!-- Empty -->
-          <tr v-else-if="posts.length === 0">
-            <td colspan="5" class="text-center py-12 text-sub">
-              Chưa có bài viết nào. Hãy tạo bài viết đầu tiên.
-            </td>
-          </tr>
+              <!-- Empty -->
+              <tr v-else-if="posts.length === 0">
+                <td colspan="5" class="text-center py-12 text-sub">
+                  Chưa có bài viết nào. Hãy tạo bài viết đầu tiên.
+                </td>
+              </tr>
 
-          <!-- Rows -->
-          <tr v-else v-for="post in posts" :key="post.id" class="news-mgr__row">
-            <td class="col-img">
-              <div class="thumb">
-                <img
-                  :src="post.thumbnail_url || `https://picsum.photos/seed/${post.id}/200/200`"
-                  :alt="post.title"
-                  referrerpolicy="no-referrer"
-                />
-              </div>
-            </td>
-            <td class="col-title">
-              <span class="post-title">{{ post.title }}</span>
-            </td>
-            <td class="col-status">
-              <span :class="['badge', `badge--${post.status}`]">{{ post.status }}</span>
-            </td>
-            <td class="col-date text-sub">{{ formatDate(post.published_at || post.created_at) }}</td>
-            <td class="col-actions">
-              <div class="row-actions">
-                <button
-                  type="button"
-                  class="act-btn act-btn--edit"
-                  title="Sửa bài viết"
-                  @click="goToEdit(post.id)"
-                >
-                  <Edit :size="16" />
-                </button>
-                <button class="act-btn act-btn--delete" title="Xóa bài viết" @click="deleteTarget = post">
-                  <Trash2 :size="16" />
-                </button>
-              </div>
-            </td>
-          </tr>
-        </tbody>
-      </table>
+              <!-- Rows -->
+              <tr v-else v-for="post in posts" :key="post.id">
+                <td>
+                  <div class="thumb" style="width: 48px; height: 48px; border-radius: 8px; overflow: hidden; border: 1px solid #f1f5f9;">
+                    <img
+                      :src="post.thumbnail_url || `https://picsum.photos/seed/${post.id}/200/200`"
+                      style="width: 100%; height: 100%; object-fit: cover;"
+                      :alt="post.title"
+                      referrerpolicy="no-referrer"
+                    />
+                  </div>
+                </td>
+                <td>
+                  <div class="table-cell-title">
+                    <span>{{ post.title }}</span>
+                  </div>
+                </td>
+                <td>
+                  <span :class="['badge', post.status === 'published' ? 'badge-active' : 'badge-inactive']">
+                    {{ post.status === 'published' ? 'Đã đăng' : 'Bản nháp' }}
+                  </span>
+                </td>
+                <td><span class="table-cell-subtext">{{ formatDate(post.published_at || post.created_at) }}</span></td>
+                <td class="table-actions">
+                  <button
+                    type="button"
+                    class="btn btn-secondary-inline"
+                    title="Sửa bài viết"
+                    @click="goToEdit(post.id)"
+                  >
+                    Sửa
+                  </button>
+                  <button class="btn btn-danger-inline" title="Xóa bài viết" @click="deleteTarget = post">
+                    Xóa
+                  </button>
+                </td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+      </section>
     </div>
 
     <!-- Crawl Modal -->
@@ -98,8 +108,8 @@
             />
           </div>
           <div class="modal-footer">
-            <button class="btn btn--ghost" @click="showCrawlModal = false">Hủy</button>
-            <button class="btn btn--primary" :disabled="!crawlUrl.trim()" @click="submitCrawl">
+            <button class="btn btn-ghost btn-sm" @click="showCrawlModal = false">Hủy</button>
+            <button class="btn btn-primary btn-sm" :disabled="!crawlUrl.trim()" @click="submitCrawl">
               Bắt đầu crawl
             </button>
           </div>
@@ -119,8 +129,8 @@
             <p class="text-sub">Bạn có chắc chắn muốn xóa bài viết này không? Hành động này không thể hoàn tác.</p>
           </div>
           <div class="modal-footer modal-footer--center">
-            <button class="btn btn--outline btn--full" @click="deleteTarget = null">Hủy</button>
-            <button class="btn btn--danger btn--full" @click="executeDelete">Xác nhận xóa</button>
+            <button class="btn btn-secondary btn-sm" style="flex: 1;" @click="deleteTarget = null">Hủy</button>
+            <button class="btn btn-danger btn-sm" style="flex: 1;" @click="executeDelete">Xác nhận xóa</button>
           </div>
         </div>
       </div>

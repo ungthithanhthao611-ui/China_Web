@@ -458,13 +458,10 @@ const previewHasContent = computed(
       <div class="editor-head">
         <div class="editor-head__content">
           <div class="editor-head__badge-wrap">
-            <p class="eyebrow">{{ formMode === "create" ? "Create" : "Edit" }}</p>
+            <p class="eyebrow">{{ formMode === "create" ? "Thêm mới" : "Chỉnh sửa" }}</p>
             <span class="editor-head__badge">{{ safeConfigLabel }}</span>
           </div>
-          <h3>{{ formMode === "create" ? `Create ${safeConfigLabel}` : `Edit ${safeConfigLabel}` }}</h3>
-          <p class="editor-head__copy">
-            Update content details, metadata, preview assets, and publishing inputs from one focused workspace.
-          </p>
+          <h3>{{ formMode === "create" ? `Tạo ${safeConfigLabel}` : `Sửa ${safeConfigLabel}` }}</h3>
         </div>
         <button
           type="button"
@@ -544,12 +541,13 @@ const previewHasContent = computed(
 
             <button
               type="button"
-              class="minimal-upload-btn"
+              class="btn btn-primary btn-sm"
+              style="width: 100%; margin-top: 12px;"
               :disabled="uploading || !uploadFileExists"
               @click="emit('upload-media')"
             >
               <div v-if="uploading" class="spinner-tiny"></div>
-              <span>{{ uploading ? "Đang tải lên..." : "Bắt đầu tải lên" }}</span>
+              <span>{{ uploading ? "Đang tải..." : "Tải lên Cloudinary" }}</span>
             </button>
           </div>
         </div>
@@ -1063,14 +1061,24 @@ const previewHasContent = computed(
           </div>
         </section>
 
-        <div class="form-actions">
-          <button type="button" class="btn btn-secondary" @click="emit('close')">
-            Hủy bỏ
-          </button>
-          <button type="submit" class="btn btn-primary" :disabled="saving">
-            {{ saving ? "Đang lưu..." : "Lưu bản ghi" }}
-          </button>
-        </div>
+        <div class="editor-footer">
+        <button
+          type="button"
+          class="btn btn-secondary btn-sm"
+          :disabled="saving"
+          @click="emit('close')"
+        >
+          Hủy bỏ
+        </button>
+        <button
+          type="button"
+          class="btn btn-primary btn-sm"
+          :disabled="saving"
+          @click="emit('submit')"
+        >
+          {{ saving ? "Đang lưu..." : "Lưu thay đổi" }}
+        </button>
+      </div>
       </form>
     </aside>
   </div>
