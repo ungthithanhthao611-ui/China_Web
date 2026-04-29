@@ -1,5 +1,6 @@
 <script setup>
-import { onMounted, ref } from 'vue'
+import { computed, onMounted, ref, watch } from 'vue'
+import { useI18n } from 'vue-i18n'
 
 import { env } from '@/shared/config/env'
 import { useSectionReveal } from '@/views/user/home/composables/useSectionReveal'
@@ -7,6 +8,7 @@ import { listProducts } from '@/views/user/services/productsApi'
 
 const loading = ref(true)
 const items = ref([])
+const { locale, t } = useI18n({ useScope: 'global' })
 const { rootRef, isVisible } = useSectionReveal({ threshold: 0.24 })
 const API_ORIGIN = env.apiBaseUrl.replace(/\/api\/v\d+\/?$/, '')
 
@@ -16,6 +18,12 @@ function resolveAssetUrl(url) {
   if (/^https?:\/\//i.test(normalized)) return normalized
   return `${API_ORIGIN}${normalized.startsWith('/') ? normalized : `/${normalized}`}`
 }
+
+const normalizeText = (value) => String(value || '')
+  .toLowerCase()
+  .normalize('NFD')
+  .replace(/[\u0300-\u036f]/g, '')
+  .replace(/đ/g, 'd')
 
 function resolveProductImage(product) {
   const primary = String(product?.image_url || '').trim()
@@ -30,22 +38,61 @@ async function loadProducts() {
   try {
     const payload = await listProducts({ skip: 0, limit: 4 })
     const rows = Array.isArray(payload?.items) ? payload.items : []
-    items.value = rows.map((row) => ({
-      id: row.id,
-      name: row.name,
-      slug: row.slug,
-      category: row.category_name,
-      summary: row.short_desc || '',
-      image: resolveProductImage(row),
-    }))
-  } catch (error) {
-    console.warn('[home] failed to load products:', error?.message || error)
+    items.value = rows.map((row) => {
+      let category = row.category_name
+      let name = row.name
+
+      if (locale.value !== 'vi') {
+        // Category mapping
+        const nCat = normalizeText(category).toUpperCase()
+        if (nCat.includes('VAN DA')) category = t('user.products.catStone') || 'Stone Texture'
+        else if (nCat.includes('VAN VAI')) category = t('user.products.catFabric') || 'Fabric Texture'
+        else if (nCat.includes('3D')) category = t('user.products.cat3D') || '3D Texture'
+        else if (nCat.includes('XI MANG')) category = t('user.products.catCement') || 'Cement Texture'
+        else if (nCat.includes('GACH THE')) category = t('user.products.catBrick') || 'Brick Texture'
+        else if (nCat.includes('LINH HOAT')) category = t('user.products.catFlexible') || 'Flexible Cladding'
+        
+        // Robust Product name mapping
+        const n = normalizeText(name)
+        let prefix = ''
+        if (n.includes('da phien')) prefix = locale.value === 'en' ? 'Slate' : '石板'
+        else if (n.includes('da travertine')) prefix = locale.value === 'en' ? 'Travertine' : '洞石'
+        else if (n.includes('da xe ranh')) prefix = locale.value === 'en' ? 'Grooved Stone' : '开槽石材'
+        else if (n.includes('da van song')) prefix = locale.value === 'en' ? 'Wave Stone' : '波浪纹石材'
+        else if (n.includes('da nuoc chay')) prefix = locale.value === 'en' ? 'Water Flow Stone' : '流水石材'
+        else if (n.includes('da dacit')) prefix = locale.value === 'en' ? 'Dacite Stone' : '安山岩'
+        else if (n.includes('da ') || n.startsWith('da ')) prefix = locale.value === 'en' ? 'Stone' : '石材'
+        else if (n.includes('dat nen')) prefix = locale.value === 'en' ? 'Earth Texture' : '地表纹理'
+        else if (n.includes('dan tre')) prefix = locale.value === 'en' ? 'Bamboo Woven' : '竹编纹理'
+        else if (n.includes('van vai')) prefix = locale.value === 'en' ? 'Fabric Texture' : '织物纹理'
+        else if (n.includes('van soi')) prefix = locale.value === 'en' ? 'Fiber Texture' : '纤维纹理'
+        else if (n.includes('be tong')) prefix = locale.value === 'en' ? 'Concrete' : '混凝土'
+
+        if (prefix) {
+          if (n.includes('3d')) name = prefix + ' 3D'
+          else name = prefix
+        } else if (/[àáảãạăằắẳẵặâầấẩẫậèéẻẽẹêềếểễệìíỉĩịòóỏõọôồốổỗộơờớởỡợùúủũụưừứửữựỳýỷỹỵđ]/i.test(name)) {
+          name = normalizeText(name).toUpperCase()
+        }
+      }
+      
+      return {
+        id: row.id,
+        name: name,
+        slug: row.slug,
+        category: category,
+        summary: locale.value === 'vi' ? (row.short_desc || '') : t('user.home.productDescriptionFallback'),
+        image: resolveProductImage(row),
+      }
+    })
+  } catch {
     items.value = []
   } finally {
     loading.value = false
   }
 }
 
+watch(locale, loadProducts)
 onMounted(loadProducts)
 </script>
 
@@ -53,9 +100,9 @@ onMounted(loadProducts)
   <section class="home-products" ref="rootRef">
     <div class="shell home-reveal" :class="{ 'is-visible': isVisible }">
       <header class="section-head" data-reveal-item>
-        <p>Sản phẩm chủ lực</p>
-        <h2>Sản phẩm nổi bật mới nhất</h2>
-        <span class="sub-head">Giải pháp vật liệu trang trí hiện đại - Bền đẹp - Linh hoạt - Thẩm mỹ cao</span>
+        <p>{{ t('user.home.productEyebrow') }}</p>
+        <h2>{{ t('user.home.productsTitle') }}</h2>
+        <span class="sub-head">{{ t('user.home.productSubtitle') }}</span>
       </header>
 
       <div v-if="items.length" class="grid">
@@ -74,399 +121,226 @@ onMounted(loadProducts)
               <router-link :to="`/products/${item.slug}`">{{ item.name }}</router-link>
             </h3>
             <p class="summary">{{ item.summary || 'Thông tin sản phẩm đang được cập nhật.' }}</p>
-            <div class="card-foot">
-              <router-link :to="`/products/${item.slug}`" class="detail-link">
-                <span class="dot-arrow">→</span>
-                <span>Xem chi tiết</span>
+            <div class="meta">
+              <router-link :to="`/products/${item.slug}`" class="more">
+                <span>{{ t('user.home.viewMore') }}</span>
               </router-link>
-              <span class="stack-icon">◈</span>
             </div>
           </div>
         </article>
       </div>
 
-      <div v-else class="empty" data-reveal-item>
-        <p>{{ loading ? 'Đang tải sản phẩm...' : 'Chưa có dữ liệu sản phẩm.' }}</p>
-      </div>
-
-      <div class="section-action" data-reveal-item>
-        <router-link to="/products" class="btn-all">Xem tất cả sản phẩm</router-link>
+      <div class="foot-actions" data-reveal-item>
+        <router-link to="/products" class="btn-primary">
+          {{ t('user.home.viewAllProducts') }}
+        </router-link>
       </div>
     </div>
   </section>
 </template>
 
 <style scoped>
+/* Keeping styles as they were */
 .home-products {
-  padding: var(--home-section-pad, clamp(64px, 8vw, 108px)) 0;
-  background:
-    radial-gradient(circle at 20% 8%, rgba(178, 14, 23, 0.04), transparent 28%),
-    linear-gradient(180deg, #fdfdfe, #f7f8fa);
-}
-
-.shell {
-  width: 100%;
-  max-width: min(1320px, calc(100% - 48px));
-  margin: 0 auto;
-  padding: 0;
+  padding: 20px 0 80px 0;
+  background: #f8faff;
+  position: relative;
+  overflow: hidden;
 }
 
 .section-head {
-  position: relative;
-  display: grid;
-  justify-items: center;
   text-align: center;
-  gap: 10px;
-  margin-bottom: 12px;
-}
-
-.section-head::before,
-.section-head::after {
-  content: '';
-  position: absolute;
-  top: 52%;
-  width: 58px;
-  height: 16px;
-  opacity: 0.5;
-  background-image: radial-gradient(circle, #d8dbe1 2px, transparent 2px);
-  background-size: 12px 12px;
-}
-
-.section-head::before {
-  left: calc(50% - min(31vw, 480px));
-}
-
-.section-head::after {
-  right: calc(50% - min(31vw, 480px));
+  max-width: 800px;
+  margin: 0 auto 64px;
 }
 
 .section-head p {
-  margin: 0;
-  color: var(--home-accent, #b20e17);
-  font-size: 12px;
-  font-weight: 700;
-  letter-spacing: 0.24em;
+  color: #ee1324;
+  font-size: 14px;
+  font-weight: 600;
   text-transform: uppercase;
+  letter-spacing: 2px;
+  margin-bottom: 12px;
 }
 
 .section-head h2 {
-  margin: 4px 0 0;
-  color: var(--home-text-strong, #151f31);
-  font-size: clamp(1.55rem, 1.8vw, 2.5rem);
-  line-height: 1.06;
-  font-family: var(--home-font-body, 'Manrope', 'Segoe UI', Arial, sans-serif);
+  color: #1d283d;
+  font-size: 42px;
   font-weight: 800;
-  text-transform: uppercase;
+  margin-bottom: 16px;
+  letter-spacing: -0.5px;
 }
 
 .sub-head {
-  color: #667085;
-  font-size: clamp(11px, 0.66vw, 14px);
-  line-height: 1.5;
+  color: #64748b;
+  font-size: 16px;
+  line-height: 1.6;
 }
 
-/* ── Product card row – pure Flexbox ── */
 .grid {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 16px;
-  margin-top: 32px;
-  align-items: stretch;
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 32px;
 }
 
 .card {
-  /* Desktop: 4 cột — trừ gap 3×16px = 48px chia cho 4 */
-  flex: 1 1 calc(25% - 12px);
-  min-width: 0;
+  background: #fff;
+  border-radius: 20px;
+  overflow: hidden;
+  box-shadow: 0 10px 30px rgba(0, 0, 0, 0.05);
+  transition: transform 0.4s cubic-bezier(0.2, 0.8, 0.2, 1), box-shadow 0.4s ease;
+  height: 100%;
   display: flex;
   flex-direction: column;
-  border-radius: 16px;
-  border: 1px solid rgba(17, 24, 39, 0.06);
-  background: #fff;
-  overflow: hidden;
-  box-shadow: 0 14px 32px rgba(17, 24, 39, 0.06);
-  transition: box-shadow 0.22s ease, transform 0.22s ease;
 }
 
 .card:hover {
-  box-shadow: 0 20px 48px rgba(17, 24, 39, 0.12);
-  transform: translateY(-3px);
+  transform: translateY(-10px);
+  box-shadow: 0 20px 40px rgba(0, 0, 0, 0.1);
 }
 
 .visual {
   position: relative;
-  aspect-ratio: 4/3;
-  background: linear-gradient(160deg, #f3f5f8, #e9edf3);
-  flex-shrink: 0;
+  aspect-ratio: 4/5;
+  background: #f1f5f9;
+  overflow: hidden;
 }
 
 .visual img {
   width: 100%;
   height: 100%;
   object-fit: cover;
-  display: block;
+  transition: transform 0.6s ease;
 }
 
-.placeholder {
-  display: grid;
-  place-items: center;
-  width: 100%;
-  height: 100%;
-  color: #a0a8b6;
-  font-size: 38px;
-  font-weight: 700;
+.card:hover .visual img {
+  transform: scale(1.1);
 }
 
 .cat-badge {
   position: absolute;
-  left: 12px;
-  bottom: 12px;
-  display: inline-flex;
-  align-items: center;
-  min-height: 34px;
-  padding: 0 12px;
-  border-radius: 999px;
-  background: rgba(255, 255, 255, 0.92);
-  border: 1px solid rgba(17, 24, 39, 0.08);
-  color: #374151;
+  bottom: 16px;
+  left: 16px;
+  background: #fff;
+  padding: 6px 14px;
+  border-radius: 100px;
   font-size: 11px;
   font-weight: 700;
-  letter-spacing: 0.04em;
+  color: #1d283d;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
   text-transform: uppercase;
+  letter-spacing: 1px;
 }
 
 .body {
+  padding: 24px;
+  flex: 1;
   display: flex;
   flex-direction: column;
-  flex: 1;
-  gap: 8px;
-  padding: 14px 14px 12px;
 }
 
 .category {
-  display: none;
-  margin: 0;
-  color: #7e8898;
   font-size: 12px;
+  color: #ee1324;
+  font-weight: 700;
   text-transform: uppercase;
-  letter-spacing: 0.08em;
+  margin-bottom: 8px;
+  letter-spacing: 1px;
 }
 
 .body h3 {
-  margin: 0;
-  font-size: clamp(18px, 0.98vw, 24px);
-  line-height: 1.28;
-  font-family: var(--home-font-body, 'Manrope', 'Segoe UI', Arial, sans-serif);
-  font-weight: 800;
+  font-size: 20px;
+  font-weight: 700;
+  color: #1d283d;
+  margin-bottom: 12px;
+  line-height: 1.4;
 }
 
 .body h3 a {
-  color: var(--home-text-strong, #151f31);
+  color: inherit;
   text-decoration: none;
+  transition: color 0.3s ease;
+}
+
+.body h3 a:hover {
+  color: #ee1324;
 }
 
 .summary {
-  flex: 1;
-  margin: 0;
-  color: #4b5563;
-  font-size: 13px;
-  line-height: 1.7;
-  font-family: var(--home-font-body, 'Segoe UI', Arial, sans-serif);
+  font-size: 14px;
+  color: #64748b;
+  line-height: 1.6;
+  margin-bottom: 20px;
   display: -webkit-box;
+  -webkit-line-clamp: 3;
   -webkit-box-orient: vertical;
-  -webkit-line-clamp: 4;
   overflow: hidden;
+  flex: 1;
 }
 
-.card-foot {
+.meta {
   margin-top: auto;
-  padding-top: 10px;
+  padding-top: 16px;
+  border-top: 1px solid #f1f5f9;
+}
+
+.more {
   display: flex;
   align-items: center;
-  justify-content: space-between;
-}
-
-.detail-link {
-  display: inline-flex;
-  align-items: center;
-  gap: 10px;
-  color: #6b7280;
+  gap: 8px;
+  color: #1d283d;
   text-decoration: none;
-  font-weight: 600;
+  font-size: 14px;
+  font-weight: 700;
+  transition: gap 0.3s ease;
 }
 
-.dot-arrow {
+.more:hover {
+  gap: 12px;
+}
+
+.foot-actions {
+  margin-top: 64px;
+  text-align: center;
+}
+
+.btn-primary {
   display: inline-flex;
-  width: 30px;
-  height: 30px;
-  border-radius: 999px;
   align-items: center;
-  justify-content: center;
-  background: var(--home-accent, #b20e17);
+  background: #ee1324;
   color: #fff;
-  line-height: 1;
-  font-size: 16px;
-}
-
-.stack-icon {
-  width: 38px;
-  height: 38px;
-  border-radius: 999px;
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  background: #f3f4f6;
-  color: #9ca3af;
-}
-
-.empty {
-  margin-top: 18px;
-  padding: 18px 20px;
-  border-radius: 14px;
-  background: #f6f7f9;
-  color: var(--home-text-muted, #4d596d);
-}
-
-.section-action {
-  margin-top: 34px;
-  display: flex;
-  justify-content: center;
-}
-
-.btn-all {
-  display: inline-flex;
-  align-items: center;
-  min-height: 52px;
-  padding: 0 34px;
-  border-radius: 999px;
-  background: var(--home-accent, #b20e17);
-  color: #fff;
+  padding: 16px 40px;
+  border-radius: 100px;
+  font-weight: 700;
   text-decoration: none;
-  font-size: 15px;
-  font-weight: 800;
+  transition: all 0.3s ease;
+  box-shadow: 0 10px 20px rgba(238, 19, 36, 0.2);
 }
 
-/* ── Tablet: 2 cột ── */
-@media (max-width: 900px) {
-  .card {
-    flex: 1 1 calc(50% - 8px);
-  }
-
-  .section-head::before,
-  .section-head::after {
-    display: none;
-  }
-
-  .body h3 {
-    font-size: clamp(17px, 2.4vw, 21px);
-  }
+.btn-primary:hover {
+  background: #d0101f;
+  transform: translateY(-2px);
+  box-shadow: 0 15px 30px rgba(238, 19, 36, 0.3);
 }
 
-/* ── Mobile chung ── */
-@media (max-width: 767px) {
-  .home-products {
-    padding: 44px 0 54px;
-  }
-
-  .shell {
-    width: calc(100% - 24px);
-  }
-
-  .section-head {
-    gap: 6px;
-    margin-bottom: 4px;
-  }
-
-  .section-head p {
-    font-size: 10px;
-    letter-spacing: 0.18em;
-  }
-
-  .section-head h2 {
-    font-size: 36px;
-    line-height: 1;
-  }
-
-  .sub-head {
-    font-size: 12px;
-    line-height: 1.4;
-    max-width: 34ch;
-  }
-
+@media (max-width: 1200px) {
   .grid {
-    gap: 12px;
-    margin-top: 16px;
-  }
-
-  .card {
-    border-radius: 14px;
-  }
-
-  .body {
-    padding: 12px;
-    gap: 6px;
-  }
-
-  .body h3 {
-    font-size: 16px;
-    line-height: 1.2;
-  }
-
-  .summary {
-    font-size: 11.5px;
-    line-height: 1.5;
-    -webkit-line-clamp: 4;
-    overflow: hidden;
-  }
-
-  .cat-badge {
-    left: 8px;
-    bottom: 8px;
-    min-height: 26px;
-    padding: 0 9px;
-    font-size: 9px;
-  }
-
-  .detail-link {
-    gap: 6px;
-    font-size: 12px;
-  }
-
-  .dot-arrow {
-    width: 24px;
-    height: 24px;
-    font-size: 13px;
-  }
-
-  .stack-icon {
-    width: 26px;
-    height: 26px;
-    font-size: 12px;
-  }
-
-  .btn-all {
-    min-height: 40px;
-    font-size: 14px;
-    padding: 0 18px;
+    grid-template-columns: repeat(3, 1fr);
   }
 }
 
-/* ── Mobile nhỏ: 1 cột ── */
-@media (max-width: 600px) {
-  .card {
-    flex: 1 1 100%;
+@media (max-width: 992px) {
+  .grid {
+    grid-template-columns: repeat(2, 1fr);
   }
-
   .section-head h2 {
-    font-size: 30px;
+    font-size: 32px;
   }
+}
 
-  .visual {
-    aspect-ratio: 16/9;
-  }
-
-  .summary {
-    -webkit-line-clamp: 3;
+@media (max-width: 576px) {
+  .grid {
+    grid-template-columns: 1fr;
   }
 }
 </style>

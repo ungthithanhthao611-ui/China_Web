@@ -89,6 +89,11 @@ const clientRoutes = [
     props: true,
   },
   {
+    path: 'cart',
+    name: 'Cart',
+    component: () => import('@/views/user/cart/CartPage.vue'),
+  },
+  {
     path: 'news',
     name: 'News',
     component: () => import('@/views/user/news/NewsListPage.vue'),
@@ -102,6 +107,16 @@ const clientRoutes = [
     path: 'contact',
     name: 'Contact',
     component: () => import('@/views/user/contact/ContactPage.vue'),
+  },
+  {
+    path: 'login',
+    name: 'Login',
+    component: () => import('@/views/user/auth/AuthPage.vue'),
+  },
+  {
+    path: 'register',
+    name: 'Register',
+    component: () => import('@/views/user/auth/AuthPage.vue'),
   },
 ]
 

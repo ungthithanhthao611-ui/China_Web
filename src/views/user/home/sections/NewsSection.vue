@@ -2,6 +2,7 @@
 import { computed, onMounted, ref, watch } from 'vue'
 import { useRouter } from 'vue-router'
 import { ArrowRight } from 'lucide-vue-next'
+import { useI18n } from 'vue-i18n'
 
 import { getNewsList } from '@/views/user/services/publicApi'
 
@@ -13,6 +14,7 @@ const props = defineProps({
 })
 
 const router = useRouter()
+const { locale, t } = useI18n({ useScope: 'global' })
 const loading = ref(true)
 const newsList = ref([])
 const currentPage = ref(1)
@@ -78,7 +80,7 @@ function resolveCategory(item) {
     item?.category?.name ||
     item?.topic ||
     item?.tag ||
-    'Tin tức'
+    t('user.home.newsCategory')
   )
 }
 
@@ -87,7 +89,7 @@ function resolveSummary(item) {
     item?.short_desc ||
     item?.summary ||
     item?.excerpt ||
-    'Cập nhật những thông tin mới nhất về sản phẩm, dự án và hoạt động của chúng tôi.'
+    t('user.home.newsSubtitle')
   )
 }
 
@@ -114,15 +116,16 @@ async function fetchNews() {
     })
 
     currentPage.value = 1
-  } catch (error) {
-    console.error('[home][news] failed to fetch list:', error)
+  } catch {
     newsList.value = []
   } finally {
     loading.value = false
   }
 }
 
+watch(locale, fetchNews)
 onMounted(fetchNews)
+
 </script>
 
 <template>
@@ -130,13 +133,13 @@ onMounted(fetchNews)
     <div class="news-shell container">
       <header class="news-header" :class="{ 'is-active': props.active }">
         <div class="news-title-wrap">
-          <p class="eyebrow">Cập nhật mới nhất</p>
-          <h2>Trung Tâm Tin Tức</h2>
-          <p class="subtitle">Cập nhật những thông tin mới nhất về sản phẩm, dự án và hoạt động của chúng tôi</p>
+          <p class="eyebrow">{{ t('user.home.newsEyebrow') }}</p>
+          <h2>{{ t('user.home.newsTitle') }}</h2>
+          <p class="subtitle">{{ t('user.home.newsSubtitle') }}</p>
         </div>
 
         <button class="view-all" type="button" @click="goTo('/news')">
-          <span>Xem tất cả tin tức</span>
+          <span>{{ t('user.home.viewAllNews') }}</span>
           <span class="view-all-icon">→</span>
         </button>
       </header>
@@ -156,7 +159,7 @@ onMounted(fetchNews)
         <article v-for="item in pagedNews" :key="item.id" class="news-card" @click="goTo(item.link)">
           <div class="news-media">
             <img v-if="item.image" :src="item.image" :alt="item.title" loading="lazy" />
-            <div v-else class="news-media-fallback">TIN TỨC</div>
+            <div v-else class="news-media-fallback">{{ t('user.home.newsFallbackTitle') }}</div>
 
             <div class="date-badge" aria-label="Ngày đăng">
               <span class="day">{{ item.day }}</span>
@@ -171,7 +174,7 @@ onMounted(fetchNews)
             <p class="news-summary">{{ item.summary }}</p>
 
             <div class="news-action">
-              <span>Xem chi tiết</span>
+              <span>{{ t('user.home.viewMore') }}</span>
               <span class="line"></span>
               <ArrowRight :size="16" />
             </div>
@@ -180,15 +183,15 @@ onMounted(fetchNews)
       </div>
 
       <div v-else class="news-empty">
-        <p>Hiện tại chưa có tin tức mới.</p>
+        <p>{{ t('user.home.newsEmpty') }}</p>
       </div>
 
-      <div v-if="totalPages > 1 && !loading" class="news-pagination" aria-label="Phân trang tin tức">
+      <div v-if="totalPages > 1 && !loading" class="news-pagination" :aria-label="t('user.home.newsPagination')">
         <button
           class="page-btn page-btn--nav"
           type="button"
           :disabled="currentPage === 1"
-          aria-label="Trang trước"
+          :aria-label="t('user.home.prevPage')"
           @click="goPrevPage"
         >
           &lt;
@@ -209,7 +212,7 @@ onMounted(fetchNews)
           class="page-btn page-btn--nav"
           type="button"
           :disabled="currentPage === totalPages"
-          aria-label="Trang sau"
+          :aria-label="t('user.home.nextPage')"
           @click="goNextPage"
         >
           &gt;

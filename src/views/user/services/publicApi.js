@@ -1,25 +1,46 @@
-import { env } from '@/shared/config/env'
+import i18n from '@/i18n'
 import { fetchJson } from '@/shared/lib/http'
+
+/**
+ * Lấy language code hiện tại từ i18n state.
+ * Vue-i18n locale là reactive nên cần .value nếu dùng composition API,
+ * ở đây ta dùng global.locale (có thể là ref hoặc string tùy config).
+ */
+function getCurrentLanguageCode() {
+  const locale = i18n.global.locale
+  return typeof locale === 'string' ? locale : locale.value
+}
 
 function withLanguage(query = {}) {
   return {
-    language_code: env.languageCode,
+    language_code: getCurrentLanguageCode(),
     ...query,
   }
 }
 
+/**
+ * Thử lấy dữ liệu theo ngôn ngữ hiện tại, nếu lỗi hoặc rỗng thì thử fallback.
+ * Mặc định fallback về 'vi' (Tiếng Việt) theo yêu cầu.
+ */
 async function fetchWithLanguageFallback(path, queryBuilder, fallbackLanguages = ['vi']) {
-  const languages = [env.languageCode, ...fallbackLanguages]
-    .map((value) => String(value || '').trim())
+  const currentLang = getCurrentLanguageCode()
+  
+  // Danh sách ngôn ngữ để thử: [ngôn ngữ hiện tại, ...fallbacks]
+  // Dedupe để tránh loop vô tận
+  const languages = [...new Set([currentLang, ...fallbackLanguages])]
+    .map((v) => String(v || '').trim())
     .filter(Boolean)
 
   let lastError = null
 
   for (const languageCode of languages) {
     try {
-      return await fetchJson(path, {
+      const result = await fetchJson(path, {
         query: queryBuilder(languageCode),
       })
+      
+      // Nếu là detail object và có nội dung, hoặc list có items
+      if (result) return result
     } catch (error) {
       lastError = error
     }
@@ -29,19 +50,13 @@ async function fetchWithLanguageFallback(path, queryBuilder, fallbackLanguages =
 }
 
 /**
- * Giống fetchWithLanguageFallback nhưng cũng fallback khi response trả về
- * danh sách rỗng (items.length === 0). Hữu ích cho endpoint trả 200 OK
- * với items=[] khi không có dữ liệu ở language_code đó.
+ * Tương tự fetchWithLanguageFallback nhưng kiểm tra list items.
  */
 async function fetchWithLanguageFallbackNonEmpty(path, queryBuilder, fallbackLanguages = ['vi']) {
-  const seen = new Set()
-  const languages = [env.languageCode, ...fallbackLanguages]
-    .map((value) => String(value || '').trim())
-    .filter((value) => {
-      if (!value || seen.has(value)) return false
-      seen.add(value)
-      return true
-    })
+  const currentLang = getCurrentLanguageCode()
+  const languages = [...new Set([currentLang, ...fallbackLanguages])]
+    .map((v) => String(v || '').trim())
+    .filter(Boolean)
 
   let lastResult = null
   let lastError = null
@@ -57,9 +72,7 @@ async function fetchWithLanguageFallbackNonEmpty(path, queryBuilder, fallbackLan
         return result
       }
 
-      if (!lastResult) {
-        lastResult = result
-      }
+      if (!lastResult) lastResult = result
     } catch (error) {
       lastError = error
     }
@@ -69,63 +82,6 @@ async function fetchWithLanguageFallbackNonEmpty(path, queryBuilder, fallbackLan
   if (lastError) throw lastError
 
   return { items: [] }
-}
-
-/**
- * Gộp danh sách dự án từ nhiều ngôn ngữ để trang `/du-an` không bị thiếu
- * item khi admin tạo dự án rải ở nhiều language_id khác nhau.
- */
-async function fetchMergedProjectsByLanguages(queryBuilder, languages = ['vi', 'en']) {
-  const normalizedLanguages = [...new Set(
-    languages
-      .map((value) => String(value || '').trim())
-      .filter(Boolean)
-  )]
-
-  const results = await Promise.allSettled(
-    normalizedLanguages.map((languageCode) =>
-      fetchJson('/public/projects', {
-        query: queryBuilder(languageCode),
-      })
-    )
-  )
-
-  const mergedItems = []
-  const seenKeys = new Set()
-  let pagination = null
-  let firstError = null
-
-  for (const result of results) {
-    if (result.status === 'rejected') {
-      firstError ||= result.reason
-      continue
-    }
-
-    const payload = result.value || {}
-    const items = Array.isArray(payload.items) ? payload.items : []
-    pagination ||= payload.pagination || null
-
-    for (const item of items) {
-      const dedupeKey = String(item?.slug || item?.id || '')
-      if (!dedupeKey || seenKeys.has(dedupeKey)) continue
-      seenKeys.add(dedupeKey)
-      mergedItems.push(item)
-    }
-  }
-
-  if (!mergedItems.length && firstError) {
-    throw firstError
-  }
-
-  return {
-    items: mergedItems,
-    pagination: {
-      ...(pagination || {}),
-      total: mergedItems.length,
-      skip: 0,
-      limit: mergedItems.length || pagination?.limit || 0,
-    },
-  }
 }
 
 export function getHealth() {
@@ -148,11 +104,18 @@ export function getBanners({ bannerType, ...query } = {}) {
 }
 
 export function getPageDetail(slug, query = {}) {
-  return fetchJson(`/public/pages/${slug}`, { query: withLanguage(query) })
+  return fetchWithLanguageFallback(
+    `/public/pages/${slug}`,
+    (languageCode) => ({
+      language_code: languageCode,
+      ...query,
+    })
+  )
 }
 
 export function getProjects({ categorySlug, year, skip, limit, ...query } = {}) {
-  return fetchMergedProjectsByLanguages(
+  return fetchWithLanguageFallbackNonEmpty(
+    '/public/projects',
     (languageCode) => ({
       language_code: languageCode,
       category_slug: categorySlug,
@@ -160,8 +123,7 @@ export function getProjects({ categorySlug, year, skip, limit, ...query } = {}) 
       skip,
       limit,
       ...query,
-    }),
-    [env.languageCode, 'vi', 'en']
+    })
   )
 }
 
@@ -171,8 +133,7 @@ export function getProjectDetail(slug, query = {}) {
     (languageCode) => ({
       language_code: languageCode,
       ...query,
-    }),
-    ['vi', 'en']
+    })
   )
 }
 
@@ -185,20 +146,19 @@ export function getProjectCasePage(categoryId, query = {}) {
     : '/public/project-case'
 
   return fetchJson(path, {
-    query: withLanguage({
-      ...(isNumericCategoryId ? {} : {}),
-      ...query,
-    }),
+    query: withLanguage(query),
   })
 }
 
 export function getHonors({ awardYear, ...query } = {}) {
-  return fetchJson('/public/honors', {
-    query: withLanguage({
+  return fetchWithLanguageFallbackNonEmpty(
+    '/public/honors',
+    (languageCode) => ({
+      language_code: languageCode,
       award_year: awardYear,
       ...query,
-    }),
-  })
+    })
+  )
 }
 
 export function getBranches({ branchType, ...query } = {}) {
@@ -225,7 +185,7 @@ export function getVideos(query = {}) {
 // ─── News ─────────────────────────────────────────────────────────────────
 
 export function getNewsList({ skip, limit, keyword, ...query } = {}) {
-  return fetchWithLanguageFallback(
+  return fetchWithLanguageFallbackNonEmpty(
     '/public/news',
     (languageCode) => ({
       language_code: languageCode,
@@ -238,5 +198,12 @@ export function getNewsList({ skip, limit, keyword, ...query } = {}) {
 }
 
 export function getNewsDetail(slug, query = {}) {
-  return fetchJson(`/public/news/${slug}`, { query: withLanguage(query) })
+  return fetchWithLanguageFallback(
+    `/public/news/${slug}`,
+    (languageCode) => ({
+      language_code: languageCode,
+      ...query,
+    })
+  )
 }
+

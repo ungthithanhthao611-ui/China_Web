@@ -83,6 +83,14 @@ export function deleteAdminEntityRecord(entityName, recordId, token) {
   })
 }
 
+export function autoTranslateAdminEntityRecord(entityName, recordId, token) {
+  const normalizedEntityName = normalizeAdminEntityName(entityName)
+  return fetchJson(`/admin/${normalizedEntityName}/${recordId}/translate`, {
+    method: 'POST',
+    headers: withAdminHeaders(token),
+  })
+}
+
 export function uploadAdminMediaAsset(token, file, metadata = {}) {
   const formData = new FormData()
   formData.append('file', file)

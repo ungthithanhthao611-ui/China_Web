@@ -138,6 +138,7 @@ const {
   closeForm,
   submitForm,
   deleteRecord,
+  autoTranslate,
   handleFileChange,
   handleVideoFileChange,
   uploadMedia,
@@ -392,6 +393,7 @@ function resetAboutFilters() {
         @banner-focus-stop="stopBannerFocusAdjust"
         @inline-upload="(field, files) => inlineUploadForField(field, files)"
         @remove-gallery-url="removeGalleryUrl"
+        @auto-translate="autoTranslate"
       />
 
       <EntityManagerConfirmDialog

@@ -4,9 +4,14 @@ import { useRoute, useRouter } from 'vue-router'
 import { ChevronDown, ChevronRight, Home, Play, Search, X, SlidersHorizontal } from 'lucide-vue-next'
 import { uiState } from '@/shared/utils/uiState'
 import { listProductCategories, listProducts } from '@/views/user/services/productsApi'
+import { useI18n } from 'vue-i18n'
+import { useCartStore } from '@/views/user/stores/cart'
+import { useAuthStore } from '@/views/user/stores/auth'
+import { ShoppingCart, Loader2 } from 'lucide-vue-next'
 
 const route = useRoute()
 const router = useRouter()
+const { locale, t } = useI18n({ useScope: 'global' })
 
 const products = ref([])
 const categoryTree = ref([])
@@ -18,14 +23,48 @@ const currentPage = ref(1)
 const viewportWidth = ref(typeof window === 'undefined' ? 1200 : window.innerWidth)
 const categoryPanelOpen = ref(false)
 
+const cartStore = useCartStore()
+const authStore = useAuthStore()
+const addingProductId = ref(null)
+const cartNotice = ref('')
+let cartNoticeTimer = null
+
+const showCartNotice = () => {
+  cartNotice.value = t('user.home.cartAddSuccess')
+  if (cartNoticeTimer) {
+    window.clearTimeout(cartNoticeTimer)
+  }
+  cartNoticeTimer = window.setTimeout(() => {
+    cartNotice.value = ''
+    cartNoticeTimer = null
+  }, 2200)
+}
+
+const formatPrice = (price) => {
+  if (!price) return t('user.home.contactPrice') || 'Liên hệ'
+  return new Intl.NumberFormat('vi-VN', { style: 'currency', currency: 'VND' }).format(price)
+}
+
+const handleAddToCart = async (product) => {
+  if (!authStore.isAuthenticated) {
+    alert('Vui lòng đăng nhập để thêm vào giỏ hàng')
+    return
+  }
+
+  addingProductId.value = product.id
+  try {
+    await cartStore.addItem(product.id, 1)
+    showCartNotice()
+  } catch (err) {
+    console.error(err)
+  } finally {
+    addingProductId.value = null
+  }
+}
+
 const MOBILE_BREAKPOINT = 560
 const DESKTOP_PAGE_SIZE = 9
 const MOBILE_PAGE_SIZE = 6
-
-const normalizeText = (value) => String(value || '')
-  .toLowerCase()
-  .normalize('NFD')
-  .replace(/[\u0300-\u036f]/g, '')
 
 const flattenCategoryTree = (nodes, depth = 0) => nodes.flatMap((node) => {
   const currentNode = {
@@ -48,32 +87,35 @@ const activeSidebarCategory = computed(() => {
   if (!activeCategorySlug.value) {
     return {
       slug: '',
-      name: 'Tất cả',
-      description: rootCategory.value?.description || 'Hiển thị toàn bộ sản phẩm trong danh mục hiện có.',
+      name: t('user.products.sidebarAll'),
+      description: locale.value === 'vi' ? (rootCategory.value?.description || '') : '',
       product_count: rootCategory.value?.product_count || products.value.length,
     }
   }
 
-  return sidebarCategories.value.find((category) => category.slug === activeCategorySlug.value) || {
+  const found = sidebarCategories.value.find((category) => category.slug === activeCategorySlug.value)
+  if (found) return found
+
+  return {
     slug: '',
-    name: 'Tất cả',
-    description: rootCategory.value?.description || '',
-    product_count: rootCategory.value?.product_count || products.value.length,
+    name: t('user.products.sidebarAll'),
+    description: '',
+    product_count: rootProductCount.value,
   }
 })
 
 const filteredProducts = computed(() => {
   if (!searchQuery.value.trim()) return products.value
 
-  const query = normalizeText(searchQuery.value)
+  const query = String(searchQuery.value).toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '').replace(/đ/g, 'd')
   return products.value.filter((product) => {
-    const searchableText = normalizeText([
+    const searchableText = String([
       product?.name,
       product?.sku,
       product?.short_desc,
       product?.material,
       product?.category_name,
-    ].join(' '))
+    ].join(' ')).toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '').replace(/đ/g, 'd')
     return searchableText.includes(query)
   })
 })
@@ -180,6 +222,11 @@ watch(
   },
 )
 
+watch(locale, async () => {
+  await fetchCategoryTree()
+  await fetchProducts()
+})
+
 onMounted(async () => {
   uiState.isHeaderHidden = false
   uiState.isFooterHidden = false
@@ -192,25 +239,34 @@ onMounted(async () => {
 
 onBeforeUnmount(() => {
   window.removeEventListener('resize', updateViewportWidth)
+  if (cartNoticeTimer) {
+    window.clearTimeout(cartNoticeTimer)
+  }
 })
 </script>
 
 <template>
   <div class="products-page">
+    <transition name="cart-toast">
+      <div v-if="cartNotice" class="cart-success-toast" role="status" aria-live="polite">
+        {{ cartNotice }}
+      </div>
+    </transition>
+
     <!-- Hero -->
     <section class="prod-hero">
       <div class="prod-hero__overlay" />
       <div class="prod-hero__content">
-        <p class="prod-hero__eyebrow">THIÊN ĐỒNG VIỆT NAM</p>
-        <h1 class="prod-hero__title">Sản Phẩm</h1>
+        <p class="prod-hero__eyebrow">{{ t('user.products.heroEyebrow') }}</p>
+        <h1 class="prod-hero__title">{{ t('user.products.heroTitle') }}</h1>
         <div class="prod-hero__line" />
-        <p class="prod-hero__sub">Khám phá bộ sưu tập vật liệu nội thất cao cấp của chúng tôi</p>
+        <p class="prod-hero__sub">{{ t('user.products.heroSub') }}</p>
       </div>
       <!-- Breadcrumb -->
       <nav class="prod-hero__breadcrumb" aria-label="Breadcrumb">
-        <router-link to="/"><Home :size="14" />Trang Chủ</router-link>
+        <router-link to="/"><Home :size="14" />{{ t('user.products.breadcrumbHome') }}</router-link>
         <ChevronRight :size="13" />
-        <span>Sản Phẩm</span>
+        <span>{{ t('user.products.breadcrumbProducts') }}</span>
       </nav>
     </section>
 
@@ -221,7 +277,7 @@ onBeforeUnmount(() => {
         <div class="prod-sidebar__header">
           <div class="prod-sidebar__header-main">
             <SlidersHorizontal :size="16" />
-            <span>Danh m&#7909;c</span>
+            <span>{{ t('user.products.sidebarTitle') }}</span>
           </div>
           <button
             v-if="isMobileView"
@@ -238,8 +294,8 @@ onBeforeUnmount(() => {
         <div v-if="categoryPanelOpen" class="prod-sidebar__tree">
           <div class="prod-cat-root">
             <div>
-              <span class="prod-cat-root__label">DANH MỤC</span>
-              <strong class="prod-cat-root__title">{{ rootCategory?.name || 'Danh mục sản phẩm' }}</strong>
+              <span class="prod-cat-root__label">{{ t('user.products.sidebarTitle') }}</span>
+              <strong class="prod-cat-root__title">{{ rootCategory?.name || t('user.products.sidebarRootDefault') }}</strong>
             </div>
             <span class="prod-cat-count">{{ rootProductCount }}</span>
           </div>
@@ -251,7 +307,7 @@ onBeforeUnmount(() => {
                 @click="selectCategory('')"
               >
                 <span class="prod-cat-item__branch" aria-hidden="true" />
-                <span class="prod-cat-item__label">Tất cả</span>
+                <span class="prod-cat-item__label">{{ t('user.products.allProducts') }}</span>
                 <span class="prod-cat-count">{{ rootProductCount }}</span>
               </button>
             </li>
@@ -276,7 +332,7 @@ onBeforeUnmount(() => {
         <div class="prod-toolbar">
           <div class="prod-toolbar__info">
             <span>
-              <strong>{{ activeSidebarCategory.name }}</strong> — {{ totalProducts }} sản phẩm
+              <strong>{{ activeSidebarCategory.name }}</strong> — {{ t('user.products.toolbarProductCount', { name: '', count: totalProducts }) }}
             </span>
           </div>
           <div class="prod-search">
@@ -284,10 +340,10 @@ onBeforeUnmount(() => {
             <input
               v-model="searchQuery"
               type="text"
-              placeholder="Tìm sản phẩm, mã SKU..."
-              aria-label="Tìm kiếm sản phẩm"
+              :placeholder="t('user.products.searchPlaceholder')"
+              :aria-label="t('user.products.searchPlaceholder')"
             />
-            <button v-if="searchQuery" class="prod-search__clear" @click="searchQuery = ''" aria-label="Xóa tìm kiếm">
+            <button v-if="searchQuery" class="prod-search__clear" @click="searchQuery = ''" :aria-label="t('user.products.searchClear')">
               <X :size="14" />
             </button>
           </div>
@@ -301,12 +357,12 @@ onBeforeUnmount(() => {
         <!-- Loading -->
         <div v-if="loadingProducts" class="prod-status">
           <div class="prod-spinner" />
-          <span>Đang tải sản phẩm...</span>
+          <span>{{ t('user.products.loading') }}</span>
         </div>
 
         <!-- Empty -->
         <div v-else-if="!filteredProducts.length" class="prod-status prod-status--empty">
-          <p>Không tìm thấy sản phẩm phù hợp.</p>
+          <p>{{ t('user.products.empty') }}</p>
         </div>
 
         <!-- Grid -->
@@ -329,13 +385,15 @@ onBeforeUnmount(() => {
               <router-link :to="`/products/${product.slug}`" class="prod-card__name">
                 {{ product.name }}
               </router-link>
-              <p class="prod-card__desc">{{ product.short_desc }}</p>
+              <p class="prod-card__desc">
+                {{ product.short_desc || t('user.home.productDescriptionFallback') }}
+              </p>
               <div class="prod-card__specs" v-if="product.size || product.material">
                 <span v-if="product.material">
-                  <strong>Chất liệu:</strong> {{ product.material }}
+                  <strong>{{ t('user.products.labelMaterial') }}:</strong> {{ product.material }}
                 </span>
                 <span v-if="product.size">
-                  <strong>Kích thước:</strong> {{ product.size }}
+                  <strong>{{ t('user.products.labelSize') }}:</strong> {{ product.size }}
                 </span>
               </div>
               <a
@@ -349,20 +407,25 @@ onBeforeUnmount(() => {
                   <Play :size="14" fill="currentColor" />
                 </span>
                 <span class="prod-card__video-text">
-                  <strong>Video Demo</strong>
-                  <small>Xem ngay nội dung video của sản phẩm</small>
+                  <strong>{{ t('user.products.videoDemo') }}</strong>
+                  <small>{{ t('user.products.videoDemoSub') }}</small>
                 </span>
               </a>
+              <div class="prod-card__price-row">
+                <span class="prod-card__price">{{ formatPrice(product.price) }}</span>
+              </div>
               <div class="prod-card__footer">
                 <router-link :to="`/products/${product.slug}`" class="prod-card__detail-btn">
-                  Xem Chi Tiết
+                  {{ t('user.products.viewDetails') }}
                 </router-link>
-                <router-link
-                  :to="{ path: `/products/${product.slug}`, query: { inquiry: '1' } }"
-                  class="prod-card__inquiry-btn"
+                <button 
+                  class="prod-card__cart-btn" 
+                  @click="handleAddToCart(product)"
+                  :disabled="addingProductId === product.id"
                 >
-                  Gửi Yêu Cầu
-                </router-link>
+                  <Loader2 v-if="addingProductId === product.id" class="spinner" :size="16" />
+                  <ShoppingCart v-else :size="16" />
+                </button>
               </div>
             </div>
           </article>
@@ -374,7 +437,7 @@ onBeforeUnmount(() => {
             class="prod-page-arrow"
             :disabled="currentPage === 1"
             @click="goToPage(currentPage - 1)"
-            aria-label="Trang trước"
+            :aria-label="t('user.products.prevPage')"
           >←</button>
           <button
             v-if="!isMobileView"
@@ -390,7 +453,7 @@ onBeforeUnmount(() => {
             class="prod-page-arrow"
             :disabled="currentPage === totalPages"
             @click="goToPage(currentPage + 1)"
-            aria-label="Trang sau"
+            :aria-label="t('user.products.nextPage')"
           >→</button>
         </div>
       </main>
@@ -1241,9 +1304,92 @@ onBeforeUnmount(() => {
   }
 }
 
-@media (max-width: 430px) {
-  .prod-card__footer {
-    gap: 6px;
+
+.prod-card__price-row {
+  margin: 12px 0;
+}
+
+.prod-card__price {
+  font-size: 18px;
+  font-weight: 700;
+  color: #1e293b;
+}
+
+.prod-card__cart-btn {
+  background: #f1f5f9;
+  border: none;
+  color: #1e293b;
+  width: 40px;
+  height: 40px;
+  border-radius: 10px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  transition: all 0.2s ease;
+
+  &:hover {
+    background: #1e293b;
+    color: #fff;
+  }
+
+  &:disabled {
+    opacity: 0.5;
+    cursor: not-allowed;
+  }
+}
+
+.spinner {
+  animation: rotate 1s linear infinite;
+}
+
+.cart-success-toast {
+  position: fixed;
+  top: 92px;
+  right: 24px;
+  z-index: 1000;
+  max-width: min(320px, calc(100vw - 32px));
+  padding: 13px 18px;
+  border-radius: 10px;
+  background: #16a34a;
+  color: #fff;
+  font-size: 14px;
+  font-weight: 700;
+  box-shadow: 0 18px 40px rgba(15, 23, 42, 0.18);
+}
+
+.cart-toast-enter-active,
+.cart-toast-leave-active {
+  transition: opacity 0.2s ease, transform 0.2s ease;
+}
+
+.cart-toast-enter-from,
+.cart-toast-leave-to {
+  opacity: 0;
+  transform: translateY(-10px);
+}
+
+@keyframes rotate {
+  from { transform: rotate(0deg); }
+  to { transform: rotate(360deg); }
+}
+
+@media (max-width: 560px) {
+  .cart-success-toast {
+    top: 76px;
+    right: 16px;
+    left: 16px;
+    max-width: none;
+    text-align: center;
+  }
+
+  .prod-card__cart-btn {
+    width: 34px;
+    height: 34px;
+  }
+  
+  .prod-card__price {
+    font-size: 15px;
   }
 }
 </style>

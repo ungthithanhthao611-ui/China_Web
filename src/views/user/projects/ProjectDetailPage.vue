@@ -4,6 +4,9 @@ import { useRoute } from 'vue-router'
 import { ArrowLeft, MapPin, CalendarDays, Ruler, Building2, LayoutGrid } from 'lucide-vue-next'
 import { getProjectDetail } from '@/views/user/services/publicApi'
 import { uiState } from '@/shared/utils/uiState'
+import { useI18n } from 'vue-i18n'
+
+const { locale, t } = useI18n({ useScope: 'global' })
 
 const route = useRoute()
 const project = ref(null)
@@ -52,7 +55,7 @@ const infoItems = computed(() => {
     result.push({ icon: 'calendar', label: 'THỜI GIAN', value: `Năm ${project.value.project_year}` })
   }
   if (project.value.category?.name) {
-    result.push({ icon: 'layout', label: 'HẠNG MỤC', value: project.value.category.name })
+    result.push({ icon: 'layout', label: t('user.products.sidebarTitle') || 'HẠNG MỤC', value: project.value.category.name })
   }
 
   return result
@@ -122,6 +125,10 @@ watch(
   { immediate: true }
 )
 
+watch(locale, () => {
+  if (route.params.slug) loadProject(route.params.slug)
+})
+
 onMounted(() => {
   uiState.isHeaderHidden = false
   uiState.isFooterHidden = false
@@ -140,14 +147,14 @@ onBeforeUnmount(() => {
     <section v-if="loading" class="pd-state" aria-live="polite">
       <div class="pd-state__inner">
         <div class="pd-state__spinner" />
-        <p>Đang tải thông tin dự án…</p>
+        <p>{{ t('user.home.loading') }}</p>
       </div>
     </section>
 
     <!-- ── Error ────────────────────────── -->
     <section v-else-if="error" class="pd-state pd-state--error" aria-live="assertive">
       <div class="pd-state__inner">
-        <h1>Dự án không tồn tại</h1>
+        <h1>{{ t('user.home.newsEmpty') }}</h1>
         <p>{{ error }}</p>
         <router-link to="/du-an" class="pd-back">← Trở lại danh sách dự án</router-link>
       </div>

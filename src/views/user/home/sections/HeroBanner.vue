@@ -2,6 +2,7 @@
 import { computed, nextTick, ref, watch } from 'vue'
 import { Swiper, SwiperSlide } from 'swiper/vue'
 import { Autoplay, EffectFade } from 'swiper/modules'
+import { useI18n } from 'vue-i18n'
 
 import { useBootstrapStore } from '@/views/user/stores/bootstrap'
 import { env } from '@/shared/config/env'
@@ -20,21 +21,22 @@ const emit = defineEmits(['scroll-next', 'slide-change'])
 
 const API_ORIGIN = env.apiBaseUrl.replace(/\/api\/v\d+\/?$/, '')
 const bootstrapStore = useBootstrapStore()
+const { t } = useI18n({ useScope: 'global' })
 const modules = [Autoplay, EffectFade]
 const activeSlide = ref(0)
 const swiperRef = ref(null)
 const videoRefs = ref([])
 
-const defaultSlides = [
+const defaultSlides = computed(() => [
   {
     type: 'image',
     src: '/images/5b410cd6-2314-4dd5-bf3c-0a947c63008f.png',
     alt: 'THIÊN ĐỒNG VIỆT NAM banner chính',
     eyebrow: 'THIÊN ĐỒNG VIỆT NAM',
-    title: 'Thương Mại Quốc Tế',
-    subtitle: 'UY TÍN TỪ NHỮNG ĐIỀU NHỎ NHẤT',
+    title: t('user.home.heroTitle'),
+    subtitle: t('user.home.heroSubtitle'),
     body: 'CÔNG TY TNHH THƯƠNG MẠI QUỐC TẾ THIÊN ĐỒNG VIỆT NAM chuyên cung cấp các dòng đá mềm – tấm ốp linh hoạt cao cấp cho trang trí nội ngoại thất hiện đại.',
-    buttonText: 'Khám Phá Dịch Vụ',
+    buttonText: t('user.home.viewMore'),
     link: '/business-areas#ctn1',
   },
 
@@ -46,7 +48,7 @@ const defaultSlides = [
     title: 'Không Gian Doanh Nghiệp Bền Vững',
     subtitle: 'Nơi làm việc đẳng cấp được tạo hình cho thương hiệu, công năng và tốc độ.',
     body: 'Cung cấp không gian doanh nghiệp cao cấp với kế hoạch mạnh mẽ, thực thi chặt chẽ và sẵn sàng vận hành tốt hơn.',
-    buttonText: 'Về Chúng Tôi',
+    buttonText: t('user.home.viewMore'),
     link: '/about/company-introduction#page1',
   },
   {
@@ -57,7 +59,7 @@ const defaultSlides = [
     title: 'Năng Lực Được Chứng Nhận Trong Các Lĩnh Vực Then Chốt',
     subtitle: 'Xây dựng trên sự tuân thủ, chất lượng thực thi và kinh nghiệm quy mô quốc gia.',
     body: 'Xem xét các giải thưởng, chứng chỉ và hồ sơ năng lực thực thi hỗ trợ các dự án doanh nghiệp lớn và công cộng.',
-    buttonText: 'Xem Giải Thưởng',
+    buttonText: t('user.home.viewMore'),
     link: '/honors',
   },
   {
@@ -68,7 +70,7 @@ const defaultSlides = [
     title: 'Theo Dõi Các Dự Án Hiện Tại Và Cập Nhật Doanh Nghiệp',
     subtitle: 'Cái nhìn rõ nét hơn về những gì đội ngũ đang xây dựng.',
     body: 'Theo dõi các mốc quan trọng của dự án, sự phát triển của công ty và các thông báo ngành từ THIÊN ĐỒNG VIỆT NAM.',
-    buttonText: 'Đọc Tin Tức',
+    buttonText: t('user.home.viewMore'),
     link: '/news',
   },
   {
@@ -80,10 +82,10 @@ const defaultSlides = [
     title: 'Xem Các Tác Phẩm Đặc Sắc Chuyển Động',
     subtitle: 'Câu chuyện dự án, cảnh quay hiện trường và trình chiếu hình ảnh cao cấp.',
     body: 'Duyệt qua các video được chọn lọc cho thấy chất lượng thực thi, không khí thiết kế và chi tiết thi công vượt xa hình ảnh tĩnh.',
-    buttonText: 'Mở Video',
+    buttonText: t('user.home.viewMore'),
     link: '/video',
   },
-]
+])
 
 function resolveAssetUrl(url) {
   if (!url) return ''
@@ -123,11 +125,11 @@ const slides = computed(() => {
   const banners = bootstrapStore.heroBanners || []
 
   if (!banners.length) {
-    return defaultSlides
+    return defaultSlides.value
   }
 
   return banners.map((banner, index) => {
-    const fallbackSlide = defaultSlides[index % defaultSlides.length]
+    const fallbackSlide = defaultSlides.value[index % defaultSlides.value.length]
     const mediaUrl = resolveAssetUrl(banner.image?.url || fallbackSlide.src || '')
     const isVideo = banner.image?.url ? isVideoAsset(banner) : fallbackSlide.type === 'video'
     const posterUrl = isVideo
@@ -159,7 +161,7 @@ const slides = computed(() => {
   })
 })
 
-const currentSlide = computed(() => slides.value[activeSlide.value] || slides.value[0] || defaultSlides[0])
+const currentSlide = computed(() => slides.value[activeSlide.value] || slides.value[0] || defaultSlides.value[0])
 
 const setVideoRef = (element, index) => {
   if (!element) return
@@ -290,7 +292,7 @@ defineExpose({ goToSlide })
           class="hero-copy__cta"
           v-bind="bannerLinkProps(currentSlide.link)"
         >
-          {{ currentSlide.buttonText || 'Khám Phá Thêm' }}
+          {{ currentSlide.buttonText || t('user.home.viewMore') }}
         </component>
       </div>
     </div>

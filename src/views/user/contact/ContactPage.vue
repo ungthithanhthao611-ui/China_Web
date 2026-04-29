@@ -11,7 +11,10 @@ import {
   parseCoordinateValue,
 } from '@/shared/utils/maps'
 import { uiState } from '@/shared/utils/uiState'
+import { useI18n } from 'vue-i18n'
 import logoImage from '@/assets/logo-cty.png'
+
+const { locale, t } = useI18n({ useScope: 'global' })
 
 const route = useRoute()
 const bootstrapStore = useBootstrapStore()
@@ -78,7 +81,7 @@ const primaryContact = computed(() => {
 const companyName = computed(() => {
   const name = primaryContact.value?.name || ''
   if (!name || name.toLowerCase().includes('china national decoration')) {
-    return 'CÔNG TY TNHH THƯƠNG MẠI QUỐC TẾ THIÊN ĐỒNG VIỆT NAM'
+    return t('user.footer.companyName')
   }
   return name
 })
@@ -280,6 +283,8 @@ const syncHashSection = async () => {
   scrollToSection('ctn1')
 }
 
+watch(locale, fetchContactData)
+
 watch(
   () => route.hash,
   () => {
@@ -410,7 +415,7 @@ onUnmounted(() => {
               </div>
 
               <div v-if="isLoadingContacts" class="contact-status-card">
-                Đang tải dữ liệu liên hệ...
+                {{ t('user.home.loading') }}
               </div>
 
               <div v-else-if="contactError && !hasContactData" class="contact-status-card contact-status-card--error">

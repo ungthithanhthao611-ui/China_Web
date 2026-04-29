@@ -1,12 +1,17 @@
 <script setup>
 import { computed, nextTick, onBeforeUnmount, onMounted, ref, watch } from 'vue'
+import { useI18n } from 'vue-i18n'
 import { useRoute } from 'vue-router'
-import { ChevronDown, Mail, MapPin, Menu, Phone, Search, X } from 'lucide-vue-next'
+import { ChevronDown, Mail, MapPin, Menu, Phone, Search, X, LogIn, User } from 'lucide-vue-next'
 import { useBootstrapStore } from '@/views/user/stores/bootstrap'
 import { findMenuItems, normalizeMenuItems, toLinkProps } from '@/shared/utils/navigation'
 import { uiState } from '@/shared/utils/uiState'
 import { listProductCategories } from '@/views/user/services/productsApi'
+import { LOCALE_STORAGE_KEY } from '@/i18n'
 import logoImage from '@/assets/logo-cty.png'
+import { useAuthStore } from '@/views/user/stores/auth'
+import { useCartStore } from '@/views/user/stores/cart'
+import { ShoppingCart } from 'lucide-vue-next'
 
 const HEADER_CONTACT_FALLBACK = Object.freeze({
   email: 'Thiendongvnit@gmail.com',
@@ -22,8 +27,41 @@ const isSearchOpen = ref(false)
 const searchQuery = ref('')
 const searchInputRef = ref(null)
 const mobileExpandedGroups = ref([])
+const isLanguageOpen = ref(false)
+const { locale, t } = useI18n({ useScope: 'global' })
 const route = useRoute()
 const bootstrapStore = useBootstrapStore()
+const authStore = useAuthStore()
+const cartStore = useCartStore()
+
+const isUserMenuOpen = ref(false)
+const userMenuRef = ref(null)
+
+const openAuthModal = () => {
+  router.push('/login')
+}
+
+const handleLogout = () => {
+  authStore.logout()
+  isUserMenuOpen.value = false
+}
+
+onMounted(async () => {
+  await authStore.initialize()
+  if (authStore.isAuthenticated) {
+    cartStore.initialize()
+  }
+})
+
+const languageOptions = [
+  { code: 'vi', label: 'Tiếng Việt', flag: '🇻🇳' },
+  { code: 'en', label: 'English', flag: '🇺🇸' },
+  { code: 'zh', label: '中文简体', flag: '🇨🇳' },
+]
+
+const currentLanguage = computed(() =>
+  languageOptions.find((item) => item.code === locale.value) || languageOptions[0],
+)
 
 const productCategories = ref([])
 
@@ -52,12 +90,30 @@ const normalizeProductCategoryTree = (nodes = []) => (
     }))
 )
 
+const normalizeText = (value) => String(value || '')
+  .toLowerCase()
+  .normalize('NFD')
+  .replace(/[\u0300-\u036f]/g, '')
+  .replace(/đ/g, 'd')
+
+const translateCategory = (name) => {
+  if (!name || locale.value === 'vi') return name
+  const n = normalizeText(name).toUpperCase()
+  if (n.includes('VAN DA')) return t('user.products.catStone')
+  if (n.includes('VAN VAI')) return t('user.products.catFabric')
+  if (n.includes('3D')) return t('user.products.cat3D')
+  if (n.includes('XI MANG')) return t('user.products.catCement')
+  if (n.includes('GACH THE')) return t('user.products.catBrick')
+  if (n.includes('LINH HOAT')) return t('user.products.catFlexible')
+  return name
+}
+
 const isProductNavItem = (item) => normalizeNavPath(item?.path) === '/products'
 
 const buildProductNavNodes = (nodes = [], depth = 0) => nodes
   .filter((category) => category?.slug && category?.is_active !== false)
   .map((category) => ({
-    name: category.name,
+    name: translateCategory(category.name),
     path: `/products?category=${category.slug}`,
     depth,
     isProductCategory: true,
@@ -87,15 +143,15 @@ async function loadProductCategories() {
 }
 
 const productNavChildren = computed(() => {
-  const base = [{ name: 'Tất Cả Sản Phẩm', path: '/products', depth: 0, isProductCategory: true, children: [] }]
+  const base = [{ name: t('user.products.allProducts'), path: '/products', depth: 0, isProductCategory: true, children: [] }]
   const fromApi = buildProductNavNodes(productCategories.value)
   return fromApi.length ? [...base, ...fromApi] : base
 })
 
 const fallbackNavItems = computed(() => [
-  { name: 'Trang Chủ', path: '/' },
+  { name: t('user.home.home'), path: '/' },
   {
-    name: 'Giới Thiệu',
+    name: t('user.home.about'),
     path: '/about/company-introduction',
     children: [
       { name: 'Tổng Quan Công Ty', path: '/about/company-introduction' },
@@ -107,19 +163,19 @@ const fallbackNavItems = computed(() => [
     ],
   },
   {
-    name: 'Sản Phẩm',
+    name: t('user.home.products'),
     path: '/products',
     children: productNavChildren.value,
   },
   {
-    name: 'Dự Án',
+    name: t('user.home.projects'),
     path: '/du-an',
   },
   {
-    name: 'Tin Tức',
+    name: t('user.home.news'),
     path: '/news',
   },
-  { name: 'Liên Hệ', path: '/contact' },
+  { name: t('user.home.contactTitle'), path: '/contact' },
 ])
 
 const headerMenuItems = computed(() =>
@@ -133,14 +189,41 @@ const navItems = computed(() => {
 
   return sourceItems.map((item) => {
     const normalizedPath = normalizeNavPath(item.path)
+    
+    const translateName = (n) => {
+      if (!n) return n
+      if (n === 'Trang Chủ') return t('user.home.home')
+      if (n === 'Giới Thiệu') return t('user.home.about')
+      if (n === 'Sản Phẩm') return t('user.home.products')
+      if (n === 'Dự Án') return t('user.home.projects')
+      if (n === 'Tin Tức') return t('user.home.news')
+      if (n === 'Liên Hệ') return t('user.home.contactTitle')
+      if (n === 'Năng Lực') return t('user.home.capability')
+      
+      // Sub-menu items
+      if (n === 'Về Chúng Tôi' || n === 'Tổng Quan Công Ty') return t('user.home.aboutUs')
+      if (n === 'Tầm Nhìn & Sứ Mệnh') return t('user.home.visionMission')
+      if (n === 'Giá Trị Cốt Lõi') return t('user.home.coreValues')
+      if (n === 'Lịch Sử Phát Triển') return t('user.home.history')
+      if (n === 'Ban Lãnh Đạo') return t('user.home.leadership')
+      if (n === 'Sơ Đồ Tổ Chức') return t('user.home.orgChart')
+      if (n === 'Đối Tác') return t('user.home.partners')
+      
+      return n
+    }
 
     if (normalizedPath !== '/products') {
-      return item
+      return { 
+        ...item, 
+        name: translateName(item.name),
+        children: (item.children || []).map(child => ({ ...child, name: translateName(child.name) }))
+      }
     }
 
     return {
       ...item,
-      children: productNavChildren.value.length ? productNavChildren.value : (item.children || []),
+      name: translateName(item.name),
+      children: productNavChildren.value.length ? productNavChildren.value : (item.children || []).map(child => ({ ...child, name: translateName(child.name) })),
     }
   })
 })
@@ -153,15 +236,21 @@ const readSetting = (keys, fallback = '') => {
   return fallback
 }
 
-const siteName = computed(() =>
-  readSetting(['site_name', 'company_name'], 'CÔNG TY TNHH THƯƠNG MẠI QUỐC TẾ THIÊN ĐỒNG VIỆT NAM'),
-)
-const brandPrimary = computed(() =>
-  readSetting(['site_short_name', 'company_short_name', 'brand_name'], HEADER_CONTACT_FALLBACK.brandPrimary),
-)
-const brandSecondary = computed(() =>
-  readSetting(['site_short_region', 'brand_region', 'country_name'], HEADER_CONTACT_FALLBACK.brandSecondary),
-)
+const siteName = computed(() => {
+  const fallback = t('user.home.brandPrimary') + ' ' + t('user.home.brandSecondary')
+  if (locale.value === 'vi') return readSetting(['site_name', 'company_name'], fallback)
+  return fallback
+})
+const brandPrimary = computed(() => {
+  const fallback = t('user.home.brandPrimary')
+  if (locale.value === 'vi') return readSetting(['site_short_name', 'company_short_name', 'brand_name'], fallback)
+  return fallback
+})
+const brandSecondary = computed(() => {
+  const fallback = t('user.home.brandSecondary')
+  if (locale.value === 'vi') return readSetting(['site_short_region', 'brand_region', 'country_name'], fallback)
+  return fallback
+})
 const companyLogoUrl = computed(() => logoImage)
 const headerEmail = computed(() =>
   readSetting(['company_email', 'contact_email', 'email'], HEADER_CONTACT_FALLBACK.email),
@@ -175,12 +264,16 @@ const headerPhoneSecondary = computed(() =>
     HEADER_CONTACT_FALLBACK.phoneSecondary,
   ),
 )
-const headerLocation = computed(() =>
-  readSetting(
-    ['company_address', 'contact_address', 'address', 'office_address'],
-    HEADER_CONTACT_FALLBACK.location,
-  ),
-)
+const headerLocation = computed(() => {
+  const fallback = t('user.home.addressFull')
+  if (locale.value === 'vi') {
+    return readSetting(
+      ['company_address', 'contact_address', 'address', 'office_address'],
+      fallback,
+    )
+  }
+  return fallback
+})
 
 const createTelHref = (value) => {
   const normalized = String(value || '').replace(/[^\d+]/g, '')
@@ -295,10 +388,28 @@ const closeMobileMenu = () => {
   isMobileMenuOpen.value = false
 }
 
+const toggleLanguageMenu = () => {
+  isLanguageOpen.value = !isLanguageOpen.value
+}
+
+const selectLanguage = (code) => {
+  locale.value = code
+  localStorage.setItem(LOCALE_STORAGE_KEY, code)
+  isLanguageOpen.value = false
+}
+
 const handleKeydown = (event) => {
   if (event.key === 'Escape') {
     closeSearch()
     closeMobileMenu()
+    isLanguageOpen.value = false
+    isUserMenuOpen.value = false
+  }
+}
+
+const handleClickOutside = (event) => {
+  if (isUserMenuOpen.value && userMenuRef.value && !userMenuRef.value.contains(event.target)) {
+    isUserMenuOpen.value = false
   }
 }
 
@@ -307,6 +418,7 @@ watch(
   () => {
     closeMobileMenu()
     closeSearch()
+    isLanguageOpen.value = false
   },
 )
 
@@ -323,6 +435,7 @@ const handleScroll = () => {
 
 onMounted(() => {
   window.addEventListener('keydown', handleKeydown)
+  window.addEventListener('click', handleClickOutside)
   window.addEventListener('scroll', handleScroll)
   window.addEventListener('resize', syncHeaderOffset)
   loadProductCategories()
@@ -332,6 +445,7 @@ onMounted(() => {
 
 onBeforeUnmount(() => {
   window.removeEventListener('keydown', handleKeydown)
+  window.removeEventListener('click', handleClickOutside)
   window.removeEventListener('scroll', handleScroll)
   window.removeEventListener('resize', syncHeaderOffset)
   setBodyLock(false)
@@ -445,10 +559,74 @@ onBeforeUnmount(() => {
           </nav>
 
           <div class="header_actions">
+            <div class="language-switcher">
+              <button
+                class="language-trigger"
+                type="button"
+                :aria-expanded="isLanguageOpen"
+                aria-label="Select language"
+                @click="toggleLanguageMenu"
+              >
+                <span class="language-trigger__icon" aria-hidden="true">🌐</span>
+                <span class="language-trigger__current">{{ currentLanguage.label }}</span>
+                <ChevronDown :size="16" :class="{ rotated: isLanguageOpen }" />
+              </button>
+
+              <div v-if="isLanguageOpen" class="language-menu">
+                <button
+                  v-for="option in languageOptions"
+                  :key="option.code"
+                  type="button"
+                  :class="['language-option', { 'is-active': option.code === locale }]"
+                  @click="selectLanguage(option.code)"
+                >
+                  <span>{{ option.flag }}</span>
+                  <span>{{ option.label }}</span>
+                </button>
+              </div>
+            </div>
             <button class="mobile-toggle" type="button" aria-label="Toggle menu" @click="toggleMobileMenu">
               <X v-if="isMobileMenuOpen" :size="24" />
               <Menu v-else :size="24" />
             </button>
+
+            <!-- User Auth Actions -->
+            <div class="user-auth-actions">
+              <!-- Cart Icon -->
+              <router-link to="/cart" class="header-action-btn cart-trigger" :aria-label="t('user.home.cart')">
+                <ShoppingCart :size="22" />
+                <span v-if="cartStore.totalItems > 0" class="cart-badge">{{ cartStore.totalItems }}</span>
+              </router-link>
+
+              <template v-if="!authStore.isAuthenticated">
+                <router-link to="/login" class="auth-btn auth-btn--login">
+                  <LogIn :size="18" />
+                  <span>{{ t('user.home.login') }}</span>
+                </router-link>
+              </template>
+              <template v-else>
+                <div class="user-profile-dropdown" ref="userMenuRef">
+                  <button class="user-trigger" @click="isUserMenuOpen = !isUserMenuOpen">
+                    <div class="user-avatar">
+                      <User :size="20" />
+                    </div>
+                    <span class="user-name">{{ authStore.user?.full_name || authStore.user?.username || 'User' }}</span>
+                    <ChevronDown :size="16" :class="{ rotated: isUserMenuOpen }" />
+                  </button>
+
+                  <div v-if="isUserMenuOpen" class="user-menu">
+                    <router-link to="/profile" class="user-menu-item" @click="isUserMenuOpen = false">
+                      <User :size="16" />
+                      <span>{{ t('user.home.profile') }}</span>
+                    </router-link>
+                    <button class="user-menu-item user-menu-item--logout" @click="handleLogout">
+                      <LogIn :size="16" class="rotate-180" />
+                      <span>{{ t('user.home.logout') }}</span>
+                    </button>
+                  </div>
+                </div>
+              </template>
+            </div>
           </div>
         </div>
       </div>
@@ -524,6 +702,18 @@ onBeforeUnmount(() => {
       </div>
 
       <div class="mobile-nav-footer">
+        <div class="mobile-language">
+          <button
+            v-for="option in languageOptions"
+            :key="`mobile-lang-${option.code}`"
+            type="button"
+            :class="['mobile-language__button', { 'is-active': option.code === locale }]"
+            @click="selectLanguage(option.code)"
+          >
+            <span>{{ option.flag }}</span>
+            <span>{{ option.label }}</span>
+          </button>
+        </div>
         <a v-if="phoneHref" :href="phoneHref" class="mobile-contact-link">
           <Phone :size="16" />
           <span>{{ headerPhone }}</span>
@@ -542,8 +732,14 @@ onBeforeUnmount(() => {
         </span>
         <button class="mobile-contact-link mobile-contact-link--button" type="button" @click="openSearch">
           <Search :size="16" />
-          <span>Tìm kiếm nhanh</span>
+          <span>{{ t('user.home.searchQuick') }}</span>
         </button>
+        <template v-if="!authStore.isAuthenticated">
+          <router-link to="/login" class="mobile-contact-link mobile-contact-link--auth" @click="closeMobileMenu">
+            <LogIn :size="16" />
+            <span>{{ t('user.home.login') }}</span>
+          </router-link>
+        </template>
       </div>
     </aside>
 
@@ -554,14 +750,14 @@ onBeforeUnmount(() => {
         </button>
 
         <div class="search-overlay__inner">
-          <p class="search-overlay__eyebrow">Tìm kiếm</p>
+          <p class="search-overlay__eyebrow">{{ t('user.home.searchTitle') }}</p>
           <div class="search-overlay__field">
             <Search :size="22" />
             <input
               ref="searchInputRef"
               v-model="searchQuery"
               type="text"
-              placeholder="Tìm kiếm liên kết trang..."
+              :placeholder="t('user.home.searchPlaceholder')"
             />
           </div>
 
@@ -577,7 +773,7 @@ onBeforeUnmount(() => {
               <span>{{ item.path }}</span>
             </router-link>
 
-            <p v-if="!filteredSearchLinks.length" class="search-overlay__empty">Không tìm thấy liên kết phù hợp.</p>
+            <p v-if="!filteredSearchLinks.length" class="search-overlay__empty">{{ t('user.home.searchEmpty') }}</p>
           </div>
         </div>
       </div>
@@ -1375,6 +1571,185 @@ onBeforeUnmount(() => {
   .mobile-nav-footer {
     padding-left: 16px;
     padding-right: 16px;
+  }
+}
+
+/* User Auth Styles */
+.user-auth-actions {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin-left: 12px;
+  padding-left: 12px;
+  border-left: 1px solid rgba(214, 176, 116, 0.2);
+}
+
+.header-action-btn {
+  background: none;
+  border: none;
+  color: #f5efe2;
+  cursor: pointer;
+  padding: 8px;
+  border-radius: 50%;
+  transition: all 0.2s ease;
+  position: relative;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+
+  &:hover {
+    background: rgba(255, 255, 255, 0.05);
+    color: #d6b074;
+  }
+}
+
+.cart-badge {
+  position: absolute;
+  top: 0;
+  right: 0;
+  background: #d6b074;
+  color: #0c1831;
+  font-size: 10px;
+  font-weight: 800;
+  width: 18px;
+  height: 18px;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border: 2px solid #101d37;
+}
+
+.auth-btn {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  background: rgba(214, 176, 116, 0.1);
+  border: 1px solid rgba(214, 176, 116, 0.3);
+  color: #d6b074;
+  padding: 8px 16px;
+  border-radius: 12px;
+  font-size: 14px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.2s ease;
+
+  &:hover {
+    background: #d6b074;
+    color: #0c1831;
+    transform: translateY(-1px);
+  }
+
+  span {
+    white-space: nowrap;
+  }
+}
+
+.user-profile-dropdown {
+  position: relative;
+}
+
+.user-trigger {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  background: rgba(255, 255, 255, 0.05);
+  border: 1px solid rgba(214, 176, 116, 0.2);
+  padding: 6px 12px;
+  border-radius: 50px;
+  cursor: pointer;
+  color: #f5efe2;
+  transition: all 0.2s ease;
+
+  &:hover {
+    background: rgba(214, 176, 116, 0.1);
+    border-color: #d6b074;
+  }
+
+  .user-avatar {
+    width: 32px;
+    height: 32px;
+    background: #d6b074;
+    color: #0c1831;
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+  }
+
+  .user-name {
+    font-size: 14px;
+    font-weight: 600;
+    max-width: 100px;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
+  svg.rotated {
+    transform: rotate(180deg);
+  }
+}
+
+.user-menu {
+  position: absolute;
+  top: calc(100% + 8px);
+  right: 0;
+  width: 200px;
+  background: #101d37;
+  border: 1px solid rgba(214, 176, 116, 0.2);
+  border-radius: 16px;
+  padding: 8px;
+  box-shadow: 0 10px 25px rgba(0, 0, 0, 0.3);
+  z-index: 100;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.user-menu-item {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 10px 14px;
+  color: #f5efe2;
+  text-decoration: none;
+  font-size: 14px;
+  border-radius: 10px;
+  transition: all 0.2s ease;
+  background: none;
+  border: none;
+  width: 100%;
+  text-align: left;
+  cursor: pointer;
+
+  &:hover {
+    background: rgba(214, 176, 116, 0.1);
+    color: #d6b074;
+  }
+
+  &--logout {
+    color: #ef4444;
+    &:hover {
+      background: rgba(239, 68, 68, 0.1);
+      color: #ef4444;
+    }
+  }
+}
+
+.rotate-180 {
+  transform: rotate(180deg);
+}
+
+@media (max-width: 1023px) {
+  .user-auth-actions {
+    border-left: none;
+    margin-left: 0;
+    padding-left: 0;
+  }
+  
+  .user-name {
+    display: none;
   }
 }
 </style>

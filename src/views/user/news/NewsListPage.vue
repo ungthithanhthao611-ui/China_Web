@@ -1,5 +1,6 @@
 <script setup>
-import { computed, nextTick, onBeforeUnmount, onMounted, ref } from "vue";
+import { computed, nextTick, onBeforeUnmount, onMounted, ref, watch } from "vue";
+import { useI18n } from "vue-i18n";
 import { Swiper, SwiperSlide } from "swiper/vue";
 import { Pagination } from "swiper/modules";
 import AOS from "aos";
@@ -8,6 +9,7 @@ import { uiState } from "@/shared/utils/uiState";
 import { getBanners, getNewsList } from "@/views/user/services/publicApi";
 import { newsHero } from "./data/newsData";
 
+const { locale, t } = useI18n({ useScope: 'global' });
 const pageSize = 6;
 const featuredSize = 2;
 const currentPage = ref(1);
@@ -163,6 +165,11 @@ const setupObserver = () => {
   if (featuredEl) observer.observe(featuredEl);
 };
 
+watch(locale, async () => {
+  await Promise.all([fetchBanner(), fetchFeatured(), fetchPage()]);
+  await refreshAnimations();
+});
+
 onMounted(async () => {
   uiState.isHeaderHovered = false;
   uiState.isFooterHidden = false;
@@ -247,7 +254,7 @@ onBeforeUnmount(() => {
     >
       <div class="news-shell list-shell">
         <div v-if="loading" class="news-status-card">
-          <p>Loading news...</p>
+          <p>{{ t('user.home.loading') }}</p>
         </div>
 
         <div v-else-if="error" class="news-status-card news-status-card--error">
@@ -281,7 +288,7 @@ onBeforeUnmount(() => {
             v-if="!pagedItems.length"
             class="news-status-card news-status-card--empty"
           >
-            <p>No news articles found.</p>
+            <p>{{ t('user.home.newsEmpty') }}</p>
           </div>
         </div>
 

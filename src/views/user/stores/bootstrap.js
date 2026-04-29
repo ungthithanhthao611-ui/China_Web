@@ -53,7 +53,7 @@ export const useBootstrapStore = defineStore('bootstrap', {
 
       this._inFlight = Promise.all([
         getHealth(),
-        getBootstrap({ language_code: env.languageCode }),
+        getBootstrap({ language_code: localStorage.getItem('user-locale') || env.languageCode }),
       ])
         .then(([health, bootstrap]) => {
           this.health = health

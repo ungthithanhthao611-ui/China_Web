@@ -1,6 +1,7 @@
-﻿<script setup>
+<script setup>
 import { Building2, Cog, MapPin, MapPinned, Users } from 'lucide-vue-next'
 import { computed, onMounted, ref, watch } from 'vue'
+import { useI18n } from 'vue-i18n'
 
 import { env } from '@/shared/config/env'
 import { useSectionReveal } from '@/views/user/home/composables/useSectionReveal'
@@ -11,6 +12,7 @@ const loading = ref(true)
 const payload = ref(null)
 const activeOverviewImage = ref('')
 const { rootRef, isVisible } = useSectionReveal({ threshold: 0.22 })
+const { locale, t } = useI18n({ useScope: 'global' })
 
 function resolveImageUrl(url) {
   const normalized = String(url || '').trim()
@@ -21,11 +23,11 @@ function resolveImageUrl(url) {
 
 const factoryOverview = computed(() => {
   const raw = payload.value?.factory_overview || {}
+  const useApi = locale.value === 'vi'
+
   return {
-    title: String(raw.title || '').trim() || 'Tổng quan nhà máy',
-    description:
-      String(raw.description || '').trim() ||
-      'Nhà máy được đầu tư hiện đại với dây chuyền công nghệ tiên tiến, đáp ứng tiêu chuẩn chất lượng quốc tế.',
+    title: (useApi && String(raw.title || '').trim()) || t('user.home.factoryOverviewTitle'),
+    description: (useApi && String(raw.description || '').trim()) || t('user.home.factoryOverviewDescription'),
     factory_name: String(raw.factory_name || '').trim(),
     factory_address: String(raw.factory_address || '').trim(),
     production_capacity: String(raw.production_capacity || '').trim(),
@@ -39,29 +41,29 @@ const contactInfo = computed(() => payload.value?.contact_info || {})
 const companyName = computed(() =>
   factoryOverview.value.factory_name ||
   String(contactInfo.value.contact_name || '').trim() ||
-  'Tên nhà máy đang cập nhật.'
+  t('user.home.factoryNameEmpty')
 )
 
 const factoryAddress = computed(() =>
   String(contactInfo.value.address || '').trim() ||
   factoryOverview.value.factory_address ||
-  'Địa chỉ nhà máy đang cập nhật.'
+  t('user.home.factoryAddressEmpty')
 )
 
 const overviewHighlights = computed(() => [
   {
-    label: 'Tên nhà máy',
+    label: t('user.home.factoryName'),
     value: companyName.value,
     icon: Building2,
   },
   {
-    label: 'Địa chỉ',
+    label: t('user.home.factoryAddress'),
     value: factoryAddress.value,
     icon: MapPinned,
   },
   {
-    label: 'Công suất',
-    value: factoryOverview.value.production_capacity || 'Đang cập nhật công suất thực tế.',
+    label: t('user.home.factoryCapacity'),
+    value: factoryOverview.value.production_capacity || t('user.home.factoryCapacityEmpty'),
     icon: Cog,
   },
 ])
@@ -80,7 +82,7 @@ const overviewGalleryImages = computed(() => {
       imageMap.set(normalizedUrl, {
         id: item?.id || `factory-${index + 1}`,
         image_url: item?.image_url || item?.url || '',
-        title: item?.title || `Hình ảnh nhà máy ${index + 1}`,
+        title: item?.title || `${t('user.home.factoryImage')} ${index + 1}`,
         _preview_url: normalizedUrl,
       })
     })
@@ -94,7 +96,7 @@ const overviewGalleryImages = computed(() => {
         {
           id: 'factory-main',
           image_url: factoryOverview.value.main_image_url,
-          title: 'Hình ảnh nhà máy',
+          title: t('user.home.factoryImage'),
           _preview_url: fallback,
         },
       ]
@@ -113,13 +115,13 @@ const overviewMetricCards = computed(() => {
     {
       value: '20,000',
       unit: 'm2',
-      label: 'Diện tích nhà máy',
+      label: t('user.home.factoryArea'),
       icon: Building2,
     },
     {
       value: '500',
       unit: '',
-      label: 'Nhân sự có kinh nghiệm',
+      label: t('user.home.experiencedStaff'),
       icon: Users,
     },
   ]
@@ -165,8 +167,7 @@ async function loadData() {
   loading.value = true
   try {
     payload.value = await getHonorsPageData()
-  } catch (error) {
-    console.warn('[home] failed to load capability overview:', error?.message || error)
+  } catch {
     payload.value = null
   } finally {
     loading.value = false
@@ -184,7 +185,7 @@ onMounted(loadData)
           <img
             v-if="overviewDisplayImage"
             :src="resolveImageUrl(overviewDisplayImage)"
-            :alt="factoryOverview.factory_name || 'Nhà máy sản xuất'"
+            :alt="factoryOverview.factory_name || t('user.home.factoryImageAlt')"
           />
           <div v-else class="capability-overview__placeholder">
             <span>{{ companyName.slice(0, 1) }}</span>
@@ -196,7 +197,7 @@ onMounted(loadData)
                 <MapPin :size="20" />
               </div>
               <div>
-                <span>Vị trí nhà máy</span>
+                <span>{{ t('user.home.factoryLocation') }}</span>
                 <strong>{{ factoryAddress }}</strong>
               </div>
             </div>
@@ -205,7 +206,7 @@ onMounted(loadData)
               <div class="capability-overview__footer-map-icon">
                 <MapPinned :size="18" />
               </div>
-              <span>Xem trên bản đồ</span>
+              <span>{{ t('user.home.viewOnMap') }}</span>
             </a>
           </div>
         </div>
@@ -219,14 +220,14 @@ onMounted(loadData)
             :class="{ 'capability-overview__thumb-card--active': item.image_url === overviewDisplayImage }"
             @click="activeOverviewImage = item.image_url"
           >
-            <img :src="item._preview_url || resolveImageUrl(item.image_url)" :alt="item.title || `Hình ảnh nhà máy ${index + 1}`" />
+            <img :src="item._preview_url || resolveImageUrl(item.image_url)" :alt="item.title || `${t('user.home.factoryImage')} ${index + 1}`" />
           </button>
         </div>
       </div>
 
       <div class="capability-overview__content capability-overview__content--refined">
         <header class="capability-heading capability-heading--overview-refined" data-reveal-item>
-          <span class="eyebrow">NĂNG LỰC NHÀ MÁY</span>
+          <span class="eyebrow">{{ t('user.home.factoryEyebrow') }}</span>
           <span class="capability-heading__accent"></span>
           <h2>{{ factoryOverview.title }}</h2>
           <p>{{ factoryOverview.description }}</p>
@@ -265,7 +266,7 @@ onMounted(loadData)
 
 <style scoped>
 .home-capability {
-  padding: var(--home-section-pad, clamp(38px, 4.8vw, 64px)) 0;
+  padding: 40px 0 20px 0;
   background: #f3f3f5;
 }
 

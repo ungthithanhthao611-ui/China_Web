@@ -1,5 +1,6 @@
-﻿<script setup>
+<script setup>
 import { computed, defineAsyncComponent, onMounted, onUnmounted, ref, watch } from 'vue'
+import { useI18n } from 'vue-i18n'
 
 import HeroBanner from './sections/HeroBanner.vue'
 import HomeNav from './sections/HomeNav.vue'
@@ -19,16 +20,17 @@ const activeBanner = ref(0)
 const scrollContainer = ref(null)
 const heroRef = ref(null)
 const bootstrapStore = useBootstrapStore()
+const { t } = useI18n({ useScope: 'global' })
 
-const sections = [
-  { label: 'Trang chủ', id: 'ctn1' },
-  { label: 'Giới thiệu', id: 'ctn2' },
-  { label: 'Năng lực', id: 'ctn3' },
-  { label: 'Sản phẩm', id: 'ctn4' },
-  { label: 'Dự án', id: 'ctn5' },
-  { label: 'Tin tức', id: 'ctn6' },
-  { label: 'Liên hệ', id: 'ctn7' },
-]
+const sections = computed(() => [
+  { label: t('user.home.home'), id: 'ctn1' },
+  { label: t('user.home.about'), id: 'ctn2' },
+  { label: t('user.home.capability'), id: 'ctn3' },
+  { label: t('user.home.products'), id: 'ctn4' },
+  { label: t('user.home.projects'), id: 'ctn5' },
+  { label: t('user.home.news'), id: 'ctn6' },
+  { label: t('user.home.contactTitle'), id: 'ctn7' },
+])
 
 const bannerCount = computed(() => {
   const count = bootstrapStore.heroBanners?.length || 0
@@ -53,7 +55,7 @@ const handleBannerNavigate = (index) => {
 }
 
 const resolveSectionTop = (index) => {
-  const section = document.getElementById(sections[index].id)
+  const section = document.getElementById(sections.value[index].id)
   if (!section) return null
   return section.offsetTop
 }
@@ -65,7 +67,7 @@ const updateActiveSectionFromScroll = () => {
   const center = container.scrollTop + container.clientHeight * 0.35
   let nextActive = 0
 
-  for (let index = 0; index < sections.length; index += 1) {
+  for (let index = 0; index < sections.value.length; index += 1) {
     const top = resolveSectionTop(index)
     if (top === null) continue
     if (center >= top) nextActive = index
@@ -90,7 +92,7 @@ const scrollToSection = (index) => {
   activeSection.value = index
 
   container.scrollTo({ top, behavior: 'smooth' })
-  window.history.replaceState(history.state, '', `#${sections[index].id}`)
+  window.history.replaceState(history.state, '', `#${sections.value[index].id}`)
 
   setTimeout(() => {
     isSyncingByClick.value = false
@@ -104,7 +106,7 @@ const navigateToSection = (index) => {
 
 const handleHashChange = () => {
   const hash = window.location.hash.replace('#', '')
-  const index = sections.findIndex((section) => section.id === hash)
+  const index = sections.value.findIndex((section) => section.id === hash)
   if (index !== -1) scrollToSection(index)
 }
 
@@ -243,7 +245,7 @@ onUnmounted(() => {
 
 .section-full {
   width: 100%;
-  min-height: 100svh;
+  min-height: auto;
   display: flex;
   flex-direction: column;
 

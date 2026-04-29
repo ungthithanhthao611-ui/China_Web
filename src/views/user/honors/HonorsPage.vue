@@ -10,7 +10,10 @@ import { submitInquiry } from '@/views/user/services/productsApi'
 import HonorsAwardsTabs from '@/views/user/honors/ui/HonorsAwardsTabs.vue'
 import HonorsHeroSection from '@/views/user/honors/ui/HonorsHeroSection.vue'
 import HonorsQualificationList from '@/views/user/honors/ui/HonorsQualificationList.vue'
+import { useI18n } from 'vue-i18n'
 import logoImage from '@/assets/logo-cty.png'
+
+const { locale, t } = useI18n({ useScope: 'global' })
 
 const route = useRoute()
 const API_ORIGIN = env.apiBaseUrl.replace(/\/api\/v\d+\/?$/, '')
@@ -81,7 +84,7 @@ const companyName = computed(() => {
     ''
 
   if (!preferredName || preferredName.toLowerCase().includes('china national decoration')) {
-    return 'CÔNG TY TNHH THƯƠNG MẠI QUỐC TẾ THIÊN ĐỒNG VIỆT NAM'
+    return t('user.footer.companyName')
   }
 
   return preferredName
@@ -467,6 +470,8 @@ async function handleInquirySubmit() {
   }
 }
 
+watch(locale, loadHonors)
+
 watch(
   () => route.hash,
   () => {
@@ -578,7 +583,7 @@ onBeforeUnmount(() => {
           <header class="capability-heading capability-heading--dark-text capability-heading--overview-refined">
             <span class="eyebrow">NĂNG LỰC NHÀ MÁY</span>
             <span class="capability-heading__accent"></span>
-            <h2>{{ factoryOverview.title || 'Tổng quan nhà máy' }}</h2>
+            <h2>{{ factoryOverview.title || t('user.home.about') }}</h2>
             <p>
               {{
                 factoryOverview.description ||
@@ -628,7 +633,7 @@ onBeforeUnmount(() => {
 
 
 
-    <div v-if="loading" class="loading-mask">Đang tải dữ liệu năng lực...</div>
+    <div v-if="loading" class="loading-mask">{{ t('user.home.loading') }}</div>
   </main>
 </template>
 

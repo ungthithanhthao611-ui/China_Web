@@ -1,9 +1,12 @@
 <script setup>
 import { computed } from 'vue'
+import { useI18n } from 'vue-i18n'
 import { useBootstrapStore } from '@/views/user/stores/bootstrap'
 import { findMenuItems, normalizeMenuItems, toLinkProps } from '@/shared/utils/navigation'
 import { uiState } from '@/shared/utils/uiState'
 import logoImage from '@/assets/logo-cty.png'
+
+const { locale, t } = useI18n({ useScope: 'global' })
 
 const props = defineProps({
   forceVisible: {
@@ -15,9 +18,9 @@ const props = defineProps({
 const isHidden = computed(() => !props.forceVisible && uiState.isFooterHidden)
 const bootstrapStore = useBootstrapStore()
 
-const fallbackFooterGroups = [
+const fallbackFooterGroups = computed(() => [
   {
-    title: 'Giới Thiệu',
+    title: t('user.home.about'),
     titlePath: '/about/company-introduction',
     links: [
       { name: 'Tổng Quan Công Ty', path: '/about/company-introduction' },
@@ -29,7 +32,7 @@ const fallbackFooterGroups = [
     ],
   },
   {
-    title: 'Năng Lực',
+    title: t('user.home.capability'),
     titlePath: '/honors',
     links: [
       { name: 'Hình Ảnh Nhà Máy', path: '/honors' },
@@ -38,34 +41,34 @@ const fallbackFooterGroups = [
     ],
   },
   {
-    title: 'Sản Phẩm',
+    title: t('user.home.products'),
     titlePath: '/products',
     links: [
       { name: 'Danh Mục Sản Phẩm', path: '/products' },
     ],
   },
   {
-    title: 'Dự Án',
+    title: t('user.home.projects'),
     titlePath: '/du-an',
     links: [
       { name: 'Dự Án Tiêu Biểu', path: '/du-an' },
     ],
   },
   {
-    title: 'Tin Tức',
+    title: t('user.home.news'),
     titlePath: '/news',
     links: [
       { name: 'Tin Tức Mới Nhất', path: '/news' },
     ],
   },
   {
-    title: 'Liên Hệ',
+    title: t('user.home.contactTitle'),
     titlePath: '/contact',
     links: [
       { name: 'Liên Hệ Chúng Tôi', path: '/contact' },
     ],
   },
-]
+])
 
 const readSetting = (keys, fallback = '') => {
   for (const key of keys) {
@@ -103,46 +106,79 @@ const footerGroups = computed(() => {
   const sourceItems = footerMenuItems.value.length ? footerMenuItems.value : headerMenuItems.value
 
   if (!sourceItems.length) {
-    return fallbackFooterGroups
+    return fallbackFooterGroups.value
   }
 
-  return sourceItems.map((item) => ({
-    title: item.name,
-    titlePath: item.path,
-    titleExternal: item.external,
-    titleTarget: item.target,
-    links: (item.children?.length ? item.children : [item]).map((child) => ({
-      name: child.name,
-      path: child.path,
-      external: child.external,
-      target: child.target,
-    })),
-  }))
+  return sourceItems.map((item) => {
+    const translateName = (n) => {
+      if (n === 'Trang Chủ') return t('user.home.home')
+      if (n === 'Giới Thiệu') return t('user.home.about')
+      if (n === 'Sản Phẩm') return t('user.home.products')
+      if (n === 'Dự Án') return t('user.home.projects')
+      if (n === 'Tin Tức') return t('user.home.news')
+      if (n === 'Liên Hệ') return t('user.home.contactTitle')
+      if (n === 'Năng Lực') return t('user.home.capability')
+      
+      // Sub-links mapping
+      if (n === 'Về Chúng Tôi') return t('user.home.aboutUs')
+      if (n === 'Tầm Nhìn & Sứ Mệnh') return t('user.home.visionMission')
+      if (n === 'Giá Trị Cốt Lõi') return t('user.home.coreValues')
+      if (n === 'Lịch Sử Phát Triển') return t('user.home.history')
+      if (n === 'Tổng Quan Công Ty') return t('user.home.overview')
+      if (n === 'Ban Lãnh Đạo') return t('user.home.leadership')
+      if (n === 'Sơ Đồ Tổ Chức') return t('user.home.orgChart')
+      if (n === 'Hình Ảnh Nhà Máy') return t('user.home.factoryImages')
+      if (n === 'Công Nghệ Sản Xuất') return t('user.home.productionTech')
+      if (n === 'Chứng Nhận ISO & CE') return t('user.home.certifications')
+      if (n === 'Danh Mục Sản Phẩm') return t('user.home.productCatalog')
+      if (n === 'Dự Án Tiêu Biểu') return t('user.home.featuredProjects')
+      if (n === 'Tin Tức Mới Nhất') return t('user.home.latestNews')
+      if (n === 'Liên Hệ Chúng Tôi') return t('user.home.contactUs')
+      if (n === 'Đối Tác') return t('user.home.partners')
+      
+      return n
+    }
+
+    return {
+      title: translateName(item.name),
+      titlePath: item.path,
+      titleExternal: item.external,
+      titleTarget: item.target,
+      links: (item.children?.length ? item.children : [item]).map((child) => ({
+        name: translateName(child.name),
+        path: child.path,
+        external: child.external,
+        target: child.target,
+      })),
+    }
+  })
 })
 
 const socialItems = []
 
 const defaultLogoUrl = logoImage
-const siteName = computed(() =>
-  readSetting(
-    ['site_name', 'company_name'],
-    'CÔNG TY TNHH THƯƠNG MẠI QUỐC TẾ THIÊN ĐỒNG VIỆT NAM',
-  ),
-)
-const siteTagline = computed(() =>
-  readSetting(['site_tagline', 'company_slogan'], 'UY TÍN TỪ NHỮNG ĐIỀU NHỎ NHẤT'),
-)
+const siteName = computed(() => {
+  const fallback = t('user.home.brandPrimary') + ' ' + t('user.home.brandSecondary')
+  if (locale.value === 'vi') return readSetting(['site_name', 'company_name'], fallback)
+  return fallback
+})
+const siteTagline = computed(() => {
+  const fallback = t('user.home.heroSubtitle')
+  if (locale.value === 'vi') return readSetting(['site_tagline', 'company_slogan'], fallback)
+  return fallback
+})
 const companyLogoUrl = computed(() => defaultLogoUrl)
 
 const contactItems = computed(() => {
-  const fallbackAddressLines = [
-    'Địa chỉ: 52 Ấp Đồng Chinh, Xã Phước Hoà,',
-    'Huyện Phú Giáo, Tỉnh Bình Dương'
-  ]
+  const fallbackAddressLines = toAddressLines(t('user.home.addressFull'), [])
   const fallbackPhone = '0948.929.744'
   const fallbackEmail = 'thiendongintl@gmail.com'
 
-  const address = readSetting(['company_address', 'address'], '')
+  const address = computed(() => {
+    if (locale.value === 'vi') return readSetting(['company_address', 'address'], '')
+    return '' // Force fallback in non-VI
+  })
+  
   const addressUrl = readSetting(
     ['company_map_url', 'map_url'],
     'https://map.baidu.com/poi/%E8%8D%B7%E5%8D%8E%E6%98%8E%E5%9F%8E%E5%A4%A7%E5%8E%A6-C%E5%BA%A7/@12962304.37,4825324.01,17z?uid=66332e4f3e1ae3326040a9c3&ugc_type=3&ugc_ver=1&device_ratio=1&compat=1&pcevaname=pc4.1&querytype=detailConInfo&da_src=shareurl'
@@ -156,32 +192,32 @@ const contactItems = computed(() => {
       href: addressUrl,
       external: true,
       icon: 'https://en.sinodecor.com/repository/repository/portal-local/ngc202304190002/cms/image/72384eda-85c5-448d-91bb-451ba699887a.png',
-      lines: toAddressLines(address, fallbackAddressLines),
+      lines: toAddressLines(address.value, fallbackAddressLines),
     },
     {
       id: 'phone',
       href: `tel:${phone}`,
       icon: 'https://en.sinodecor.com/repository/repository/portal-local/ngc202304190002/cms/image/31d75566-b8ab-42d0-9b35-630efac0ef74.png',
-      text: `SĐT:${phone}`,
+      text: `${t('user.home.phoneLabel')}:${phone}`,
     },
     {
       id: 'email',
       href: `mailto:${email}`,
       icon: 'https://en.sinodecor.com/repository/repository/portal-local/ngc202304190002/cms/image/63634a49-8e79-496c-801f-36592f0d3431.png',
-      text: `E-mail:${email}`,
+      text: `${t('user.home.emailLabel')}:${email}`,
     },
   ]
 })
 
 const legalLinks = computed(() => [
-  { name: 'Liên Hệ', path: '/contact' },
+  { name: t('user.home.contactTitle'), path: '/contact' },
 ])
 
 const copyrightText = computed(
-  () => readSetting(['copyright_text'], `Bản quyền © ${siteName.value}`)
+  () => readSetting(['copyright_text'], t('user.home.copyright', { company: siteName.value }))
 )
 const technicalSupportText = computed(
-  () => readSetting(['technical_support_text'], `Hỗ trợ kỹ thuật: ${siteTagline.value}`)
+  () => readSetting(['technical_support_text'], t('user.home.technicalSupport', { slogan: siteTagline.value }))
 )
 const beianText = computed(() => readSetting(['beian_text'], ''))
 const beianHref = computed(() =>

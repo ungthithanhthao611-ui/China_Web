@@ -1,11 +1,13 @@
 <script setup>
-import { computed, onMounted, ref } from 'vue'
+import { computed, onMounted, ref, watch } from 'vue'
+import { useI18n } from 'vue-i18n'
 import { getProjects } from '@/views/user/services/publicApi'
 import { uiState } from '@/shared/utils/uiState'
 
 const projects = ref([])
 const loading = ref(true)
 const error = ref(null)
+const { locale, t } = useI18n({ useScope: 'global' })
 
 const imageUrl = (media) => media?.url || ''
 
@@ -21,15 +23,17 @@ async function loadProjects() {
     const res = await getProjects({ limit: 50 })
     projects.value = res?.items || []
   } catch (err) {
-    error.value = err?.message || 'Không thể tải danh sách dự án.'
+    error.value = err?.message || t('user.home.errorLoading')
     projects.value = []
   } finally {
     loading.value = false
   }
 }
 
+watch(locale, loadProjects)
+
 onMounted(() => {
-  document.title = 'Dự án tiêu biểu | Thiên Đồng Việt Nam'
+  document.title = t('user.home.projects') + ' | Thiên Đồng Việt Nam'
   uiState.isHeaderHidden = false
   uiState.isFooterHidden = false
   loadProjects()
@@ -45,9 +49,9 @@ onMounted(() => {
     >
       <div class="pj-hero__overlay" />
       <div class="pj-hero__content">
-        <h1 class="pj-hero__title">DỰ ÁN TIÊU BIỂU</h1>
+        <h1 class="pj-hero__title">{{ t('user.home.projectsTitle') }}</h1>
         <p class="pj-hero__sub">
-          Khám phá các không gian kiến trúc độc đáo ứng dụng đá mềm và vật liệu linh hoạt từ Thiên Đồng.
+          {{ t('user.home.projectSubtitle') }}
         </p>
       </div>
     </section>
@@ -56,21 +60,21 @@ onMounted(() => {
     <section v-if="loading" class="pj-state" aria-live="polite">
       <div class="pj-state__card">
         <div class="pj-state__spinner" />
-        <p>Đang tải danh sách dự án…</p>
+        <p>{{ t('user.home.loading') || 'Đang tải danh sách dự án…' }}</p>
       </div>
     </section>
 
     <section v-else-if="error" class="pj-state pj-state--error" aria-live="assertive">
       <div class="pj-state__card">
         <p>{{ error }}</p>
-        <router-link to="/" class="pj-state__link">Quay về trang chủ</router-link>
+        <router-link to="/" class="pj-state__link">{{ t('user.home.backHome') || 'Quay về trang chủ' }}</router-link>
       </div>
     </section>
 
     <section v-else-if="!projects.length" class="pj-state">
       <div class="pj-state__card">
-        <p>Hiện chưa có dự án nào. Vui lòng quay lại sau.</p>
-        <router-link to="/" class="pj-state__link">Quay về trang chủ</router-link>
+        <p>{{ t('user.home.newsEmpty') || 'Hiện chưa có dự án nào. Vui lòng quay lại sau.' }}</p>
+        <router-link to="/" class="pj-state__link">{{ t('user.home.backHome') || 'Quay về trang chủ' }}</router-link>
       </div>
     </section>
 

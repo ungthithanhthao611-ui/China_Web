@@ -2,12 +2,14 @@
 import { ref, computed } from 'vue'
 import { X, Send, CheckCircle, AlertCircle, Loader2 } from 'lucide-vue-next'
 import { submitInquiry } from '@/views/user/services/productsApi'
+import { useI18n } from 'vue-i18n'
 
 const props = defineProps({
   productName: { type: String, default: '' },
   productSku: { type: String, default: '' },
 })
 const emit = defineEmits(['close'])
+const { t } = useI18n({ useScope: 'global' })
 
 const form = ref({
   full_name: '',
@@ -34,14 +36,14 @@ async function handleSubmit() {
   try {
     await submitInquiry({
       ...form.value,
-      subject: `Báo giá sản phẩm: ${props.productName} (${props.productSku})`,
+      subject: t('user.products.inquirySubject', { name: props.productName, sku: props.productSku }),
       product_sku: props.productSku,
       source_page: 'product_detail',
     })
     status.value = 'success'
   } catch (err) {
     status.value = 'error'
-    errorMsg.value = err.message || 'Gửi thất bại. Vui lòng thử lại.'
+    errorMsg.value = err.message || t('user.products.inquiryError')
   }
 }
 
@@ -53,17 +55,17 @@ function closeModal() {
 <template>
   <Teleport to="body">
     <div class="inquiry-overlay" @click.self="closeModal">
-      <div class="inquiry-modal" role="dialog" aria-modal="true" aria-label="Gửi yêu cầu báo giá">
+      <div class="inquiry-modal" role="dialog" aria-modal="true" :aria-label="t('user.products.inquiryTitle')">
         <!-- Header -->
         <div class="inquiry-modal__header">
           <div class="inquiry-modal__title-wrap">
             <div class="inquiry-modal__dot" />
             <div>
-              <h2 class="inquiry-modal__title">Gửi Yêu Cầu Báo Giá</h2>
+              <h2 class="inquiry-modal__title">{{ t('user.products.inquiryTitle') }}</h2>
               <p v-if="productName" class="inquiry-modal__product">{{ productName }}<span v-if="productSku"> — {{ productSku }}</span></p>
             </div>
           </div>
-          <button class="inquiry-modal__close" aria-label="Đóng" @click="closeModal">
+          <button class="inquiry-modal__close" :aria-label="t('user.products.inquiryClose')" @click="closeModal">
             <X :size="20" />
           </button>
         </div>
@@ -73,33 +75,33 @@ function closeModal() {
           <div class="inquiry-success__icon">
             <CheckCircle :size="52" stroke-width="1.5" />
           </div>
-          <h3>Gửi Thành Công!</h3>
-          <p>Yêu cầu của bạn đã được ghi nhận. Đội ngũ chúng tôi sẽ liên hệ trong vòng <strong>24 giờ</strong>.</p>
-          <button class="btn-close-success" @click="closeModal">Đóng</button>
+          <h3>{{ t('user.products.inquirySuccessTitle') }}</h3>
+          <p v-html="t('user.products.inquirySuccessMsg')"></p>
+          <button class="btn-close-success" @click="closeModal">{{ t('user.products.inquiryClose') }}</button>
         </div>
 
         <!-- Form -->
         <form v-else class="inquiry-form" @submit.prevent="handleSubmit" novalidate>
           <div class="inquiry-form__row">
             <div class="form-group">
-              <label for="inq-name">Họ và Tên <span class="req">*</span></label>
+              <label for="inq-name">{{ t('user.products.inquiryLabelName') }} <span class="req">*</span></label>
               <input
                 id="inq-name"
                 v-model="form.full_name"
                 type="text"
-                placeholder="Nguyễn Văn A"
+                :placeholder="t('user.products.inquiryPlaceholderName')"
                 :disabled="status === 'loading'"
                 autocomplete="name"
                 required
               />
             </div>
             <div class="form-group">
-              <label for="inq-email">Email <span class="req">*</span></label>
+              <label for="inq-email">{{ t('user.products.inquiryLabelEmail') }} <span class="req">*</span></label>
               <input
                 id="inq-email"
                 v-model="form.email"
                 type="email"
-                placeholder="email@example.com"
+                :placeholder="t('user.products.inquiryPlaceholderEmail')"
                 :disabled="status === 'loading'"
                 autocomplete="email"
                 required
@@ -109,23 +111,23 @@ function closeModal() {
 
           <div class="inquiry-form__row">
             <div class="form-group">
-              <label for="inq-phone">Số Điện Thoại</label>
+              <label for="inq-phone">{{ t('user.products.inquiryLabelPhone') }}</label>
               <input
                 id="inq-phone"
                 v-model="form.phone"
                 type="tel"
-                placeholder="0901 234 567"
+                :placeholder="t('user.products.inquiryPlaceholderPhone')"
                 :disabled="status === 'loading'"
                 autocomplete="tel"
               />
             </div>
             <div class="form-group">
-              <label for="inq-company">Công Ty / Tổ Chức</label>
+              <label for="inq-company">{{ t('user.products.inquiryLabelCompany') }}</label>
               <input
                 id="inq-company"
                 v-model="form.company"
                 type="text"
-                placeholder="Tên công ty của bạn"
+                :placeholder="t('user.products.inquiryPlaceholderCompany')"
                 :disabled="status === 'loading'"
                 autocomplete="organization"
               />
@@ -133,12 +135,12 @@ function closeModal() {
           </div>
 
           <div class="form-group form-group--full">
-            <label for="inq-message">Nội Dung Yêu Cầu <span class="req">*</span></label>
+            <label for="inq-message">{{ t('user.products.inquiryLabelMessage') }} <span class="req">*</span></label>
             <textarea
               id="inq-message"
               v-model="form.message"
               rows="4"
-              placeholder="Mô tả chi tiết yêu cầu của bạn: số lượng, kích thước, màu sắc, tiến độ dự án..."
+              :placeholder="t('user.products.inquiryPlaceholderMessage')"
               :disabled="status === 'loading'"
               required
             />
@@ -150,7 +152,7 @@ function closeModal() {
           </div>
 
           <div class="inquiry-form__footer">
-            <p class="inquiry-form__note">Thông tin của bạn được bảo mật hoàn toàn.</p>
+            <p class="inquiry-form__note">{{ t('user.products.inquiryNote') }}</p>
             <button
               type="submit"
               class="btn-submit"
@@ -158,7 +160,7 @@ function closeModal() {
             >
               <Loader2 v-if="status === 'loading'" :size="16" class="spin" />
               <Send v-else :size="16" />
-              {{ status === 'loading' ? 'Đang gửi...' : 'Gửi Yêu Cầu' }}
+              {{ status === 'loading' ? t('user.products.inquirySending') : t('user.products.inquirySubmit') }}
             </button>
           </div>
         </form>

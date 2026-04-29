@@ -12,10 +12,15 @@ import {
   Download,
   Play,
   Package,
+  Loader2,
 } from 'lucide-vue-next'
 import { uiState } from '@/shared/utils/uiState'
+import { useI18n } from 'vue-i18n'
+import { useCartStore } from '@/views/user/stores/cart'
+import { useAuthStore } from '@/views/user/stores/auth'
 import { getProduct } from '@/views/user/services/productsApi'
 import InquiryModal from './components/InquiryModal.vue'
+import { ShoppingCart, Zap, Plus, Minus } from 'lucide-vue-next'
 
 const props = defineProps({
   slug: {
@@ -26,6 +31,7 @@ const props = defineProps({
 
 const route = useRoute()
 const router = useRouter()
+const { locale, t } = useI18n({ useScope: 'global' })
 
 const product = ref(null)
 const loading = ref(true)
@@ -36,6 +42,59 @@ const showInquiry = ref(false)
 const relatedPage = ref(0)
 const isDescExpanded = ref(false)
 const viewportWidth = ref(typeof window === 'undefined' ? 1200 : window.innerWidth)
+
+const cartStore = useCartStore()
+const authStore = useAuthStore()
+const quantity = ref(1)
+const isAdding = ref(false)
+const cartNotice = ref('')
+let cartNoticeTimer = null
+
+const showCartNotice = () => {
+  cartNotice.value = t('user.home.cartAddSuccess')
+  if (cartNoticeTimer) {
+    window.clearTimeout(cartNoticeTimer)
+  }
+  cartNoticeTimer = window.setTimeout(() => {
+    cartNotice.value = ''
+    cartNoticeTimer = null
+  }, 2200)
+}
+
+const formatPrice = (price) => {
+  if (!price) return t('user.home.contactPrice') || 'Liên hệ'
+  return new Intl.NumberFormat('vi-VN', { style: 'currency', currency: 'VND' }).format(price)
+}
+
+const handleAddToCart = async () => {
+  if (!authStore.isAuthenticated) {
+    // In a real app, you'd trigger the login modal here
+    alert('Vui lòng đăng nhập để thêm vào giỏ hàng')
+    return
+  }
+
+  isAdding.value = true
+  try {
+    await cartStore.addItem(product.value.id, quantity.value)
+    showCartNotice()
+  } catch (err) {
+    console.error(err)
+  } finally {
+    isAdding.value = false
+  }
+}
+
+const handleBuyNow = async () => {
+  try {
+    await handleAddToCart()
+    // Redirect to checkout or open cart
+    // For now, let's just open the cart (this requires communication with AppHeader or a global state)
+    // Actually, cartStore.addItem already updates the cart, so we just need to navigate to checkout
+    router.push('/checkout')
+  } catch (err) {
+    // Error handled in handleAddToCart
+  }
+}
 
 const primaryImage = computed(() => {
   const primaryUrl = String(product.value?.image_url || '').trim()
@@ -186,10 +245,6 @@ const isFirstRelatedPage = computed(() => relatedPage.value === 0)
 const isLastRelatedPage = computed(() => relatedPage.value >= totalRelatedPages.value - 1)
 const hasPdf = computed(() => !!String(product.value?.catalog_pdf_url || '').trim())
 
-function updateViewportWidth() {
-  viewportWidth.value = window.innerWidth
-}
-
 const categorySlug = computed(() => {
   return String(product.value?.category_name || '')
     .normalize('NFD')
@@ -203,17 +258,17 @@ const categorySlug = computed(() => {
 
 const productFamilyLabel = computed(() => {
   const categoryName = String(product.value?.category_name || '').trim()
-  if (!categoryName) return 'ĐÁ MỀM CAO CẤP'
-  return categoryName.toUpperCase()
+  if (!categoryName) return t('user.products.familyDefault')
+  return categoryName
 })
 
 const specRows = computed(() => {
   if (!product.value) return []
 
   return [
-    { label: 'Kích thước', value: product.value.size },
-    { label: 'Chất liệu', value: product.value.material },
-    { label: 'Màu sắc', value: product.value.color },
+    { label: t('user.products.labelSize'), value: product.value.size },
+    { label: t('user.products.labelMaterial'), value: product.value.material },
+    { label: t('user.products.labelColor'), value: product.value.color },
   ].filter((item) => String(item.value || '').trim())
 })
 
@@ -226,7 +281,9 @@ function toggleAccordion(key) {
 const descriptionText = computed(() => {
   const fullDesc = String(product.value?.full_desc || '').trim()
   if (fullDesc) return fullDesc
-  return String(product.value?.short_desc || '').trim()
+  const shortDesc = String(product.value?.short_desc || '').trim()
+  if (shortDesc) return shortDesc
+  return t('user.home.productDescriptionFallback')
 })
 
 const detailDescriptionParagraphs = computed(() => {
@@ -235,6 +292,10 @@ const detailDescriptionParagraphs = computed(() => {
     .map((item) => item.trim())
     .filter(Boolean)
 })
+
+function updateViewportWidth() {
+  viewportWidth.value = window.innerWidth
+}
 
 const getRelatedProductImage = (item) => {
   if (item?.image_url) return item.image_url
@@ -256,7 +317,7 @@ async function fetchProduct() {
       document.title = `${data.name} | Thiên Đồng Việt`
     }
   } catch (err) {
-    error.value = err.message || 'Không thể tải sản phẩm'
+    error.value = err.message || t('user.products.errorLoading')
     product.value = null
   } finally {
     loading.value = false
@@ -336,27 +397,36 @@ onMounted(() => {
 
 onBeforeUnmount(() => {
   window.removeEventListener('resize', updateViewportWidth)
+  if (cartNoticeTimer) {
+    window.clearTimeout(cartNoticeTimer)
+  }
 })
 </script>
 
 <template>
   <div class="prod-detail">
+    <transition name="cart-toast">
+      <div v-if="cartNotice" class="cart-success-toast" role="status" aria-live="polite">
+        {{ cartNotice }}
+      </div>
+    </transition>
+
     <div v-if="loading" class="prod-detail__loading">
       <div class="loading-spinner" />
-      <p>Đang tải sản phẩm...</p>
+      <p>{{ t('user.products.loading') }}</p>
     </div>
 
     <div v-else-if="error" class="prod-detail__error">
       <Package :size="48" stroke-width="1.2" />
       <h2>{{ error }}</h2>
-      <router-link to="/products" class="back-btn">← Quay lại danh sách</router-link>
+      <router-link to="/products" class="back-btn">← {{ t('user.products.backToList') }}</router-link>
     </div>
 
     <template v-else-if="product">
       <nav class="prod-detail__breadcrumb">
-        <router-link to="/">Trang Chủ</router-link>
+        <router-link to="/">{{ t('user.products.breadcrumbHome') }}</router-link>
         <ChevronRight :size="13" />
-        <router-link to="/products">Sản Phẩm</router-link>
+        <router-link to="/products">{{ t('user.products.breadcrumbProducts') }}</router-link>
         <ChevronRight :size="13" />
         <span class="current">{{ product.name }}</span>
       </nav>
@@ -373,7 +443,7 @@ onBeforeUnmount(() => {
               <img :src="currentMedia?.url" :alt="currentMedia?.alt || product.name" />
               <div class="prod-gallery__zoom-hint">
                 <ZoomIn :size="18" />
-                <span>Phóng to ảnh</span>
+                <span>{{ t('user.products.zoomHint') }}</span>
               </div>
             </div>
 
@@ -401,11 +471,11 @@ onBeforeUnmount(() => {
                 rel="noopener noreferrer"
               >
                 <Play :size="18" />
-                Mở video demo
+                {{ t('user.products.openVideo') }}
               </a>
               <div class="prod-gallery__video-hint">
                 <Play :size="16" />
-                <span>Video demo</span>
+                <span>{{ t('user.products.videoHint') }}</span>
               </div>
             </div>
 
@@ -415,7 +485,7 @@ onBeforeUnmount(() => {
                 :key="`${media.type}-${index}`"
                 type="button"
                 :class="['thumb-btn', { active: activeMediaIndex === index }]"
-                :aria-label="media.type === 'video' ? 'Xem video demo' : `Xem ảnh ${index + 1}`"
+                :aria-label="media.type === 'video' ? t('user.products.videoHint') : `${t('user.products.zoomHint')} ${index + 1}`"
                 @click="activeMediaIndex = index"
               >
                 <template v-if="media.type === 'image'">
@@ -436,17 +506,46 @@ onBeforeUnmount(() => {
           <div class="prod-info">
             <p class="prod-info__family">{{ productFamilyLabel }}</p>
             <h1 class="prod-info__name">{{ product.name }}</h1>
-            <div class="prod-info__sku-badge">MÃ SP: {{ product.sku || 'Đang cập nhật' }}</div>
+            <div class="prod-info__sku-badge">{{ t('user.products.skuLabelDetail', { sku: product.sku || t('user.products.skuUpdating') }) }}</div>
 
             <p class="prod-info__short-desc">
-              {{ product.short_desc || 'Giải pháp đá mềm linh hoạt với thẩm mỹ hiện đại, bền đẹp và phù hợp cho nhiều phong cách nội thất.' }}
+              {{ product.short_desc || t('user.products.descFallback') }}
             </p>
+
+            <div class="prod-price-box">
+              <span class="price-label">Giá niêm yết:</span>
+              <span class="price-value">{{ formatPrice(product.price) }}</span>
+            </div>
+
+            <div class="prod-purchase-ctrl">
+              <div class="quantity-picker">
+                <button type="button" @click="quantity > 1 && quantity--" :disabled="quantity <= 1">
+                  <Minus :size="16" />
+                </button>
+                <input type="number" v-model.number="quantity" min="1" />
+                <button type="button" @click="quantity++">
+                  <Plus :size="16" />
+                </button>
+              </div>
+
+              <div class="purchase-actions">
+                <button class="btn-add-cart" @click="handleAddToCart" :disabled="isAdding">
+                  <Loader2 v-if="isAdding" class="spinner" :size="18" />
+                  <ShoppingCart v-else :size="18" />
+                  <span>Thêm vào giỏ hàng</span>
+                </button>
+                <button class="btn-buy-now" @click="handleBuyNow">
+                  <Zap :size="18" fill="currentColor" />
+                  <span>Mua ngay</span>
+                </button>
+              </div>
+            </div>
 
             <div class="prod-accordion">
               <!-- Thông số kỹ thuật -->
               <div v-if="specRows.length" class="acc-item" :class="{ 'acc-item--active': activeAccordion === 'specs' }">
                 <button class="acc-item__head" type="button" @click="toggleAccordion('specs')">
-                  <span>Thông số kỹ thuật</span>
+                  <span>{{ t('user.products.accSpecs') }}</span>
                   <ChevronDown :size="18" />
                 </button>
                 <div class="acc-item__content">
@@ -459,10 +558,10 @@ onBeforeUnmount(() => {
                 </div>
               </div>
 
-              <!-- Ứng dụng -->
+              <!-- Ứng dụng thực tế -->
               <div v-if="product.use_case" class="acc-item" :class="{ 'acc-item--active': activeAccordion === 'usecase' }">
                 <button class="acc-item__head" type="button" @click="toggleAccordion('usecase')">
-                  <span>Ứng dụng thực tế</span>
+                  <span>{{ t('user.products.accUseCase') }}</span>
                   <ChevronDown :size="18" />
                 </button>
                 <div class="acc-item__content">
@@ -473,7 +572,7 @@ onBeforeUnmount(() => {
               <!-- Mô tả chi tiết -->
               <div v-if="detailDescriptionParagraphs.length" class="acc-item" :class="{ 'acc-item--active': activeAccordion === 'desc' }">
                 <button class="acc-item__head" type="button" @click="toggleAccordion('desc')">
-                  <span>Mô tả chi tiết</span>
+                  <span>{{ t('user.products.accDescription') }}</span>
                   <ChevronDown :size="18" />
                 </button>
                 <div class="acc-item__content">
@@ -489,7 +588,7 @@ onBeforeUnmount(() => {
             <div class="prod-actions">
               <button id="product-detail-inquiry-button" class="btn-inquiry" @click="showInquiry = true">
                 <Send :size="16" />
-                <span>Nhận báo giá</span>
+                <span>{{ t('user.products.btnInquiry') }}</span>
               </button>
 
               <a
@@ -501,7 +600,7 @@ onBeforeUnmount(() => {
                 class="btn-catalog"
               >
                 <Download :size="16" />
-                <span>Tải catalog</span>
+                <span>{{ t('user.products.btnCatalog') }}</span>
               </a>
 
               <button
@@ -512,7 +611,7 @@ onBeforeUnmount(() => {
                 disabled
               >
                 <Download :size="16" />
-                <span>Tải catalog</span>
+                <span>{{ t('user.products.btnCatalog') }}</span>
               </button>
             </div>
           </div>
@@ -524,11 +623,11 @@ onBeforeUnmount(() => {
         <div class="prod-related__inner">
           <div class="prod-block-heading prod-block-heading--center">
             <span class="prod-block-heading__line" />
-            <h2>Sản Phẩm Cùng Loại</h2>
+            <h2>{{ t('user.products.relatedTitle') }}</h2>
           </div>
 
           <p class="prod-related__intro">
-            Khám phá thêm các mẫu cùng nhóm chất liệu để dễ so sánh bề mặt, màu sắc và lựa chọn giải pháp phù hợp cho công trình.
+            {{ t('user.products.relatedIntro') }}
           </p>
 
           <div class="prod-related__carousel">
@@ -548,19 +647,19 @@ onBeforeUnmount(() => {
                 <router-link :to="`/products/${item.slug}`" class="rel-card__img">
                   <img :src="getRelatedProductImage(item)" :alt="item.name" />
                   <div class="rel-card__overlay">
-                    <span class="rel-card__overlay-chip">Xem chi tiết</span>
+                    <span class="rel-card__overlay-chip">{{ t('user.products.relatedViewDetail') }}</span>
                   </div>
                 </router-link>
                 <div class="rel-card__body">
                   <div class="rel-card__meta">
-                    <span class="rel-card__badge">{{ item.category_name || product.category_name || 'Sản phẩm liên quan' }}</span>
+                    <span class="rel-card__badge">{{ item.category_name || product.category_name || t('user.products.sidebarRootDefault') }}</span>
                     <p class="rel-card__sku">{{ item.sku }}</p>
                   </div>
                   <router-link :to="`/products/${item.slug}`" class="rel-card__name">
                     {{ item.name }}
                   </router-link>
                   <router-link :to="`/products/${item.slug}`" class="rel-card__cta">
-                    Xem sản phẩm
+                    {{ t('user.products.relatedViewProduct') }}
                     <ChevronRight :size="16" />
                   </router-link>
                 </div>
@@ -588,16 +687,16 @@ onBeforeUnmount(() => {
 
     <Teleport to="body">
       <div v-if="lightboxOpen" class="lightbox" @click.self="closeLightbox">
-        <button class="lightbox__close" aria-label="Đóng" @click="closeLightbox">
+        <button class="lightbox__close" :aria-label="t('user.products.lightboxClose')" @click="closeLightbox">
           <X :size="28" />
         </button>
-        <button class="lightbox__prev" aria-label="Ảnh trước" @click="prevImage">
+        <button class="lightbox__prev" :aria-label="t('user.products.lightboxPrev')" @click="prevImage">
           <ChevronLeft :size="32" />
         </button>
         <div class="lightbox__img-wrap">
           <img :src="currentMedia?.url" :alt="currentMedia?.alt || product?.name" />
         </div>
-        <button class="lightbox__next" aria-label="Ảnh tiếp" @click="nextImage">
+        <button class="lightbox__next" :aria-label="t('user.products.lightboxNext')" @click="nextImage">
           <ChevronRight :size="32" />
         </button>
         <div class="lightbox__counter">{{ activeMediaIndex + 1 }} / {{ mediaItems.length }}</div>
@@ -1323,7 +1422,172 @@ onBeforeUnmount(() => {
   }
 }
 
+/* Purchase Styles */
+.prod-price-box {
+  margin: 24px 0;
+  display: flex;
+  align-items: baseline;
+  gap: 12px;
+  padding: 20px;
+  background: #f8fafc;
+  border-radius: 16px;
+  border: 1px solid #f1f5f9;
+
+  .price-label {
+    font-size: 14px;
+    color: #64748b;
+    font-weight: 500;
+  }
+
+  .price-value {
+    font-size: 32px;
+    font-weight: 800;
+    color: #1e293b;
+  }
+}
+
+.prod-purchase-ctrl {
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
+  margin-bottom: 32px;
+}
+
+.quantity-picker {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  background: #f1f5f9;
+  padding: 6px;
+  border-radius: 12px;
+  width: fit-content;
+
+  button {
+    width: 36px;
+    height: 36px;
+    border-radius: 8px;
+    border: none;
+    background: #fff;
+    color: #1e293b;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    cursor: pointer;
+    transition: all 0.2s ease;
+
+    &:hover:not(:disabled) {
+      background: #e2e8f0;
+    }
+
+    &:disabled {
+      opacity: 0.5;
+      cursor: not-allowed;
+    }
+  }
+
+  input {
+    width: 50px;
+    text-align: center;
+    background: none;
+    border: none;
+    font-size: 16px;
+    font-weight: 700;
+    color: #1e293b;
+
+    &::-webkit-inner-spin-button,
+    &::-webkit-outer-spin-button {
+      -webkit-appearance: none;
+      margin: 0;
+    }
+  }
+}
+
+.purchase-actions {
+  display: grid;
+  grid-template-columns: 1.2fr 0.8fr;
+  gap: 12px;
+
+  button {
+    height: 56px;
+    border-radius: 14px;
+    font-size: 16px;
+    font-weight: 700;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 10px;
+    cursor: pointer;
+    transition: all 0.3s ease;
+  }
+}
+
+.btn-add-cart {
+  background: #1e293b;
+  color: #fff;
+  border: none;
+
+  &:hover {
+    background: #0f172a;
+    transform: translateY(-2px);
+  }
+}
+
+.btn-buy-now {
+  background: #d6b074;
+  color: #0c1831;
+  border: none;
+
+  &:hover {
+    filter: brightness(1.1);
+    transform: translateY(-2px);
+    box-shadow: 0 10px 20px rgba(214, 176, 116, 0.2);
+  }
+}
+
+.spinner {
+  animation: rotate 1s linear infinite;
+}
+
+.cart-success-toast {
+  position: fixed;
+  top: 92px;
+  right: 24px;
+  z-index: 1000;
+  max-width: min(320px, calc(100vw - 32px));
+  padding: 13px 18px;
+  border-radius: 10px;
+  background: #16a34a;
+  color: #fff;
+  font-size: 14px;
+  font-weight: 700;
+  box-shadow: 0 18px 40px rgba(15, 23, 42, 0.18);
+}
+
+.cart-toast-enter-active,
+.cart-toast-leave-active {
+  transition: opacity 0.2s ease, transform 0.2s ease;
+}
+
+.cart-toast-enter-from,
+.cart-toast-leave-to {
+  opacity: 0;
+  transform: translateY(-10px);
+}
+
+@keyframes rotate {
+  from { transform: rotate(0deg); }
+  to { transform: rotate(360deg); }
+}
+
 @media (max-width: 768px) {
+  .cart-success-toast {
+    top: 76px;
+    right: 16px;
+    left: 16px;
+    max-width: none;
+    text-align: center;
+  }
+
   .prod-detail__breadcrumb,
   .prod-detail__desc-inner,
   .prod-related__inner {

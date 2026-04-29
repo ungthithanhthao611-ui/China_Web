@@ -434,6 +434,8 @@ const previewHasContent = computed(
     Boolean(previewImageUrl.value) ||
     Boolean(previewLink.value),
 );
+
+const supportsTranslation = computed(() => ["products", "product_categories"].includes(props.entityKey) && props.formMode === "edit");
 </script>
 
 <template>
@@ -460,6 +462,17 @@ const previewHasContent = computed(
           <div class="editor-head__badge-wrap">
             <p class="eyebrow">{{ formMode === "create" ? "Thêm mới" : "Chỉnh sửa" }}</p>
             <span class="editor-head__badge">{{ safeConfigLabel }}</span>
+            <button
+              v-if="supportsTranslation"
+              type="button"
+              class="btn btn-sm btn-secondary btn-translate"
+              :disabled="saving"
+              @click="emit('auto-translate')"
+            >
+              <span v-if="saving" class="spinner-tiny"></span>
+              <span v-else>🪄</span>
+              Dịch Tự Động
+            </button>
           </div>
           <h3>{{ formMode === "create" ? `Tạo ${safeConfigLabel}` : `Sửa ${safeConfigLabel}` }}</h3>
         </div>

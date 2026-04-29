@@ -22,6 +22,7 @@ import {
   listAdminEntityRecords,
   updateAdminEntityRecord,
   uploadAdminMediaAsset,
+  autoTranslateAdminEntityRecord,
 } from '@/views/admin/shared/api/adminApi.js'
 import {
   DEFAULT_STATUS_OPTIONS,
@@ -1045,10 +1046,11 @@ export function useEntityManager(props, emit) {
   }
 
   async function deleteRecord(record) {
-    const token = normalizedToken()
-    if (!token) return
+    if (!record?.id) return
     const confirmed = await confirmRecordAction('delete', record)
     if (!confirmed) return
+
+    const token = normalizedToken()
     deletingId.value = record.id
     try {
       await deleteAdminEntityRecord(resolvedEntityKey.value, record.id, token)
@@ -1061,6 +1063,25 @@ export function useEntityManager(props, emit) {
     }
   }
 
+  async function autoTranslate() {
+    if (!editingRecordId.value) return
+    const token = normalizedToken()
+    saving.value = true
+    try {
+      const response = await autoTranslateAdminEntityRecord(
+        resolvedEntityKey.value,
+        editingRecordId.value,
+        token,
+      )
+      // Merge translated data into form
+      Object.assign(form, response)
+      notifySuccess('Đã tự động dịch các trường văn bản (Fallback: Dictionary).')
+    } catch (error) {
+      notifyError(error.message || 'Lỗi khi tự động dịch.')
+    } finally {
+      saving.value = false
+    }
+  }
 
   // ═══════════════════════════════════════════════════════════
   // MEDIA UPLOAD
@@ -1521,6 +1542,7 @@ export function useEntityManager(props, emit) {
     closeForm,
     submitForm,
     deleteRecord,
+    autoTranslate,
     // media upload
     handleFileChange,
     handleVideoFileChange,

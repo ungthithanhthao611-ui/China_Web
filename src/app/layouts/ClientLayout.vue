@@ -1,5 +1,5 @@
 <script setup>
-import { computed, onBeforeUnmount, onMounted } from 'vue'
+import { computed, onBeforeUnmount, onMounted, watch } from 'vue'
 import { useRoute } from 'vue-router'
 
 import AppFooter from '@/views/user/layout/AppFooter.vue'
@@ -7,9 +7,15 @@ import AppHeader from '@/views/user/layout/AppHeader.vue'
 import { useBootstrapStore } from '@/views/user/stores/bootstrap'
 import { NAVIGATION_MENUS_SYNC_KEY } from '@/shared/utils/navigationSync'
 import { uiState } from '@/shared/utils/uiState'
+import { useI18n } from 'vue-i18n'
 
+const { locale } = useI18n({ useScope: 'global' })
 const route = useRoute()
 const bootstrapStore = useBootstrapStore()
+
+watch(locale, () => {
+  bootstrapStore.initialize(true).catch(logBootstrapError)
+})
 
 const readAdminPreviewMode = () => {
   if (typeof window === 'undefined') {
@@ -86,4 +92,3 @@ onBeforeUnmount(() => {
   opacity: 0;
 }
 </style>
-

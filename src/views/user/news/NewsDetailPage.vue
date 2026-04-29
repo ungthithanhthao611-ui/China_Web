@@ -6,6 +6,9 @@ import Breadcrumb from '@/views/user/news/ui/Breadcrumb.vue'
 import { uiState } from '@/shared/utils/uiState'
 import { getNewsDetail, getNewsList } from '@/views/user/services/publicApi'
 
+import { useI18n } from 'vue-i18n'
+
+const { locale, t } = useI18n({ useScope: 'global' })
 const route = useRoute()
 const defaultNewsRoute = '/news'
 
@@ -16,18 +19,18 @@ const error = ref(null)
 
 const breadcrumbs = computed(() => {
   if (!article.value) {
-    return [{ name: 'News', link: defaultNewsRoute }, { name: 'Article' }]
+    return [{ name: t('user.home.news'), link: defaultNewsRoute }, { name: 'Article' }]
   }
 
   return [
-    { name: 'News', link: defaultNewsRoute },
+    { name: t('user.home.news'), link: defaultNewsRoute },
     { name: article.value.title || 'Article' },
   ]
 })
 
 const formatDate = (value) => {
   if (!value) return ''
-  return new Intl.DateTimeFormat('en-US', {
+  return new Intl.DateTimeFormat(locale.value === 'vi' ? 'vi-VN' : 'en-US', {
     year: 'numeric',
     month: 'long',
     day: 'numeric'
@@ -141,7 +144,7 @@ async function loadArticle(slug) {
       ? relatedResponse.items.map(normalizeNewsItem).filter((item) => item.slug !== slug).slice(0, 3)
       : []
   } catch (err) {
-    error.value = err?.message || 'Failed to load article'
+    error.value = err?.message || t('user.products.errorLoading')
     article.value = null
     relatedNews.value = []
   } finally {
@@ -157,6 +160,10 @@ watch(
   { immediate: true }
 )
 
+watch(locale, () => {
+  if (route.params.slug) loadArticle(route.params.slug)
+})
+
 onMounted(() => {
   uiState.isHeaderHidden = false
   uiState.isHeaderHovered = false
@@ -169,7 +176,7 @@ onMounted(() => {
     <!-- Loading -->
     <section v-if="loading" class="detail-empty">
       <div class="container">
-        <p style="color: #667085; margin-top: 60px">Loading article…</p>
+        <p style="color: #667085; margin-top: 60px">{{ t('user.home.loading') }}</p>
       </div>
     </section>
 
@@ -194,9 +201,9 @@ onMounted(() => {
         <div class="container detail-hero-inner">
           <router-link :to="defaultNewsRoute" class="back-link">
             <ArrowLeft :size="16" />
-            Back to News
+            {{ t('user.home.backHome') }}
           </router-link>
-          <span class="detail-category">News</span>
+          <span class="detail-category">{{ t('user.home.news') }}</span>
           <h1>{{ article.title }}</h1>
           <p>{{ formatDate(article.published_at || article.created_at) }}</p>
         </div>
@@ -229,7 +236,7 @@ onMounted(() => {
           </article>
 
           <aside class="related-card">
-            <h2>More News</h2>
+            <h2>{{ t('user.home.newsTitle') }}</h2>
             <div v-if="relatedNews.length" class="related-list">
               <router-link
                 v-for="item in relatedNews"
@@ -251,7 +258,7 @@ onMounted(() => {
               </router-link>
             </div>
             <p v-else style="color: #9a7d69; font-size: 0.9rem">
-              No related articles found.
+              {{ t('user.home.newsEmpty') }}
             </p>
           </aside>
         </div>

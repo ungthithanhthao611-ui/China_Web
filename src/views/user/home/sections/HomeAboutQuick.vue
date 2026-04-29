@@ -1,15 +1,23 @@
-﻿<script setup>
+<script setup>
 import { computed } from 'vue'
+import { useI18n } from 'vue-i18n'
 
 import { useAboutPage } from '@/views/user/about/composables/useAboutPage'
 import { useSectionReveal } from '@/views/user/home/composables/useSectionReveal'
 
 const { aboutView, loading } = useAboutPage()
 const { rootRef, isVisible } = useSectionReveal({ threshold: 0.24 })
+const { locale, t } = useI18n({ useScope: 'global' })
 
 const intro = computed(() => aboutView.value?.companyIntroduction || null)
-const title = computed(() => intro.value?.title || aboutView.value?.introSectionTitle || 'Giới thiệu công ty')
+const title = computed(() => {
+  if (locale.value === 'vi') return intro.value?.title || aboutView.value?.introSectionTitle || t('user.home.aboutTitle')
+  return t('user.home.aboutTitle')
+})
 const paragraphs = computed(() => {
+  if (locale.value !== 'vi') {
+    return [t('user.home.aboutDescription1'), t('user.home.aboutDescription2')]
+  }
   const rows = Array.isArray(intro.value?.paragraphs) ? intro.value.paragraphs : []
   return rows.filter((item) => String(item || '').trim())
 })
@@ -21,7 +29,7 @@ const imageUrl = computed(() => String(intro.value?.coverImage || '').trim())
   <section class="home-about-quick" ref="rootRef">
     <div class="shell home-reveal" :class="{ 'is-visible': isVisible }">
       <div class="content" data-reveal-item>
-        <p class="eyebrow">Giới thiệu</p>
+        <p class="eyebrow">{{ t('user.home.about') }}</p>
         <h2>{{ title }}</h2>
         <span class="divider"></span>
 
@@ -31,18 +39,18 @@ const imageUrl = computed(() => String(intro.value?.coverImage || '').trim())
               {{ paragraph }}
             </p>
           </template>
-          <p v-else>{{ loading ? 'Đang tải nội dung giới thiệu...' : 'Nội dung giới thiệu đang được cập nhật.' }}</p>
+          <p v-else>{{ loading ? t('user.home.aboutLoading') : t('user.home.aboutEmpty') }}</p>
         </div>
 
         <div class="stats">
           <div class="stat">
             <strong>20+</strong>
-            <span>Mẫu sản phẩm</span>
+            <span>{{ t('user.home.productSamples') }}</span>
           </div>
 
           <div class="stat">
             <strong>2024</strong>
-            <span>Năm thành lập</span>
+            <span>{{ t('user.home.foundedYear') }}</span>
           </div>
         </div>
       </div>

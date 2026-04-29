@@ -6,9 +6,11 @@ import { Swiper, SwiperSlide } from "swiper/vue";
 import "swiper/css";
 import { Autoplay } from "swiper/modules";
 import { useAboutPage } from "./composables/useAboutPage";
+import { useI18n } from "vue-i18n";
 
 const route = useRoute();
 const router = useRouter();
+const { locale, t } = useI18n({ useScope: 'global' });
 
 const { loading, error, aboutView, refresh } = useAboutPage();
 // ── Static decoration assets ─────────────────────────────────────────────
@@ -22,7 +24,26 @@ const timelineHoverAfter = repoImg("dfc20891-e902-474e-8c93-c374b583041d.png");
 // ── Computed data ────────────────────────────────────────────────────────
 const sectionMeta = computed(() => aboutView.value?.sectionMeta ?? []);
 const aboutTabs = computed(() => aboutView.value?.aboutTabs ?? []);
-const companyIntroduction = computed(() => aboutView.value?.companyIntroduction?.paragraphs ?? []);
+const translatedTabs = computed(() => {
+  return aboutTabs.value.map((tab) => {
+    let title = tab.title
+    if (locale.value !== 'vi') {
+      if (tab.id === 'page1') title = t('user.about.tabIntro')
+      if (tab.id === 'page3') title = t('user.about.tabVision')
+      if (tab.id === 'page4') title = t('user.about.tabOrgChart')
+      if (tab.id === 'page5') title = t('user.about.tabCulture')
+      if (tab.id === 'page6') title = t('user.about.tabTimeline')
+      if (tab.id === 'page7') title = t('user.about.tabLeadership')
+    }
+    return { ...tab, title }
+  })
+})
+const companyIntroduction = computed(() => {
+  if (locale.value !== 'vi') {
+    return [t('user.home.aboutDescription1'), t('user.home.aboutDescription2')]
+  }
+  return aboutView.value?.companyIntroduction?.paragraphs ?? []
+});
 const chairmanSpeech = computed(() => aboutView.value?.chairmanSpeech ?? null);
 const cultureBlocks = computed(() => aboutView.value?.cultureBlocks ?? []);
 const timelineEntries = computed(() => aboutView.value?.timelineEntries ?? []);
@@ -32,35 +53,56 @@ const heroBannerImage = computed(() => aboutView.value?.hero?.coverImage || "");
 const introImage = computed(() => aboutView.value?.companyIntroduction?.coverImage ?? "");
 const introVideoUrl = computed(() => aboutView.value?.companyIntroduction?.videoUrl ?? "");
 const orgChartImage = computed(() => aboutView.value?.organizationChart?.chartImage ?? "");
-const heroHeadline = computed(() => aboutView.value?.hero?.headline ?? "VỀ CHÚNG TÔI");
-const heroDescription = computed(() => aboutView.value?.hero?.description ?? "");
+const heroHeadline = computed(() => {
+  if (locale.value === 'vi') return aboutView.value?.hero?.headline || t('user.about.heroHeadline')
+  return t('user.about.heroHeadline')
+});
+const heroDescription = computed(() => {
+  if (locale.value === 'vi') return aboutView.value?.hero?.description || t('user.about.heroDescription')
+  return t('user.about.heroDescription')
+});
 const speechSignTitle = computed(() => aboutView.value?.chairmanSpeech?.signTitle ?? "");
 const speechSignName = computed(() => aboutView.value?.chairmanSpeech?.signName ?? "");
-const speechVision = computed(() => chairmanSpeech.value?.vision ?? "");
-const speechMission = computed(() => chairmanSpeech.value?.mission ?? "");
-const introTitle = computed(() => aboutView.value?.companyIntroduction?.title ?? "Giới thiệu công ty");
-const speechTitle = computed(() => aboutView.value?.chairmanSpeech?.title ?? "Tầm nhìn & Sứ mệnh");
-const orgChartTitle = computed(() => aboutView.value?.organizationChart?.title ?? "Sơ đồ tổ chức");
+const speechVision = computed(() => {
+  if (locale.value !== 'vi') return t('user.about.visionFallback')
+  return chairmanSpeech.value?.vision ?? ""
+});
+const speechMission = computed(() => {
+  if (locale.value !== 'vi') return t('user.about.missionFallback')
+  return chairmanSpeech.value?.mission ?? ""
+});
+const introTitle = computed(() => {
+  if (locale.value === 'vi') return aboutView.value?.companyIntroduction?.title || t('user.about.introTitle')
+  return t('user.about.introTitle')
+});
+const speechTitle = computed(() => {
+  if (locale.value === 'vi') return aboutView.value?.chairmanSpeech?.title || t('user.about.visionTitle')
+  return t('user.about.visionTitle')
+});
+const orgChartTitle = computed(() => {
+  if (locale.value === 'vi') return aboutView.value?.organizationChart?.title || t('user.about.orgChartTitle')
+  return t('user.about.orgChartTitle')
+});
 const videoButtonLabel = computed(
-  () => aboutView.value?.companyIntroduction?.videoButtonLabel || "VIDEO +",
+  () => aboutView.value?.companyIntroduction?.videoButtonLabel || t('user.about.videoLabel'),
 );
-const cultureTitle = computed(
-  () =>
-    aboutView.value?.cultureSection?.title ||
-    aboutView.value?.cultureBlocks?.[0]?.title ||
-    "Giá trị cốt lõi",
-);
+const cultureTitle = computed(() => {
+  if (locale.value === 'vi') return aboutView.value?.cultureSection?.title || aboutView.value?.cultureBlocks?.[0]?.title || t('user.about.cultureTitle')
+  return t('user.about.cultureTitle')
+});
 const cultureImage = computed(
   () =>
     aboutView.value?.cultureSection?.coverImage ||
     "https://en.sinodecor.com/portal-local/ngc202304190002/cms/image/3f9cf9fc-c3f2-4cd5-a6e7-6c1f19a596b0.jpg",
 );
-const timelineTitle = computed(
-  () => aboutView.value?.timelineSectionTitle || "Lịch sử phát triển",
-);
-const leadershipTitle = computed(
-  () => aboutView.value?.leadershipSectionTitle || "Ban lãnh đạo",
-);
+const timelineTitle = computed(() => {
+  if (locale.value === 'vi') return aboutView.value?.timelineSectionTitle || t('user.about.timelineTitle')
+  return t('user.about.timelineTitle')
+});
+const leadershipTitle = computed(() => {
+  if (locale.value === 'vi') return aboutView.value?.leadershipSectionTitle || t('user.about.leadershipTitle')
+  return t('user.about.leadershipTitle')
+});
 
 const activeSection = ref("page1");
 const visibleSections = ref(new Set(["page1"]));
@@ -140,6 +182,11 @@ const cultureDisplayBlocks = computed(() => {
     normalizedBlocks.find((item) => item.title !== coreValuesBlock.title) ||
     null;
 
+  if (locale.value !== 'vi') {
+    if (coreValuesBlock) coreValuesBlock.title = t('user.about.cultureTitle')
+    if (sloganBlock) sloganBlock.title = t('user.about.cultureSlogan')
+  }
+
   return sloganBlock
     ? [coreValuesBlock, sloganBlock]
     : [coreValuesBlock];
@@ -151,10 +198,32 @@ const cultureItemText = (item) => {
   return String(item?.label || "").trim();
 };
 
+const cultureItemLabel = (item) => {
+  const label = String(item?.label || "").trim();
+  if (locale.value === 'vi' || !label) return label;
+  
+  const mapping = {
+    'Chất lượng': t('user.about.quality'),
+    'Uy tín': t('user.about.prestige'),
+    'Đổi mới': t('user.about.innovation'),
+    'Khách hàng là trung tâm': t('user.about.customerCenter'),
+    'Hợp tác lâu dài': t('user.about.longTermCoop'),
+    'Slogan': 'Slogan'
+  };
+  
+  for (const [key, val] of Object.entries(mapping)) {
+    if (label.includes(key)) return val;
+  }
+  return label;
+};
+
 const cultureBlocksForRender = computed(() =>
   cultureDisplayBlocks.value.map((block) => ({
-    title: block?.title || "Nội dung",
-    items: (block?.items || []).filter((item) => cultureItemText(item)),
+    title: block?.title || t('user.about.cultureDefault'),
+    items: (block?.items || []).filter((item) => cultureItemText(item)).map(item => ({
+      ...item,
+      displayLabel: cultureItemLabel(item)
+    })),
   })),
 );
 
@@ -167,8 +236,17 @@ const timelineSlides = computed(() =>
       ? [item.endYear, item.endMonth].filter(Boolean).join('.')
       : '';
 
+    const translateTimeline = (n) => {
+      if (locale.value === 'vi' || !n) return n;
+      if (n.includes('Thành lập công ty')) return t('user.about.timelineFounded');
+      if (n.includes('Phát triển và phân phối')) return t('user.about.timelineExpansion');
+      return n;
+    }
+
     return {
       ...item,
+      title: translateTimeline(item.title),
+      description: translateTimeline(item.description),
       year: item.startYear || '',
       month: item.startMonth || '',
       day: item.startDay || '',
@@ -375,6 +453,8 @@ watch(aboutView, async (val) => {
   }
 });
 
+watch(locale, refresh);
+
 onMounted(async () => {
   await nextTick();
   if (aboutView.value) {
@@ -392,18 +472,18 @@ onBeforeUnmount(() => {
     <!-- Loading state -->
     <div v-if="loading" class="about-loading">
       <div class="about-loading-spinner" />
-      <p>Loading...</p>
+      <p>{{ t('user.about.loading') }}</p>
     </div>
 
     <div v-else-if="error" class="about-error">
       <p>{{ error }}</p>
-      <button type="button" class="about-retry" @click="refresh">Retry</button>
+      <button type="button" class="about-retry" @click="refresh">{{ t('user.about.retry') }}</button>
     </div>
 
     <!-- Empty state -->
     <div v-else-if="!aboutView" class="about-empty">
-      <p>About page content is currently unavailable.</p>
-      <button type="button" class="about-retry" @click="refresh">Reload</button>
+      <p>{{ t('user.about.unavailable') }}</p>
+      <button type="button" class="about-retry" @click="refresh">{{ t('user.about.reload') }}</button>
     </div>
 
     <!-- Main content -->
@@ -436,7 +516,7 @@ onBeforeUnmount(() => {
 
       <div class="hero-tabbar">
         <button
-          v-for="tab in aboutTabs"
+          v-for="tab in translatedTabs"
           :key="tab.id"
           :class="['hero-tab', { active: isTabActive(tab.id) }]"
           type="button"
@@ -493,11 +573,11 @@ onBeforeUnmount(() => {
           <div class="speech-copy-panel animate-item slide-up">
             <div ref="speechScroller" class="split-copy speech-scroller">
               <article v-if="speechVision" class="speech-block">
-                <h3>Tầm nhìn</h3>
+                <h3>{{ t('user.about.visionLabel') }}</h3>
                 <p>{{ speechVision }}</p>
               </article>
               <article v-if="speechMission" class="speech-block">
-                <h3>Sứ mệnh</h3>
+                <h3>{{ t('user.about.missionLabel') }}</h3>
                 <p>{{ speechMission }}</p>
               </article>
               <div class="speech-signoff">
@@ -554,11 +634,11 @@ onBeforeUnmount(() => {
                   v-for="(item, itemIndex) in block.items"
                   :key="`${block.title}-${item.label}-${itemIndex}`"
                 >
-                  <strong v-if="item.label">{{ item.label }}:</strong>
+                  <strong v-if="item.displayLabel">{{ item.displayLabel }}:</strong>
                   <span>{{ cultureItemText(item) }}</span>
                 </li>
               </ul>
-              <p v-else class="culture-empty">Đang cập nhật nội dung...</p>
+              <p v-else class="culture-empty">{{ t('user.about.cultureEmpty') }}</p>
             </article>
           </div>
         </div>
