@@ -35,6 +35,8 @@ export default {
   labelColor: '颜色',
   btnInquiry: '获取报价',
   btnCatalog: '下载目录',
+  priceLabel: '销售价格',
+  unitPriceSuffix: '/ 件',
   relatedTitle: '相关产品',
   relatedIntro: '发现更多同材质组的型号，轻松对比表面、颜色，为您的工程选择合适的解决方案。',
   relatedViewDetail: '查看详情',

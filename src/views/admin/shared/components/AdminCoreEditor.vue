@@ -314,6 +314,94 @@ const galleryUrlList = computed(() => {
 const quickPreviewOpen = ref(true);
 
 const safeConfigLabel = computed(() => props.config?.label || "Bản ghi");
+const isOrdersEntity = computed(() => props.entityKey === "orders");
+const orderEditableFields = computed(() => ["status", "payment_status", "note"]);
+const orderReadonlyFields = computed(() => {
+  const editable = new Set(orderEditableFields.value);
+  return props.visibleFormFields.filter((field) => !editable.has(field));
+});
+const orderStatusField = computed(() =>
+  props.visibleFormFields.includes("status") ? "status" : "",
+);
+const orderPaymentStatusField = computed(() =>
+  props.visibleFormFields.includes("payment_status") ? "payment_status" : "",
+);
+const orderNoteField = computed(() =>
+  props.visibleFormFields.includes("note") ? "note" : "",
+);
+const formatMoney = (value, currency = "VND") => {
+  const amount = Number(value || 0);
+  if (!Number.isFinite(amount)) return "-";
+  return new Intl.NumberFormat("vi-VN", {
+    style: "currency",
+    currency: currency || "VND",
+    maximumFractionDigits: 0,
+  }).format(amount);
+};
+const orderFieldValue = (field) => {
+  const value = props.form?.[field];
+  if (field === "total_amount" || field === "subtotal_amount" || field === "shipping_fee" || field === "discount_amount") {
+    return formatMoney(value, props.form?.currency || "VND");
+  }
+  if (field === "item_count") {
+    const count = Number(value || 0);
+    return `${count} sản phẩm`;
+  }
+  if (field === "created_at" || field === "updated_at" || field === "placed_at") {
+    return value ? String(value).replace("T", " ").slice(0, 19) : "-";
+  }
+  return value === null || value === undefined || String(value).trim() === "" ? "-" : String(value);
+};
+const orderItems = computed(() =>
+  Array.isArray(props.form?.items) ? props.form.items : [],
+);
+const orderHasItems = computed(() => orderItems.value.length > 0);
+const orderCustomerContact = computed(() => {
+  const values = [props.form?.customer_phone, props.form?.customer_email]
+    .map((item) => String(item || "").trim())
+    .filter(Boolean);
+  return values.length ? values.join(" • ") : "Chưa có thông tin liên hệ";
+});
+const orderAddressSummary = computed(() => {
+  const address = String(props.form?.shipping_address || "").trim();
+  return address || "Chưa có địa chỉ giao hàng";
+});
+const orderStatusText = computed(
+  () => String(props.form?.status_label || props.form?.status || "Chưa cập nhật").trim(),
+);
+const orderPaymentStatusText = computed(
+  () =>
+    String(
+      props.form?.payment_status_label || props.form?.payment_status || "Chưa cập nhật",
+    ).trim(),
+);
+const orderPaymentMethodText = computed(
+  () =>
+    String(
+      props.form?.payment_method_label || props.form?.payment_method || "Chưa cập nhật",
+    ).trim(),
+);
+const orderStatusTone = computed(() => {
+  const value = String(props.form?.status || "").trim().toLowerCase();
+  if (value === "delivered") return "is-success";
+  if (value === "cancelled") return "is-danger";
+  if (["confirmed", "processing", "shipping"].includes(value)) return "is-info";
+  return "is-warning";
+});
+const orderPaymentTone = computed(() => {
+  const value = String(props.form?.payment_status || "").trim().toLowerCase();
+  if (value === "paid") return "is-success";
+  if (value === "refunded") return "is-danger";
+  return "is-warning";
+});
+const orderItemImage = (item) => {
+  const direct = String(item?.product_image_url || "").trim();
+  return direct ? props.resolveMediaUrl(direct) : "";
+};
+const orderItemLineTotal = (item) =>
+  formatMoney(item?.line_total, props.form?.currency || "VND");
+const orderItemUnitPrice = (item) =>
+  formatMoney(item?.unit_price, props.form?.currency || "VND");
 const optionLabelRenderer = computed(() =>
   typeof props.config?.optionLabel === "function"
     ? props.config.optionLabel
@@ -567,352 +655,522 @@ const supportsTranslation = computed(() => ["products", "product_categories"].in
       </div>
 
       <form class="dynamic-form" @submit.prevent="emit('submit')">
-        <label
-          v-for="field in visibleFormFields"
-          :key="field"
-          :class="[
-            'editor-field',
-            {
-              wide:
-                isTextarea(field) ||
-                (isVideosEntity && (field === 'video_url' || field === 'thumbnail_id')),
-            },
-          ]"
-        >
-          <span>{{ fieldLabel(field) }}</span>
+        <section v-if="isOrdersEntity" class="order-editor-detail">
+          <div class="order-editor-detail__hero">
+            <div>
+              <p class="eyebrow">Chi tiết đơn hàng COD</p>
+              <h4>{{ form.code || `Đơn #${editingRecordId || '-'}` }}</h4>
+              <p>{{ orderAddressSummary }}</p>
+            </div>
+            <div class="order-editor-detail__hero-metrics">
+              <article>
+                <span>Tổng thanh toán</span>
+                <strong>{{ formatMoney(form.total_amount, form.currency || 'VND') }}</strong>
+              </article>
+              <article>
+                <span>Phương thức</span>
+                <strong>{{ orderPaymentMethodText }}</strong>
+              </article>
+              <article>
+                <span>Trạng thái</span>
+                <div class="order-editor-status-row">
+                  <span :class="['order-editor-status-chip', orderStatusTone]">
+                    {{ orderStatusText }}
+                  </span>
+                  <span :class="['order-editor-status-chip', 'is-soft', orderPaymentTone]">
+                    {{ orderPaymentStatusText }}
+                  </span>
+                </div>
+              </article>
+            </div>
+          </div>
 
-          <input
-            v-if="isBooleanField(field)"
-            :checked="Boolean(form[field])"
-            type="checkbox"
-            @change="emit('update:field', field, $event.target.checked)"
-          />
+          <div class="order-editor-grid">
+            <article class="order-editor-card">
+              <div class="order-editor-card__head">
+                <strong>Thông tin khách hàng</strong>
+                <small>Thông tin nhận hàng và liên hệ</small>
+              </div>
+              <div class="order-editor-info-list">
+                <div class="order-editor-info-item">
+                  <span>Người nhận</span>
+                  <strong>{{ orderFieldValue('customer_name') }}</strong>
+                </div>
+                <div class="order-editor-info-item">
+                  <span>Liên hệ</span>
+                  <strong>{{ orderCustomerContact }}</strong>
+                </div>
+                <div class="order-editor-info-item order-editor-info-item--wide">
+                  <span>Địa chỉ giao hàng</span>
+                  <strong>{{ orderAddressSummary }}</strong>
+                </div>
+                <div class="order-editor-info-item order-editor-info-item--wide">
+                  <span>Ghi chú hiện tại</span>
+                  <strong>{{ orderFieldValue('note') }}</strong>
+                </div>
+              </div>
+            </article>
 
-          <div v-else-if="fieldGroups.media.includes(field)" class="field-stack">
-            <select
-              :value="form[field] ?? null"
-              @change="emit('update:field', field, $event.target.value === 'null' ? null : Number($event.target.value))"
+            <article class="order-editor-card">
+              <div class="order-editor-card__head">
+                <strong>Tổng quan thanh toán</strong>
+                <small>Các mốc tiền và thời gian của đơn</small>
+              </div>
+              <div class="order-editor-info-list">
+                <div v-for="field in orderReadonlyFields" :key="field" class="order-editor-info-item">
+                  <span>{{ fieldLabel(field) }}</span>
+                  <strong>{{ orderFieldValue(field) }}</strong>
+                </div>
+              </div>
+            </article>
+          </div>
+
+          <article class="order-editor-card order-editor-card--full">
+            <div class="order-editor-card__head">
+              <strong>Danh sách sản phẩm</strong>
+              <small>
+                {{ orderHasItems ? `${orderItems.length} sản phẩm trong đơn` : 'Chưa có dữ liệu sản phẩm' }}
+              </small>
+            </div>
+
+            <div v-if="orderHasItems" class="order-editor-items">
+              <article v-for="(item, index) in orderItems" :key="`${item.product_id || 'item'}-${index}`" class="order-editor-item-card">
+                <div class="order-editor-item-card__media">
+                  <img
+                    v-if="orderItemImage(item)"
+                    :src="orderItemImage(item)"
+                    :alt="item.product_name || `Sản phẩm ${index + 1}`"
+                    loading="lazy"
+                  />
+                  <div v-else class="order-editor-item-card__placeholder">
+                    SP {{ index + 1 }}
+                  </div>
+                </div>
+                <div class="order-editor-item-card__content">
+                  <div class="order-editor-item-card__title-row">
+                    <strong>{{ item.product_name || `Sản phẩm #${index + 1}` }}</strong>
+                    <span>{{ orderItemLineTotal(item) }}</span>
+                  </div>
+                  <div class="order-editor-item-card__meta">
+                    <span>SKU: {{ item.product_sku || 'Chưa có SKU' }}</span>
+                    <span>Số lượng: {{ item.quantity || 0 }}</span>
+                    <span>Đơn giá: {{ orderItemUnitPrice(item) }}</span>
+                  </div>
+                  <a
+                    v-if="item.product_slug"
+                    class="order-editor-item-card__link"
+                    :href="`/product/${item.product_slug}`"
+                    target="_blank"
+                    rel="noreferrer noopener"
+                  >
+                    Xem sản phẩm công khai
+                  </a>
+                </div>
+              </article>
+            </div>
+            <p v-else class="order-editor-empty">Chưa có dữ liệu sản phẩm cho đơn hàng này.</p>
+          </article>
+
+          <article class="order-editor-card order-editor-card--full">
+            <div class="order-editor-card__head">
+              <strong>Cập nhật trạng thái vận hành</strong>
+              <small>Admin chỉ chỉnh sửa trạng thái và ghi chú, các dữ liệu còn lại là thông tin đơn thật.</small>
+            </div>
+            <div class="order-editor-actions-grid">
+              <label v-if="orderStatusField" class="editor-field">
+                <span>{{ fieldLabel(orderStatusField) }}</span>
+                <select
+                  :value="form[orderStatusField]"
+                  @change="emit('update:field', orderStatusField, $event.target.value)"
+                >
+                  <option value="">None</option>
+                  <option
+                    v-for="option in selectOptions(orderStatusField)"
+                    :key="typeof option === 'string' ? option : option.value"
+                    :value="typeof option === 'string' ? option : option.value"
+                  >
+                    {{ typeof option === 'string' ? option : option.label }}
+                  </option>
+                </select>
+                <small v-if="fieldHelpText(orderStatusField)" class="field-help">{{ fieldHelpText(orderStatusField) }}</small>
+              </label>
+
+              <label v-if="orderPaymentStatusField" class="editor-field">
+                <span>{{ fieldLabel(orderPaymentStatusField) }}</span>
+                <select
+                  :value="form[orderPaymentStatusField]"
+                  @change="emit('update:field', orderPaymentStatusField, $event.target.value)"
+                >
+                  <option value="">None</option>
+                  <option
+                    v-for="option in selectOptions(orderPaymentStatusField)"
+                    :key="typeof option === 'string' ? option : option.value"
+                    :value="typeof option === 'string' ? option : option.value"
+                  >
+                    {{ typeof option === 'string' ? option : option.label }}
+                  </option>
+                </select>
+                <small v-if="fieldHelpText(orderPaymentStatusField)" class="field-help">{{ fieldHelpText(orderPaymentStatusField) }}</small>
+              </label>
+
+              <label v-if="orderNoteField" class="editor-field order-editor-note-field">
+                <span>{{ fieldLabel(orderNoteField) }}</span>
+                <textarea
+                  :value="form[orderNoteField]"
+                  rows="5"
+                  :placeholder="fieldPlaceholder(orderNoteField)"
+                  @input="emit('update:field', orderNoteField, $event.target.value)"
+                ></textarea>
+                <small v-if="fieldHelpText(orderNoteField)" class="field-help">{{ fieldHelpText(orderNoteField) }}</small>
+              </label>
+            </div>
+          </article>
+        </section>
+
+        <template v-else>
+          <label
+            v-for="field in visibleFormFields"
+            :key="field"
+            :class="[
+              'editor-field',
+              {
+                wide:
+                  isTextarea(field) ||
+                  (isVideosEntity && (field === 'video_url' || field === 'thumbnail_id')),
+              },
+            ]"
+          >
+            <span>{{ fieldLabel(field) }}</span>
+
+            <input
+              v-if="isBooleanField(field)"
+              :checked="Boolean(form[field])"
+              type="checkbox"
+              @change="emit('update:field', field, $event.target.checked)"
+            />
+
+            <div v-else-if="fieldGroups.media.includes(field)" class="field-stack">
+              <select
+                :value="form[field] ?? null"
+                @change="emit('update:field', field, $event.target.value === 'null' ? null : Number($event.target.value))"
+              >
+                <option :value="'null'">No media</option>
+                <option v-for="media in mediaOptions" :key="media.id" :value="media.id">
+                  #{{ media.id }} - {{ media.title || media.file_name || media.url }}
+                </option>
+              </select>
+              <small v-if="fieldHelpText(field)" class="field-help">{{ fieldHelpText(field) }}</small>
+              <div v-if="selectedMediaPreviewUrl(field)" class="selected-media-preview">
+                <video
+                  v-if="isVideoMediaRecord(selectedMediaAsset(field))"
+                  :src="selectedMediaPreviewUrl(field)"
+                  muted
+                  controls
+                  playsinline
+                  preload="metadata"
+                ></video>
+                <img
+                  v-else
+                  :src="selectedMediaPreviewUrl(field)"
+                  :alt="selectedMediaLabel(field)"
+                  loading="lazy"
+                />
+                <div>
+                  <strong>{{ selectedMediaLabel(field) }}</strong>
+                  <small v-if="form[field]">#{{ form[field] }}</small>
+                  <small v-else>Nguồn ngoài / metadata cũ</small>
+                </div>
+              </div>
+            </div>
+
+            <div
+              v-else-if="relationOptions[field] && isSearchableRelationField(field)"
+              class="field-stack relation-combobox"
             >
-              <option :value="'null'">No media</option>
-              <option v-for="media in mediaOptions" :key="media.id" :value="media.id">
-                #{{ media.id }} - {{ media.title || media.file_name || media.url }}
+              <input
+                type="text"
+                :value="relationSearchValue(field)"
+                :placeholder="fieldPlaceholder(field) || 'Tim kiem san pham theo ten, SKU, slug...'"
+                @input="updateRelationSearch(field, $event.target.value)"
+              />
+              <select
+                :value="relationSelectValue(field)"
+                @change="emit('update:relation-field', field, $event.target.value)"
+              >
+                <option value="">-- Chon san pham --</option>
+                <option
+                  v-for="option in filteredRelationOptions(field)"
+                  :key="option.id"
+                  :value="String(option.id)"
+                >
+                  #{{ option.id }} - {{ relationOptionText(option, field) }}
+                </option>
+              </select>
+              <small
+                v-if="relationSearchValue(field) && !filteredRelationOptions(field).length"
+                class="field-help"
+              >
+                Khong tim thay san pham phu hop voi tu khoa.
+              </small>
+            </div>
+
+            <select
+              v-else-if="relationOptions[field]"
+              :value="relationSelectValue(field)"
+              @change="emit('update:relation-field', field, $event.target.value)"
+            >
+              <option value="">None</option>
+              <option
+                v-for="option in relationOptions[field]"
+                :key="option.id"
+                :value="String(option.id)"
+              >
+                <template v-if="optionLabelRenderer">
+                  {{ optionLabelRenderer(option, field) }}
+                </template>
+                <template v-else>
+                  #{{ option.id }} -
+                  {{ option.title || option.name || option.slug || option.config_key || option.code }}
+                </template>
               </option>
             </select>
-            <small v-if="fieldHelpText(field)" class="field-help">{{ fieldHelpText(field) }}</small>
-            <div v-if="selectedMediaPreviewUrl(field)" class="selected-media-preview">
+
+            <select
+              v-else-if="isSelectField(field)"
+              :value="form[field]"
+              @change="emit('update:field', field, $event.target.value)"
+            >
+              <option value="">None</option>
+              <option
+                v-for="option in selectOptions(field)"
+                :key="typeof option === 'string' ? option : option.value"
+                :value="typeof option === 'string' ? option : option.value"
+              >
+                {{ typeof option === "string" ? option : option.label }}
+              </option>
+            </select>
+
+            <textarea
+              v-else-if="isTextarea(field)"
+              :value="form[field]"
+              rows="5"
+              :placeholder="fieldPlaceholder(field)"
+              @input="emit('update:field', field, $event.target.value)"
+            ></textarea>
+
+            <div v-else-if="(isVideosEntity || isProductsEntity) && field === 'video_url'" class="field-stack">
+              <div class="video-url-section">
+                <div class="video-url-row">
+                  <input
+                    :value="form[field]"
+                    :type="inputType(field)"
+                    placeholder="https://... or select from library"
+                    @input="emit('update:field', field, $event.target.value)"
+                  />
+                  <button
+                    type="button"
+                    class="btn btn-secondary"
+                    :disabled="videoUploading"
+                    @click="emit('upload-video')"
+                  >
+                    {{ videoUploading ? "Uploading..." : "Upload" }}
+                  </button>
+                </div>
+                <div class="video-file-row">
+                  <input
+                    type="file"
+                    accept="video/mp4,video/webm,video/ogg,video/quicktime,video/x-m4v,.mp4,.webm,.ogg,.mov,.m4v"
+                    @change="emit('video-file-change', $event)"
+                  />
+                  <span class="video-file-row__name">
+                    {{ videoUploadFile?.name || "Chua chon file video" }}
+                  </span>
+                </div>
+                <small class="field-help">
+                  Chon file video tu may tinh roi bam Upload de tu dong dien vao Video URL.
+                </small>
+                <div class="video-library-select">
+                  <select @change="emit('video-library-select', $event.target.value)">
+                    <option value="">-- Chon tu Thu vien Media --</option>
+                    <option v-for="media in videoLibraryOptions" :key="media.id" :value="media.url">
+                      #{{ media.id }} - {{ media.title || media.file_name }}
+                    </option>
+                  </select>
+                  <small v-if="videoLibraryOptions.length">
+                    Hoac chon tu {{ videoLibraryOptions.length }} video da tai len
+                  </small>
+                </div>
+              </div>
+              <small v-if="fieldHelpText(field)" class="field-help">{{ fieldHelpText(field) }}</small>
+              <div
+                v-if="form.video_url"
+                class="video-url-helper"
+                :class="{
+                  'is-valid': isAllowedVideoUrl(form.video_url),
+                  'is-invalid': !isAllowedVideoUrl(form.video_url),
+                }"
+              >
+                <span>
+                  {{ isAllowedVideoUrl(form.video_url) ? "Nguồn video hợp lệ" : "Nguồn video không hợp lệ" }}
+                </span>
+                <small>
+                  {{ videoUrlHint(form.video_url) || "Hỗ trợ: MP4/WebM, YouTube, Vimeo" }}
+                </small>
+              </div>
               <video
-                v-if="isVideoMediaRecord(selectedMediaAsset(field))"
-                :src="selectedMediaPreviewUrl(field)"
+                v-if="isDirectVideoFile(form.video_url)"
+                class="video-form-preview"
+                :src="resolveMediaUrl(form.video_url)"
                 muted
                 controls
                 playsinline
                 preload="metadata"
               ></video>
-              <img
-                v-else
-                :src="selectedMediaPreviewUrl(field)"
-                :alt="selectedMediaLabel(field)"
-                loading="lazy"
-              />
-              <div>
-                <strong>{{ selectedMediaLabel(field) }}</strong>
-                <small v-if="form[field]">#{{ form[field] }}</small>
-                <small v-else>Nguồn ngoài / metadata cũ</small>
-              </div>
-            </div>
-          </div>
-
-          <div
-            v-else-if="relationOptions[field] && isSearchableRelationField(field)"
-            class="field-stack relation-combobox"
-          >
-            <input
-              type="text"
-              :value="relationSearchValue(field)"
-              :placeholder="fieldPlaceholder(field) || 'Tim kiem san pham theo ten, SKU, slug...'"
-              @input="updateRelationSearch(field, $event.target.value)"
-            />
-            <select
-              :value="relationSelectValue(field)"
-              @change="emit('update:relation-field', field, $event.target.value)"
-            >
-              <option value="">-- Chon san pham --</option>
-              <option
-                v-for="option in filteredRelationOptions(field)"
-                :key="option.id"
-                :value="String(option.id)"
+              <a
+                v-else-if="isAllowedVideoUrl(form.video_url)"
+                class="video-form-link"
+                :href="resolveMediaUrl(form.video_url)"
+                target="_blank"
+                rel="noreferrer noopener"
               >
-                #{{ option.id }} - {{ relationOptionText(option, field) }}
-              </option>
-            </select>
-            <small
-              v-if="relationSearchValue(field) && !filteredRelationOptions(field).length"
-              class="field-help"
-            >
-              Khong tim thay san pham phu hop voi tu khoa.
-            </small>
-          </div>
+                Mở nguồn video
+              </a>
+            </div>
 
-          <select
-            v-else-if="relationOptions[field]"
-            :value="relationSelectValue(field)"
-            @change="emit('update:relation-field', field, $event.target.value)"
-          >
-            <option value="">None</option>
-            <option
-              v-for="option in relationOptions[field]"
-              :key="option.id"
-              :value="String(option.id)"
-            >
-              <template v-if="optionLabelRenderer">
-                {{ optionLabelRenderer(option, field) }}
-              </template>
-              <template v-else>
-                #{{ option.id }} -
-                {{ option.title || option.name || option.slug || option.config_key || option.code }}
-              </template>
-            </option>
-          </select>
-
-          <select
-            v-else-if="isSelectField(field)"
-            :value="form[field]"
-            @change="emit('update:field', field, $event.target.value)"
-          >
-            <option value="">None</option>
-            <option
-              v-for="option in selectOptions(field)"
-              :key="typeof option === 'string' ? option : option.value"
-              :value="typeof option === 'string' ? option : option.value"
-            >
-              {{ typeof option === "string" ? option : option.label }}
-            </option>
-          </select>
-
-          <textarea
-            v-else-if="isTextarea(field)"
-            :value="form[field]"
-            rows="5"
-            :placeholder="fieldPlaceholder(field)"
-            @input="emit('update:field', field, $event.target.value)"
-          ></textarea>
-
-          <div v-else-if="(isVideosEntity || isProductsEntity) && field === 'video_url'" class="field-stack">
-            <div class="video-url-section">
-              <div class="video-url-row">
+            <div v-else-if="isProductInlineUploadField(field)" class="field-stack">
+              <template v-if="field === 'image_url'">
                 <input
                   :value="form[field]"
-                  :type="inputType(field)"
-                  placeholder="https://... or select from library"
+                  type="text"
+                  :placeholder="fieldPlaceholder(field)"
                   @input="emit('update:field', field, $event.target.value)"
                 />
-                <button
-                  type="button"
-                  class="btn btn-secondary"
-                  :disabled="videoUploading"
-                  @click="emit('upload-video')"
+                <div class="inline-upload-row">
+                  <label :for="`inline-upload-${field}`" class="inline-upload-btn" :class="{ 'is-uploading': productInlineUploading === field }">
+                    <div v-if="productInlineUploading === field" class="spinner-tiny"></div>
+                    <span v-else>📁</span>
+                    <span>{{ productInlineUploading === field ? 'Đang tải...' : 'Chọn file tải lên' }}</span>
+                  </label>
+                  <input
+                    :id="`inline-upload-${field}`"
+                    type="file"
+                    accept="image/*"
+                    class="inline-upload-input"
+                    :disabled="!!productInlineUploading"
+                    @change="handleInlineFile(field, $event)"
+                  />
+                </div>
+                <small v-if="fieldHelpText(field)" class="field-help">{{ fieldHelpText(field) }}</small>
+                <div
+                  v-if="form[field] && /\.(png|jpe?g|gif|webp|avif|svg)(\?.*)?$/i.test(String(form[field]))"
+                  class="url-image-preview"
                 >
-                  {{ videoUploading ? "Uploading..." : "Upload" }}
-                </button>
-              </div>
-              <div class="video-file-row">
-                <input
-                  type="file"
-                  accept="video/mp4,video/webm,video/ogg,video/quicktime,video/x-m4v,.mp4,.webm,.ogg,.mov,.m4v"
-                  @change="emit('video-file-change', $event)"
-                />
-                <span class="video-file-row__name">
-                  {{ videoUploadFile?.name || "Chua chon file video" }}
-                </span>
-              </div>
-              <small class="field-help">
-                Chon file video tu may tinh roi bam Upload de tu dong dien vao Video URL.
-              </small>
-              <div class="video-library-select">
-                <select @change="emit('video-library-select', $event.target.value)">
-                  <option value="">-- Chon tu Thu vien Media --</option>
-                  <option v-for="media in videoLibraryOptions" :key="media.id" :value="media.url">
-                    #{{ media.id }} - {{ media.title || media.file_name }}
-                  </option>
-                </select>
-                <small v-if="videoLibraryOptions.length">
-                  Hoac chon tu {{ videoLibraryOptions.length }} video da tai len
-                </small>
-              </div>
+                  <img :src="resolveMediaUrl(form[field])" alt="Preview" loading="lazy" />
+                </div>
+              </template>
+
+              <template v-else>
+                <div class="inline-upload-row">
+                  <label :for="`inline-upload-${field}`" class="inline-upload-btn" :class="{ 'is-uploading': productInlineUploading === field }">
+                    <div v-if="productInlineUploading === field" class="spinner-tiny"></div>
+                    <span v-else>📁</span>
+                    <span v-if="productInlineUploading === field && galleryUploadProgress">Đang tải {{ galleryUploadProgress }}...</span>
+                    <span v-else-if="productInlineUploading === field">Đang tải...</span>
+                    <span v-else>Chọn nhiều ảnh tải lên</span>
+                  </label>
+                  <input
+                    :id="`inline-upload-${field}`"
+                    type="file"
+                    accept="image/*"
+                    multiple
+                    class="inline-upload-input"
+                    :disabled="!!productInlineUploading"
+                    @change="handleInlineFile(field, $event)"
+                  />
+                  <small class="gallery-count" v-if="galleryUrlList.length">Đang có: {{ galleryUrlList.length }} ảnh</small>
+                </div>
+                <small v-if="fieldHelpText(field)" class="field-help">{{ fieldHelpText(field) }}</small>
+
+                <div v-if="galleryUrlList.length" class="gallery-preview-grid">
+                  <div
+                    v-for="(url, idx) in galleryUrlList"
+                    :key="idx"
+                    class="gallery-preview-item"
+                  >
+                    <video
+                      v-if="isDirectVideoFile(url)"
+                      :src="resolveMediaUrl(url)"
+                      muted
+                      playsinline
+                      preload="metadata"
+                    ></video>
+                    <img v-else :src="resolveMediaUrl(url)" :alt="`Gallery ${idx + 1}`" loading="lazy" />
+                    <button
+                      type="button"
+                      class="gallery-preview-remove"
+                      title="Xóa ảnh này"
+                      @click="emit('remove-gallery-url', url)"
+                    >×</button>
+                    <small class="gallery-preview-idx">#{{ idx + 1 }}</small>
+                  </div>
+                </div>
+                <div v-else class="gallery-empty-hint">Chưa có ảnh liên quan. Nhấn "Chọn nhiều ảnh tải lên" để thêm.</div>
+
+                <details class="gallery-raw-toggle">
+                  <summary>Chỉnh sửa URL thủ công</summary>
+                  <textarea
+                    :value="form[field]"
+                    rows="3"
+                    :placeholder="fieldPlaceholder(field)"
+                    @input="emit('update:field', field, $event.target.value)"
+                  ></textarea>
+                </details>
+              </template>
             </div>
-            <small v-if="fieldHelpText(field)" class="field-help">{{ fieldHelpText(field) }}</small>
+
+            <input
+              v-else
+              :value="form[field]"
+              :type="inputType(field) === 'url' ? 'text' : inputType(field)"
+              :placeholder="field === 'slug' ? fieldPlaceholder(field) || 'auto-generated-from-name' : fieldPlaceholder(field)"
+              @input="
+                emit('update:field', field, $event.target.value);
+                field === 'slug'
+                  ? emit('slug-input')
+                  : emit('slug-source-input', field)
+              "
+            />
+
             <div
-              v-if="form.video_url"
-              class="video-url-helper"
-              :class="{
-                'is-valid': isAllowedVideoUrl(form.video_url),
-                'is-invalid': !isAllowedVideoUrl(form.video_url),
-              }"
+              v-if="!isProductInlineUploadField(field) && inputType(field) === 'url' && form[field] && /\.(png|jpe?g|gif|webp|avif|svg)(\?.*)?$/i.test(String(form[field]))"
+              class="url-image-preview"
             >
-              <span>
-                {{ isAllowedVideoUrl(form.video_url) ? "Nguồn video hợp lệ" : "Nguồn video không hợp lệ" }}
-              </span>
-              <small>
-                {{ videoUrlHint(form.video_url) || "Hỗ trợ: MP4/WebM, YouTube, Vimeo" }}
-              </small>
+              <img :src="resolveMediaUrl(form[field])" alt="Preview" loading="lazy" />
             </div>
-            <video
-              v-if="isDirectVideoFile(form.video_url)"
-              class="video-form-preview"
-              :src="resolveMediaUrl(form.video_url)"
-              muted
-              controls
-              playsinline
-              preload="metadata"
-            ></video>
+
+            <small
+              v-if="!isProductInlineUploadField(field) && !fieldGroups.media.includes(field) && fieldHelpText(field)"
+              class="field-help"
+            >
+              {{ fieldHelpText(field) }}
+            </small>
+            <small
+              v-if="relationOptions[field] && selectedRelationSummary(field)"
+              class="field-help field-help--selected"
+            >
+              {{ selectedRelationSummary(field) }}
+            </small>
             <a
-              v-else-if="isAllowedVideoUrl(form.video_url)"
-              class="video-form-link"
-              :href="resolveMediaUrl(form.video_url)"
+              v-if="relationOptions[field] && relationPreviewPath(field)"
+              class="field-help field-help--selected"
+              :href="relationPreviewPath(field)"
               target="_blank"
               rel="noreferrer noopener"
             >
-              Mở nguồn video
+              {{ relationPreviewLabel(field) }}
             </a>
-          </div>
-
-          <div v-else-if="isProductInlineUploadField(field)" class="field-stack">
-            <!-- image_url: single text + upload -->
-            <template v-if="field === 'image_url'">
-              <input
-                :value="form[field]"
-                type="text"
-                :placeholder="fieldPlaceholder(field)"
-                @input="emit('update:field', field, $event.target.value)"
-              />
-              <div class="inline-upload-row">
-                <label :for="`inline-upload-${field}`" class="inline-upload-btn" :class="{ 'is-uploading': productInlineUploading === field }">
-                  <div v-if="productInlineUploading === field" class="spinner-tiny"></div>
-                  <span v-else>📁</span>
-                  <span>{{ productInlineUploading === field ? 'Đang tải...' : 'Chọn file tải lên' }}</span>
-                </label>
-                <input
-                  :id="`inline-upload-${field}`"
-                  type="file"
-                  accept="image/*"
-                  class="inline-upload-input"
-                  :disabled="!!productInlineUploading"
-                  @change="handleInlineFile(field, $event)"
-                />
-              </div>
-              <small v-if="fieldHelpText(field)" class="field-help">{{ fieldHelpText(field) }}</small>
-              <div
-                v-if="form[field] && /\.(png|jpe?g|gif|webp|avif|svg)(\?.*)?$/i.test(String(form[field]))"
-                class="url-image-preview"
-              >
-                <img :src="resolveMediaUrl(form[field])" alt="Preview" loading="lazy" />
-              </div>
-            </template>
-
-            <!-- gallery_urls: multi-upload + grid preview -->
-            <template v-else>
-              <div class="inline-upload-row">
-                <label :for="`inline-upload-${field}`" class="inline-upload-btn" :class="{ 'is-uploading': productInlineUploading === field }">
-                  <div v-if="productInlineUploading === field" class="spinner-tiny"></div>
-                  <span v-else>📁</span>
-                  <span v-if="productInlineUploading === field && galleryUploadProgress">Đang tải {{ galleryUploadProgress }}...</span>
-                  <span v-else-if="productInlineUploading === field">Đang tải...</span>
-                  <span v-else>Chọn nhiều ảnh tải lên</span>
-                </label>
-                <input
-                  :id="`inline-upload-${field}`"
-                  type="file"
-                  accept="image/*"
-                  multiple
-                  class="inline-upload-input"
-                  :disabled="!!productInlineUploading"
-                  @change="handleInlineFile(field, $event)"
-                />
-                <small class="gallery-count" v-if="galleryUrlList.length">Đang có: {{ galleryUrlList.length }} ảnh</small>
-              </div>
-              <small v-if="fieldHelpText(field)" class="field-help">{{ fieldHelpText(field) }}</small>
-
-              <!-- Gallery Preview Grid -->
-              <div v-if="galleryUrlList.length" class="gallery-preview-grid">
-                <div
-                  v-for="(url, idx) in galleryUrlList"
-                  :key="idx"
-                  class="gallery-preview-item"
-                >
-                  <video
-                    v-if="isDirectVideoFile(url)"
-                    :src="resolveMediaUrl(url)"
-                    muted
-                    playsinline
-                    preload="metadata"
-                  ></video>
-                  <img v-else :src="resolveMediaUrl(url)" :alt="`Gallery ${idx + 1}`" loading="lazy" />
-                  <button
-                    type="button"
-                    class="gallery-preview-remove"
-                    title="Xóa ảnh này"
-                    @click="emit('remove-gallery-url', url)"
-                  >×</button>
-                  <small class="gallery-preview-idx">#{{ idx + 1 }}</small>
-                </div>
-              </div>
-              <div v-else class="gallery-empty-hint">Chưa có ảnh liên quan. Nhấn "Chọn nhiều ảnh tải lên" để thêm.</div>
-
-              <!-- Hidden textarea for raw URL editing -->
-              <details class="gallery-raw-toggle">
-                <summary>Chỉnh sửa URL thủ công</summary>
-                <textarea
-                  :value="form[field]"
-                  rows="3"
-                  :placeholder="fieldPlaceholder(field)"
-                  @input="emit('update:field', field, $event.target.value)"
-                ></textarea>
-              </details>
-            </template>
-          </div>
-
-          <input
-            v-else
-            :value="form[field]"
-            :type="inputType(field) === 'url' ? 'text' : inputType(field)"
-            :placeholder="field === 'slug' ? fieldPlaceholder(field) || 'auto-generated-from-name' : fieldPlaceholder(field)"
-            @input="
-              emit('update:field', field, $event.target.value);
-              field === 'slug'
-                ? emit('slug-input')
-                : emit('slug-source-input', field)
-            "
-          />
-
-          <div
-            v-if="!isProductInlineUploadField(field) && inputType(field) === 'url' && form[field] && /\.(png|jpe?g|gif|webp|avif|svg)(\?.*)?$/i.test(String(form[field]))"
-            class="url-image-preview"
-          >
-            <img :src="resolveMediaUrl(form[field])" alt="Preview" loading="lazy" />
-          </div>
-
-          <small
-            v-if="!isProductInlineUploadField(field) && !fieldGroups.media.includes(field) && fieldHelpText(field)"
-            class="field-help"
-          >
-            {{ fieldHelpText(field) }}
-          </small>
-          <small
-            v-if="relationOptions[field] && selectedRelationSummary(field)"
-            class="field-help field-help--selected"
-          >
-            {{ selectedRelationSummary(field) }}
-          </small>
-          <a
-            v-if="relationOptions[field] && relationPreviewPath(field)"
-            class="field-help field-help--selected"
-            :href="relationPreviewPath(field)"
-            target="_blank"
-            rel="noreferrer noopener"
-          >
-            {{ relationPreviewLabel(field) }}
-          </a>
-        </label>
+          </label>
+        </template>
 
         <div v-if="isBannerEntity" class="banner-form-preview">
           <p class="eyebrow">Xem trước trực tiếp (Live Preview)</p>

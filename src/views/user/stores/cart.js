@@ -1,6 +1,9 @@
 import { defineStore } from 'pinia'
 import { getCart, addToCart, updateCartItem, removeCartItem, clearCart } from '@/views/user/services/cartApi'
+import { resolveProductUnitPrice } from '@/views/user/utils/productPricing'
 import { useAuthStore } from './auth'
+
+const getEffectiveProductPrice = (product) => resolveProductUnitPrice(product)
 
 export const useCartStore = defineStore('cart', {
   state: () => ({
@@ -12,7 +15,11 @@ export const useCartStore = defineStore('cart', {
   getters: {
     items: (state) => state.cart?.items || [],
     totalItems: (state) => (state.cart?.items || []).reduce((acc, item) => acc + item.quantity, 0),
-    totalPrice: (state) => (state.cart?.items || []).reduce((acc, item) => acc + (item.product.price * item.quantity), 0),
+    totalPrice: (state) =>
+      (state.cart?.items || []).reduce(
+        (acc, item) => acc + getEffectiveProductPrice(item.product) * Number(item.quantity || 0),
+        0,
+      ),
   },
 
   actions: {

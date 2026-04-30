@@ -14,10 +14,10 @@ export function login(payload) {
   })
 }
 
-export function getMe() {
-  const token = localStorage.getItem('user_token')
+export function getMe(accessToken) {
+  const token = accessToken || localStorage.getItem('user_token')
   if (!token) return Promise.reject(new Error('No token found'))
-  
+
   return fetchJson('/user/auth/me', {
     headers: {
       Authorization: `Bearer ${token}`,

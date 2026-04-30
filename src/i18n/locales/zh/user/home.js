@@ -92,7 +92,7 @@ export default {
   cartAddSuccess: '已成功加入购物车',
   loginError: '邮箱或密码错误',
   registerError: '邮箱或用户名已存在',
-  contactPrice: '联系报价',
+  contactPrice: '联系获取报价',
   cart: '购物车',
   cartEmpty: '购物车为空',
   cartEmptyHint: '请选择适合您项目的产品。',

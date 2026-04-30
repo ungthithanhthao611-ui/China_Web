@@ -18,6 +18,8 @@ import ProjectsManager from '@/views/admin/features/projects/pages/ProjectsManag
 import BannersManager from '@/views/admin/features/system/pages/BannersManager.vue'
 import SiteSettingsManager from '@/views/admin/features/system/pages/SiteSettingsManager.vue'
 import MediaAssetsManager from '@/views/admin/features/system/pages/MediaAssetsManager.vue'
+import OrdersManager from '@/views/admin/features/system/pages/OrdersManager.vue'
+import UsersManager from '@/views/admin/features/system/pages/UsersManager.vue'
 import HonorsManager from '@/views/admin/features/honors/pages/HonorsManager.vue'
 import CapabilitySettingsManager from '@/views/admin/features/honors/pages/CapabilitySettingsManager.vue'
 import NavigationMenusManager from '@/views/admin/features/navigation/pages/NavigationMenusManager.vue'
@@ -557,6 +559,15 @@ onBeforeUnmount(() => {
         @clear-notify="clearMessages"
       />
 
+      <OrdersManager
+        v-else-if="activeSection === 'orders'"
+        :token="token"
+        :active="true"
+        @notify-success="setSuccess"
+        @notify-error="setError"
+        @clear-notify="clearMessages"
+      />
+
       <ProjectsManager
         v-else-if="activeSection === 'projects'"
         :token="token"
@@ -578,6 +589,15 @@ onBeforeUnmount(() => {
 
       <SiteSettingsManager
         v-else-if="activeSection === 'site_settings'"
+        :token="token"
+        :active="true"
+        @notify-success="setSuccess"
+        @notify-error="setError"
+        @clear-notify="clearMessages"
+      />
+
+      <UsersManager
+        v-else-if="activeSection === 'users'"
         :token="token"
         :active="true"
         @notify-success="setSuccess"

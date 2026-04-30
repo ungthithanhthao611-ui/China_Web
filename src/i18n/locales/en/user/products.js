@@ -35,6 +35,8 @@ export default {
   labelColor: 'Color',
   btnInquiry: 'Get Quote',
   btnCatalog: 'Download Catalog',
+  priceLabel: 'Selling price',
+  unitPriceSuffix: '/ item',
   relatedTitle: 'Related Products',
   relatedIntro: 'Discover more models in the same material group to easily compare surfaces, colors and choose the right solution for your project.',
   relatedViewDetail: 'View details',

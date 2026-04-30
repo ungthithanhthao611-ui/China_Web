@@ -7,6 +7,7 @@ import { listProductCategories, listProducts } from '@/views/user/services/produ
 import { useI18n } from 'vue-i18n'
 import { useCartStore } from '@/views/user/stores/cart'
 import { useAuthStore } from '@/views/user/stores/auth'
+import { resolveProductDisplayPrice } from '@/views/user/utils/productPricing'
 import { ShoppingCart, Loader2 } from 'lucide-vue-next'
 
 const route = useRoute()
@@ -39,6 +40,8 @@ const showCartNotice = () => {
     cartNoticeTimer = null
   }, 2200)
 }
+
+const getDisplayPrice = (product) => resolveProductDisplayPrice(product)
 
 const formatPrice = (price) => {
   if (!price) return t('user.home.contactPrice') || 'Liên hệ'
@@ -412,7 +415,18 @@ onBeforeUnmount(() => {
                 </span>
               </a>
               <div class="prod-card__price-row">
-                <span class="prod-card__price">{{ formatPrice(product.price) }}</span>
+                <div class="prod-card__price-meta">
+                  <span class="prod-card__price-label">{{ t('user.products.priceLabel') }}</span>
+                  <div v-if="getDisplayPrice(product).hasSale" class="prod-card__price-badges">
+                    <span class="prod-card__price-badge prod-card__price-badge--sale">Giá khuyến mãi</span>
+                    <span class="prod-card__price-badge prod-card__price-badge--original">Giá gốc</span>
+                  </div>
+                </div>
+                <template v-if="getDisplayPrice(product).hasSale">
+                  <span class="prod-card__price prod-card__price--sale">{{ formatPrice(getDisplayPrice(product).finalPrice) }}</span>
+                  <span class="prod-card__price-original">{{ formatPrice(getDisplayPrice(product).originalPrice) }}</span>
+                </template>
+                <span v-else class="prod-card__price">{{ formatPrice(getDisplayPrice(product).finalPrice) }}</span>
               </div>
               <div class="prod-card__footer">
                 <router-link :to="`/products/${product.slug}`" class="prod-card__detail-btn">
@@ -1307,12 +1321,70 @@ onBeforeUnmount(() => {
 
 .prod-card__price-row {
   margin: 12px 0;
+  display: flex;
+  align-items: baseline;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+
+.prod-card__price-meta {
+  width: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+}
+
+.prod-card__price-label {
+  color: #64748b;
+  font-size: 12px;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+}
+
+.prod-card__price-badges {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+.prod-card__price-badge {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 24px;
+  padding: 4px 10px;
+  border-radius: 999px;
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.02em;
+}
+
+.prod-card__price-badge--sale {
+  background: rgba(220, 38, 38, 0.1);
+  color: #dc2626;
+}
+
+.prod-card__price-badge--original {
+  background: #e2e8f0;
+  color: #475569;
 }
 
 .prod-card__price {
   font-size: 18px;
   font-weight: 700;
   color: #1e293b;
+}
+
+.prod-card__price--sale {
+  color: #dc2626;
+}
+
+.prod-card__price-original {
+  font-size: 13px;
+  color: #94a3b8;
+  text-decoration: line-through;
 }
 
 .prod-card__cart-btn {

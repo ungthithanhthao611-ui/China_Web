@@ -94,6 +94,22 @@ const clientRoutes = [
     component: () => import('@/views/user/cart/CartPage.vue'),
   },
   {
+    path: 'checkout',
+    name: 'Checkout',
+    component: () => import('@/views/user/checkout/CheckoutPage.vue'),
+  },
+  {
+    path: 'profile',
+    name: 'Profile',
+    component: () => import('@/views/user/profile/ProfilePage.vue'),
+  },
+  {
+    path: 'orders/:id',
+    name: 'OrderDetail',
+    component: () => import('@/views/user/orders/OrderDetailPage.vue'),
+    props: true,
+  },
+  {
     path: 'news',
     name: 'News',
     component: () => import('@/views/user/news/NewsListPage.vue'),

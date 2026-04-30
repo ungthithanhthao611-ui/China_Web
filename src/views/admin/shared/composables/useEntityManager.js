@@ -64,6 +64,7 @@ export function useEntityManager(props, emit) {
   const relationOptions = reactive({})
   const searchKeyword = ref('')
   const statusFilter = ref('')
+  const productStockFilter = ref('')
   const aboutSectionFilter = ref('')
   const aboutBlockFilter = ref('')
   const aboutCompletenessFilter = ref('')
@@ -160,6 +161,12 @@ export function useEntityManager(props, emit) {
     Math.max(1, Math.ceil(totalRecords.value / pageSize.value)),
   )
   const hasStatusFilter = computed(() => formFields.value.includes('status'))
+  const hasProductStockFilter = computed(() => resolvedEntityKey.value === 'products')
+  const productStockFilterOptions = computed(() => [
+    { value: 'in_stock', label: 'Còn hàng' },
+    { value: 'low_stock', label: 'Sắp hết hàng (≤ 5)' },
+    { value: 'out_of_stock', label: 'Hết hàng' },
+  ])
   const hasMediaFields = computed(() => {
     if (props.entityKey === 'videos') return false
     if (config.value?.cloudinaryAssetFolder) return true
@@ -875,6 +882,9 @@ export function useEntityManager(props, emit) {
       }
       if (hasStatusFilter.value && statusFilter.value)
         query.status = statusFilter.value
+      if (hasProductStockFilter.value && productStockFilter.value) {
+        query.stock_state = productStockFilter.value
+      }
       if (hasAdvancedAboutFilters.value) {
         query.section_key = aboutSectionFilter.value || undefined
         query.block_key = aboutBlockFilter.value || undefined
@@ -1419,6 +1429,7 @@ export function useEntityManager(props, emit) {
     relationOptions,
     searchKeyword,
     statusFilter,
+    productStockFilter,
     aboutSectionFilter,
     aboutBlockFilter,
     aboutCompletenessFilter,
@@ -1458,6 +1469,8 @@ export function useEntityManager(props, emit) {
     statusOptions,
     totalPages,
     hasStatusFilter,
+    hasProductStockFilter,
+    productStockFilterOptions,
     hasMediaFields,
     mediaFieldOptions,
     canCreate,

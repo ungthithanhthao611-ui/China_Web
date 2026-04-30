@@ -160,7 +160,7 @@ const props = defineProps({
   },
 });
 
-const emit = defineEmits(["edit", "delete", "set-page", "update:pageSize"]);
+const emit = defineEmits(["view", "edit", "delete", "set-page", "update:pageSize"]);
 
 const richPreviewCard = (record) => props.previewCard(record) || null;
 const richPreviewMedia = (record) => props.previewMedia(record) || null;
@@ -263,6 +263,56 @@ const displayedRecords = computed(() => {
   return ordered;
 });
 
+const isOrdersEntity = computed(() => props.entityKey === 'orders');
+
+const formatMoney = (value, currency = 'VND') => {
+  const amount = Number(value || 0);
+  if (!Number.isFinite(amount)) return '-';
+  return new Intl.NumberFormat('vi-VN', {
+    style: 'currency',
+    currency: currency || 'VND',
+    maximumFractionDigits: 0,
+  }).format(amount);
+};
+
+const orderStatusTone = (record) => {
+  const statusValue = String(record?.status || '').trim().toLowerCase();
+  if (statusValue === 'delivered') return 'is-success';
+  if (statusValue === 'cancelled') return 'is-danger';
+  if (['confirmed', 'processing', 'shipping'].includes(statusValue)) return 'is-info';
+  return 'is-warning';
+};
+
+const paymentStatusTone = (record) => {
+  const statusValue = String(record?.payment_status || '').trim().toLowerCase();
+  if (statusValue === 'paid') return 'is-success';
+  if (statusValue === 'refunded') return 'is-danger';
+  return 'is-warning';
+};
+
+const orderStatusText = (record) =>
+  record?.status_label || props.formatCell(record?.status);
+
+const paymentStatusText = (record) =>
+  record?.payment_status_label || props.formatCell(record?.payment_status);
+
+const orderCustomerSummary = (record) => {
+  const phone = String(record?.customer_phone || '').trim();
+  const email = String(record?.customer_email || '').trim();
+  return [phone, email].filter(Boolean).join(' • ') || 'Chưa có liên hệ';
+};
+
+const orderItemCountText = (record) => {
+  const count = Number(record?.item_count || 0);
+  return `${count} sản phẩm`;
+};
+
+const orderPreviewSummary = (record) => {
+  const address = String(record?.shipping_address || '').trim();
+  if (address) return address;
+  return String(record?.note || '').trim() || 'Chưa có ghi chú giao hàng';
+};
+
 const getThumbnailFallback = (record, column) => {
   if (column !== 'image_url') return null;
   if (record.image_url) return props.resolveMediaUrl(record.image_url);
@@ -314,16 +364,16 @@ const getThumbnailFallback = (record, column) => {
             <th v-for="column in tableColumns" :key="column">
               {{ fieldLabel(column) }}
             </th>
-            <th>Xem nhanh</th>
+            <th v-if="!isOrdersEntity">Xem nhanh</th>
             <th>Thao tác</th>
           </tr>
         </thead>
         <tbody>
           <tr v-if="loading" class="table-empty-row">
-            <td :colspan="tableColumns.length + 2">Đang tải dữ liệu...</td>
+            <td :colspan="tableColumns.length + (isOrdersEntity ? 1 : 2)">Đang tải dữ liệu...</td>
           </tr>
           <tr v-else-if="!displayedRecords.length" class="table-empty-row">
-            <td :colspan="tableColumns.length + 2">Không tìm thấy bản ghi nào.</td>
+            <td :colspan="tableColumns.length + (isOrdersEntity ? 1 : 2)">Không tìm thấy bản ghi nào.</td>
           </tr>
           <tr v-for="record in displayedRecords" v-else :key="record.id" class="entity-row">
             <td
@@ -349,6 +399,34 @@ const getThumbnailFallback = (record, column) => {
               </template>
               <template v-else-if="isBannerEntity && column === 'title'">
                 {{ bannerDisplayTitle(record) }}
+              </template>
+              <template v-else-if="isOrdersEntity && column === 'customer_name'">
+                <div class="order-customer-cell">
+                  <strong>{{ record.customer_name || '-' }}</strong>
+                  <small>{{ orderCustomerSummary(record) }}</small>
+                </div>
+              </template>
+              <template v-else-if="isOrdersEntity && column === 'status_label'">
+                <span :class="['table-status-chip', orderStatusTone(record)]">
+                  {{ orderStatusText(record) }}
+                </span>
+              </template>
+              <template v-else-if="isOrdersEntity && column === 'payment_status_label'">
+                <span :class="['table-status-chip', 'is-soft', paymentStatusTone(record)]">
+                  {{ paymentStatusText(record) }}
+                </span>
+              </template>
+              <template v-else-if="isOrdersEntity && column === 'total_amount'">
+                <div class="order-total-cell">
+                  <strong>{{ formatMoney(record.total_amount, record.currency) }}</strong>
+                  <small>{{ orderItemCountText(record) }}</small>
+                </div>
+              </template>
+              <template v-else-if="isOrdersEntity && column === 'placed_at'">
+                <div class="order-time-cell">
+                  <strong>{{ formatCell(record[column], column) }}</strong>
+                  <small>{{ record.payment_method_label || formatCell(record.payment_method, 'payment_method') }}</small>
+                </div>
               </template>
               <template v-else-if="column === 'image_id' || column === 'hero_image_id' || column === 'media_id' || column === 'image_url'">
                 <div class="banner-media-cell">
@@ -391,7 +469,7 @@ const getThumbnailFallback = (record, column) => {
                     target="_blank"
                     rel="noreferrer noopener"
                   >
-                    {{ formatCell(record[column]) }}
+                    {{ formatCell(record[column], column) }}
                   </a>
                   <small v-if="videoUrlHint(record[column])">
                     {{ videoUrlHint(record[column]) }}
@@ -405,9 +483,9 @@ const getThumbnailFallback = (record, column) => {
                 >
                   <span class="category-tree-cell__branch" aria-hidden="true" />
                   <strong v-if="productCategoryDepth(record) === 0">
-                    {{ formatCell(record[column]) }}
+                    {{ formatCell(record[column], column) }}
                   </strong>
-                  <span v-else>{{ formatCell(record[column]) }}</span>
+                  <span v-else>{{ formatCell(record[column], column) }}</span>
                 </div>
               </template>
               <template v-else-if="isProductCategoriesEntity && column === 'parent_name'">
@@ -417,17 +495,17 @@ const getThumbnailFallback = (record, column) => {
                     { 'is-root': isRootCategoryRecord(record) },
                   ]"
                 >
-                  {{ isRootCategoryRecord(record) ? 'Danh mục gốc' : formatCell(record[column]) }}
+                  {{ isRootCategoryRecord(record) ? 'Danh mục gốc' : formatCell(record[column], column) }}
                 </span>
               </template>
               <template v-else-if="column === 'title' || column === 'block_key' || column === 'item_key'">
                 <strong>{{ recordDisplayName(record) }}</strong>
               </template>
               <template v-else>
-                {{ formatCell(record[column]) }}
+                {{ formatCell(record[column], column) }}
               </template>
             </td>
-            <td data-label="Preview">
+            <td v-if="!isOrdersEntity" data-label="Preview">
               <template v-if="isBannerEntity">
                 <div class="banner-preview-card">
                   <div class="banner-preview-card__media">
@@ -608,6 +686,13 @@ const getThumbnailFallback = (record, column) => {
             </td>
             <td data-label="Actions">
               <div class="row-actions">
+                <button
+                  type="button"
+                  class="btn btn-secondary btn-sm"
+                  @click="emit('view', record)"
+                >
+                  Chi tiết
+                </button>
                 <button
                   type="button"
                   class="btn btn-secondary btn-sm"

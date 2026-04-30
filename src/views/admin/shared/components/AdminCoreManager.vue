@@ -1,8 +1,10 @@
 <script setup>
-import { computed } from 'vue'
+import { computed, ref } from 'vue'
+import { useRouter } from 'vue-router'
 
 import AboutGroupedView from '@/views/admin/features/about/pages/AboutGroupedView.vue'
 import { useEntityManager } from '@/views/admin/shared/composables/useEntityManager.js'
+import { getAdminEntityRecord } from '@/views/admin/shared/api/adminApi'
 import EntityManagerConfirmDialog from '@/views/admin/shared/components/CoreConfirmDialog.vue'
 import EntityManagerEditor from '@/views/admin/shared/components/AdminCoreEditor.vue'
 import EntityManagerFilters from '@/views/admin/shared/components/CoreFilters.vue'
@@ -24,6 +26,7 @@ const {
   relationOptions,
   searchKeyword,
   statusFilter,
+  productStockFilter,
   aboutSectionFilter,
   aboutBlockFilter,
   aboutCompletenessFilter,
@@ -61,6 +64,8 @@ const {
   statusOptions,
   totalPages,
   hasStatusFilter,
+  hasProductStockFilter,
+  productStockFilterOptions,
   hasMediaFields,
   mediaFieldOptions,
   canCreate,
@@ -154,10 +159,116 @@ const {
   FIELD_GROUPS,
 } = useEntityManager(props, emit)
 
+const router = useRouter()
+
 const safeEditLabel = computed(() => config?.value?.editLabel || 'Sửa')
+const isUsersEntity = computed(() => resolvedEntityKey.value === 'users')
 const shouldUseAboutGroupedView = computed(
   () => isAboutContentBlockItemsEntity.value && aboutViewMode.value === 'grouped',
 )
+const inlineUserDetailLoading = ref(false)
+const inlineUserDetailError = ref('')
+const inlineUserDetailRecord = ref(null)
+const inlineUserDetailOpen = ref(false)
+
+const inlineUserAvatarUrl = computed(() => {
+  const raw = String(inlineUserDetailRecord.value?.avatar_url || '').trim()
+  if (raw) return raw
+
+  const fallbackName = String(
+    inlineUserDetailRecord.value?.username ||
+      inlineUserDetailRecord.value?.email ||
+      'User',
+  )
+
+  return `https://ui-avatars.com/api/?name=${encodeURIComponent(fallbackName)}&background=f2e8d5&color=7a5d2e&size=256`
+})
+
+const inlineUserLoginHistory = computed(() =>
+  Array.isArray(inlineUserDetailRecord.value?.login_history)
+    ? inlineUserDetailRecord.value.login_history
+    : [],
+)
+
+const inlineUserLoginHistoryCount = computed(() =>
+  Number(
+    inlineUserDetailRecord.value?.login_history_count ||
+      inlineUserLoginHistory.value.length ||
+      0,
+  ),
+)
+
+const inlineUserDetailFields = computed(() => {
+  if (!inlineUserDetailRecord.value) return []
+
+  return [
+    {
+      key: 'username',
+      label: 'Tên đăng nhập',
+      value: inlineUserDetailRecord.value.username,
+    },
+    {
+      key: 'full_name',
+      label: 'Họ và tên',
+      value: inlineUserDetailRecord.value.full_name,
+    },
+    {
+      key: 'email',
+      label: 'Email',
+      value: inlineUserDetailRecord.value.email,
+    },
+    {
+      key: 'phone',
+      label: 'Số điện thoại',
+      value: inlineUserDetailRecord.value.phone,
+    },
+    {
+      key: 'address',
+      label: 'Địa chỉ',
+      value: inlineUserDetailRecord.value.address,
+    },
+    {
+      key: 'created_at',
+      label: 'Ngày tạo tài khoản',
+      value: formatInlineUserDateTime(inlineUserDetailRecord.value.created_at),
+    },
+    {
+      key: 'updated_at',
+      label: 'Cập nhật gần nhất',
+      value: formatInlineUserDateTime(inlineUserDetailRecord.value.updated_at),
+    },
+    {
+      key: 'status',
+      label: 'Trạng thái tài khoản',
+      value: inlineUserDetailRecord.value.is_active ? 'Đang hoạt động' : 'Đã bị khóa',
+      tone: inlineUserDetailRecord.value.is_active ? 'success' : 'danger',
+    },
+    {
+      key: 'role',
+      label: 'Phân quyền',
+      value: inlineUserDetailRecord.value.role,
+    },
+  ]
+})
+
+function formatInlineUserDateTime(value) {
+  if (!value) return 'Chưa cập nhật'
+
+  const date = new Date(value)
+  if (Number.isNaN(date.getTime())) return String(value)
+
+  return new Intl.DateTimeFormat('vi-VN', {
+    hour: '2-digit',
+    minute: '2-digit',
+    day: '2-digit',
+    month: '2-digit',
+    year: 'numeric',
+  }).format(date)
+}
+
+function normalizeInlineUserValue(value) {
+  return String(value ?? '').trim() || 'Chưa cập nhật'
+}
 
 function applyFilters() {
   currentPage.value = 1
@@ -172,6 +283,39 @@ function resetAboutFilters() {
   aboutViewMode.value = aboutViewModeOptions.value[1]?.value || aboutViewModeOptions.value[0]?.value || 'table'
   applyFilters()
 }
+
+function closeInlineUserDetail() {
+  inlineUserDetailOpen.value = false
+  inlineUserDetailError.value = ''
+  inlineUserDetailRecord.value = null
+}
+
+async function openDetail(record) {
+  if (!record?.id) return
+
+  if (isUsersEntity.value) {
+    inlineUserDetailLoading.value = true
+    inlineUserDetailError.value = ''
+    inlineUserDetailOpen.value = true
+
+    try {
+      inlineUserDetailRecord.value = await getAdminEntityRecord(
+        'users',
+        record.id,
+        props.token,
+      )
+    } catch (error) {
+      inlineUserDetailError.value =
+        error?.message || 'Không thể tải chi tiết tài khoản người dùng.'
+    } finally {
+      inlineUserDetailLoading.value = false
+    }
+    return
+  }
+
+  openEditForm(record)
+}
+
 </script>
 
 <template>
@@ -202,7 +346,10 @@ function resetAboutFilters() {
         :config="config"
         :search-keyword="searchKeyword"
         :status-filter="statusFilter"
+        :product-stock-filter="productStockFilter"
         :has-status-filter="hasStatusFilter"
+        :has-product-stock-filter="hasProductStockFilter"
+        :product-stock-filter-options="productStockFilterOptions"
         :status-options="statusOptions"
         :loading="loading"
         :has-advanced-about-filters="hasAdvancedAboutFilters"
@@ -215,6 +362,7 @@ function resetAboutFilters() {
         :about-view-mode-options="aboutViewModeOptions"
         @update:search-keyword="searchKeyword = $event"
         @update:status-filter="statusFilter = $event"
+        @update:product-stock-filter="productStockFilter = $event"
         @update:about-section-filter="aboutSectionFilter = $event"
         @update:about-block-filter="aboutBlockFilter = $event"
         @update:about-completeness-filter="aboutCompletenessFilter = $event"
@@ -299,11 +447,137 @@ function resetAboutFilters() {
           :page-size="pageSize"
           :edit-label="safeEditLabel"
           :record-display-name="recordDisplayName"
+          @view="openDetail"
           @edit="openEditForm"
           @delete="deleteRecord"
           @set-page="setPage"
           @update:page-size="pageSize = $event"
         />
+      </div>
+
+      <div
+        v-if="isUsersEntity && inlineUserDetailOpen"
+        class="inline-user-detail-modal"
+        @click.self="closeInlineUserDetail"
+      >
+        <section class="inline-user-detail-modal__dialog">
+          <div class="inline-user-detail__header">
+            <div>
+              <p class="inline-user-detail__eyebrow">Quản lý tài khoản</p>
+              <h3>Chi tiết tài khoản người dùng</h3>
+            </div>
+            <div class="inline-user-detail__actions">
+              <button
+                type="button"
+                class="inline-user-detail__button inline-user-detail__button--ghost"
+                @click="closeInlineUserDetail"
+              >
+                Đóng
+              </button>
+              <button
+                type="button"
+                class="inline-user-detail__button inline-user-detail__button--primary"
+                :disabled="inlineUserDetailLoading || !inlineUserDetailRecord?.id"
+                @click="openDetail(inlineUserDetailRecord)"
+              >
+                {{ inlineUserDetailLoading ? 'Đang tải...' : 'Làm mới' }}
+              </button>
+            </div>
+          </div>
+
+          <div v-if="inlineUserDetailLoading" class="inline-user-detail__state">
+            Đang tải chi tiết tài khoản...
+          </div>
+
+          <div
+            v-else-if="inlineUserDetailError"
+            class="inline-user-detail__state inline-user-detail__state--error"
+          >
+            {{ inlineUserDetailError }}
+          </div>
+
+          <div v-else-if="inlineUserDetailRecord" class="inline-user-detail__grid">
+            <article class="inline-user-card">
+              <div class="inline-user-card__head">
+                <div class="inline-user-card__avatar">
+                  <img
+                    :src="inlineUserAvatarUrl"
+                    :alt="normalizeInlineUserValue(inlineUserDetailRecord.username || inlineUserDetailRecord.email)"
+                  />
+                </div>
+                <div class="inline-user-card__title">
+                  <p>Thông tin đầy đủ</p>
+                  <h4>
+                    {{ normalizeInlineUserValue(inlineUserDetailRecord.username || inlineUserDetailRecord.email) }}
+                  </h4>
+                  <span>{{ normalizeInlineUserValue(inlineUserDetailRecord.email) }}</span>
+                </div>
+              </div>
+
+              <div class="inline-user-card__section-head">
+                <div>
+                  <p class="inline-user-detail__eyebrow">Thông tin đầy đủ</p>
+                  <h5>Chi tiết tài khoản</h5>
+                </div>
+              </div>
+
+              <div class="inline-user-card__details">
+                <article
+                  v-for="field in inlineUserDetailFields"
+                  :key="field.key"
+                  class="inline-user-card__detail-item"
+                >
+                  <span>{{ field.label }}</span>
+                  <strong :class="field.tone ? `is-${field.tone}` : ''">
+                    {{ normalizeInlineUserValue(field.value) }}
+                  </strong>
+                </article>
+              </div>
+            </article>
+
+            <article class="inline-user-history">
+              <div class="inline-user-card__section-head">
+                <div>
+                  <p class="inline-user-detail__eyebrow">Bảo mật tài khoản</p>
+                  <h5>Lịch sử đăng nhập</h5>
+                </div>
+                <span class="inline-user-history__count">
+                  {{ inlineUserLoginHistoryCount }} bản ghi
+                </span>
+              </div>
+
+              <div
+                v-if="inlineUserLoginHistory.length"
+                class="inline-user-history__list"
+              >
+                <article
+                  v-for="item in inlineUserLoginHistory"
+                  :key="item.id"
+                  class="inline-user-history__item"
+                >
+                  <div class="inline-user-history__dot"></div>
+                  <div class="inline-user-history__body">
+                    <div class="inline-user-history__row">
+                      <strong>{{ formatInlineUserDateTime(item.login_at) }}</strong>
+                      <span>
+                        {{ normalizeInlineUserValue(item.login_method).toUpperCase() }}
+                      </span>
+                    </div>
+                    <p><b>IP:</b> {{ normalizeInlineUserValue(item.ip_address) }}</p>
+                    <p>
+                      <b>User-Agent:</b>
+                      {{ normalizeInlineUserValue(item.user_agent) }}
+                    </p>
+                  </div>
+                </article>
+              </div>
+
+              <div v-else class="inline-user-history__empty">
+                Chưa có dữ liệu lịch sử đăng nhập.
+              </div>
+            </article>
+          </div>
+        </section>
       </div>
 
       <EntityManagerEditor
@@ -409,4 +683,281 @@ function resetAboutFilters() {
 
 <style scoped>
 @import '@/views/admin/shared/components/AdminCoreManager.css';
+
+.inline-user-detail-modal {
+  position: fixed;
+  inset: 0;
+  z-index: 1200;
+  display: flex;
+  align-items: flex-start;
+  justify-content: center;
+  padding: 32px 24px;
+  overflow-y: auto;
+  background: rgba(15, 23, 42, 0.38);
+  -webkit-backdrop-filter: blur(8px);
+  backdrop-filter: blur(8px);
+}
+
+.inline-user-detail-modal__dialog {
+  width: min(1180px, 100%);
+  margin: 0 auto;
+  padding: 24px;
+  border: 1px solid rgba(180, 151, 103, 0.18);
+  border-radius: 28px;
+  background: linear-gradient(180deg, #fdfaf4 0%, #fff 100%);
+  box-shadow: 0 30px 80px rgba(15, 23, 42, 0.18);
+}
+
+.inline-user-detail__header,
+.inline-user-card__head,
+.inline-user-card__section-head,
+.inline-user-history__row {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 16px;
+}
+
+.inline-user-detail__eyebrow {
+  margin: 0 0 8px;
+  color: #b78134;
+  font-size: 11px;
+  font-weight: 800;
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
+}
+
+.inline-user-detail__header h3,
+.inline-user-card__title h4,
+.inline-user-card__section-head h5 {
+  margin: 0;
+  color: #111827;
+}
+
+.inline-user-detail__actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12px;
+}
+
+.inline-user-detail__button {
+  min-height: 42px;
+  padding: 0 16px;
+  border-radius: 999px;
+  font-weight: 700;
+  cursor: pointer;
+}
+
+.inline-user-detail__button--primary {
+  border: 0;
+  color: #fff;
+  background: linear-gradient(135deg, #203a66, #385487);
+}
+
+.inline-user-detail__button--ghost {
+  border: 1px solid rgba(17, 24, 39, 0.12);
+  color: #243041;
+  background: rgba(255, 255, 255, 0.82);
+}
+
+.inline-user-detail__state {
+  margin-top: 18px;
+  padding: 18px;
+  border-radius: 18px;
+  background: rgba(255, 255, 255, 0.82);
+  color: #374151;
+}
+
+.inline-user-detail__state--error {
+  color: #b91c1c;
+}
+
+.inline-user-detail__grid {
+  display: grid;
+  grid-template-columns: minmax(0, 1.2fr) minmax(320px, 0.8fr);
+  gap: 24px;
+  margin-top: 20px;
+}
+
+.inline-user-card,
+.inline-user-history {
+  padding: 22px;
+  border: 1px solid rgba(180, 151, 103, 0.14);
+  border-radius: 24px;
+  background: rgba(255, 255, 255, 0.88);
+}
+
+.inline-user-card__avatar {
+  width: 78px;
+  height: 78px;
+  overflow: hidden;
+  border-radius: 22px;
+  border: 4px solid #fff;
+  background: linear-gradient(135deg, #f2e8d5, #f8f2e5);
+  box-shadow: 0 12px 30px rgba(111, 86, 48, 0.12);
+}
+
+.inline-user-card__avatar img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.inline-user-card__title p {
+  margin: 0 0 6px;
+  color: #b78134;
+  font-size: 12px;
+  font-weight: 800;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+}
+
+.inline-user-card__title span {
+  display: block;
+  margin-top: 6px;
+  color: #6b7280;
+  word-break: break-word;
+}
+
+.inline-user-card__details {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 14px;
+  margin-top: 18px;
+}
+
+.inline-user-card__detail-item {
+  display: grid;
+  gap: 6px;
+  padding: 16px;
+  border: 1px solid #ece5d8;
+  border-radius: 18px;
+  background: linear-gradient(180deg, #fffdf9 0%, #fbf7ef 100%);
+}
+
+.inline-user-card__detail-item span {
+  color: #9ca3af;
+  font-size: 11px;
+  font-weight: 800;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.inline-user-card__detail-item strong {
+  color: #111827;
+  font-size: 14px;
+  line-height: 1.6;
+  word-break: break-word;
+}
+
+.inline-user-history__count {
+  display: inline-flex;
+  align-items: center;
+  padding: 8px 12px;
+  border-radius: 999px;
+  background: rgba(214, 193, 154, 0.22);
+  color: #8c672b;
+  font-size: 12px;
+  font-weight: 800;
+}
+
+.inline-user-history__list {
+  display: grid;
+  gap: 14px;
+  margin-top: 18px;
+}
+
+.inline-user-history__item {
+  display: grid;
+  grid-template-columns: 16px minmax(0, 1fr);
+  gap: 12px;
+}
+
+.inline-user-history__dot {
+  width: 10px;
+  height: 10px;
+  margin-top: 8px;
+  border-radius: 999px;
+  background: #9a7232;
+  box-shadow: 0 0 0 5px rgba(214, 193, 154, 0.22);
+}
+
+.inline-user-history__body {
+  padding: 16px;
+  border: 1px solid #ece5d8;
+  border-radius: 18px;
+  background: linear-gradient(180deg, #fffdf9 0%, #fbf7ef 100%);
+}
+
+.inline-user-history__row {
+  align-items: flex-start;
+  margin-bottom: 10px;
+}
+
+.inline-user-history__row strong {
+  color: #111827;
+}
+
+.inline-user-history__row span {
+  color: #8c672b;
+  font-size: 11px;
+  font-weight: 800;
+  letter-spacing: 0.08em;
+}
+
+.inline-user-history__body p {
+  margin: 6px 0 0;
+  color: #4b5563;
+  line-height: 1.6;
+  word-break: break-word;
+}
+
+.inline-user-history__empty {
+  min-height: 200px;
+  display: grid;
+  place-items: center;
+  margin-top: 18px;
+  border: 1px dashed #e7dcc8;
+  border-radius: 20px;
+  background: rgba(251, 247, 239, 0.72);
+  color: #6b7280;
+  text-align: center;
+}
+
+.is-success {
+  color: #15803d !important;
+}
+
+.is-danger {
+  color: #b91c1c !important;
+}
+
+@media (max-width: 1080px) {
+  .inline-user-detail__grid {
+    grid-template-columns: 1fr;
+  }
+}
+
+@media (max-width: 720px) {
+  .inline-user-detail-modal {
+    padding: 16px;
+  }
+
+  .inline-user-detail-modal__dialog {
+    padding: 18px;
+    border-radius: 22px;
+  }
+
+  .inline-user-detail__header,
+  .inline-user-card__head,
+  .inline-user-card__section-head,
+  .inline-user-history__row {
+    flex-direction: column;
+    align-items: flex-start;
+  }
+
+  .inline-user-card__details {
+    grid-template-columns: 1fr;
+  }
+}
 </style>

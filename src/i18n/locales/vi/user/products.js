@@ -35,6 +35,8 @@ export default {
   labelColor: 'Màu sắc',
   btnInquiry: 'Nhận báo giá',
   btnCatalog: 'Tải catalog',
+  priceLabel: 'Giá bán',
+  unitPriceSuffix: '/ sản phẩm',
   relatedTitle: 'Sản Phẩm Cùng Loại',
   relatedIntro: 'Khám phá thêm các mẫu cùng nhóm chất liệu để dễ so sánh bề mặt, màu sắc và lựa chọn giải pháp phù hợp cho công trình.',
   relatedViewDetail: 'Xem chi tiết',

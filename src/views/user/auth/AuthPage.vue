@@ -22,11 +22,15 @@ const error = ref('')
 const form = reactive({
   email: '',
   password: '',
+  confirm_password: '',
   username: '',
-  full_name: '',
   phone: '',
-  address: '',
 })
+
+const safeRedirectPath = () => {
+  const redirect = String(route.query.redirect || '').trim()
+  return redirect.startsWith('/') ? redirect : '/'
+}
 
 const toggleMode = () => {
   mode.value = mode.value === 'login' ? 'register' : 'login'
@@ -44,17 +48,20 @@ const handleSubmit = async () => {
         password: form.password,
       })
       success.value = true
+      const redirectPath = safeRedirectPath()
       setTimeout(() => {
-        router.push('/')
+        router.push(redirectPath)
       }, 1500)
     } else {
+      if (form.password !== form.confirm_password) {
+        throw new Error('Mật khẩu nhập lại không khớp')
+      }
+
       await authStore.register({
         email: form.email,
         password: form.password,
         username: form.username,
-        full_name: form.full_name,
         phone: form.phone,
-        address: form.address,
       })
       success.value = true
       setTimeout(() => {
@@ -72,7 +79,7 @@ const handleSubmit = async () => {
 
 onMounted(() => {
   if (authStore.isAuthenticated) {
-    router.push('/')
+    router.push(safeRedirectPath())
   }
 })
 </script>
@@ -133,26 +140,10 @@ onMounted(() => {
             </div>
 
             <div v-if="mode === 'register'" class="form-group">
-              <label>{{ t('user.home.fullName') }}</label>
-              <div class="input-wrapper">
-                <User :size="18" class="input-icon" />
-                <input v-model="form.full_name" type="text" placeholder="Nguyen Van A" />
-              </div>
-            </div>
-
-            <div v-if="mode === 'register'" class="form-group">
               <label>{{ t('user.home.phone') }}</label>
               <div class="input-wrapper">
                 <Phone :size="18" class="input-icon" />
                 <input v-model="form.phone" type="tel" placeholder="0982xxxxxx" />
-              </div>
-            </div>
-
-            <div v-if="mode === 'register'" class="form-group">
-              <label>{{ t('user.home.address') }}</label>
-              <div class="input-wrapper">
-                <MapPin :size="18" class="input-icon" />
-                <input v-model="form.address" type="text" placeholder="Địa chỉ của bạn" />
               </div>
             </div>
 
@@ -161,6 +152,14 @@ onMounted(() => {
               <div class="input-wrapper">
                 <Lock :size="18" class="input-icon" />
                 <input v-model="form.password" type="password" placeholder="••••••••" required minlength="6" />
+              </div>
+            </div>
+
+            <div v-if="mode === 'register'" class="form-group">
+              <label>Nhập lại mật khẩu</label>
+              <div class="input-wrapper">
+                <Lock :size="18" class="input-icon" />
+                <input v-model="form.confirm_password" type="password" placeholder="••••••••" required minlength="6" />
               </div>
             </div>
 

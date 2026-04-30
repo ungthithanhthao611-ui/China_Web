@@ -19,6 +19,7 @@ import { useI18n } from 'vue-i18n'
 import { useCartStore } from '@/views/user/stores/cart'
 import { useAuthStore } from '@/views/user/stores/auth'
 import { getProduct } from '@/views/user/services/productsApi'
+import { resolveProductDisplayPrice, resolveStockQuantity } from '@/views/user/utils/productPricing'
 import InquiryModal from './components/InquiryModal.vue'
 import { ShoppingCart, Zap, Plus, Minus } from 'lucide-vue-next'
 
@@ -50,6 +51,18 @@ const isAdding = ref(false)
 const cartNotice = ref('')
 let cartNoticeTimer = null
 
+const stockQuantity = computed(() => resolveStockQuantity(product.value))
+
+const isOutOfStock = computed(() => stockQuantity.value <= 0)
+const isLowStock = computed(() => stockQuantity.value > 0 && stockQuantity.value <= 5)
+const maxPurchasableQuantity = computed(() => Math.max(1, stockQuantity.value || 1))
+const canPurchase = computed(() => !isOutOfStock.value)
+const stockStatusText = computed(() => {
+  if (isOutOfStock.value) return 'Tạm hết hàng'
+  if (isLowStock.value) return `Sắp hết hàng · còn ${stockQuantity.value} sản phẩm`
+  return `Còn ${stockQuantity.value} sản phẩm trong kho`
+})
+
 const showCartNotice = () => {
   cartNotice.value = t('user.home.cartAddSuccess')
   if (cartNoticeTimer) {
@@ -61,17 +74,36 @@ const showCartNotice = () => {
   }, 2200)
 }
 
+const getDisplayPrice = (productValue) => resolveProductDisplayPrice(productValue)
+
 const formatPrice = (price) => {
-  if (!price) return t('user.home.contactPrice') || 'Liên hệ'
+  if (!price) return t('user.home.contactPrice') || 'Liên hệ báo giá'
   return new Intl.NumberFormat('vi-VN', { style: 'currency', currency: 'VND' }).format(price)
 }
 
+const clampQuantity = () => {
+  const normalizedQuantity = Number(quantity.value)
+  if (!Number.isFinite(normalizedQuantity) || normalizedQuantity < 1) {
+    quantity.value = 1
+    return
+  }
+
+  quantity.value = Math.min(Math.floor(normalizedQuantity), maxPurchasableQuantity.value)
+}
+
 const handleAddToCart = async () => {
+  if (!canPurchase.value) {
+    alert('Sản phẩm hiện đang tạm hết hàng')
+    return
+  }
+
   if (!authStore.isAuthenticated) {
     // In a real app, you'd trigger the login modal here
     alert('Vui lòng đăng nhập để thêm vào giỏ hàng')
     return
   }
+
+  clampQuantity()
 
   isAdding.value = true
   try {
@@ -85,6 +117,11 @@ const handleAddToCart = async () => {
 }
 
 const handleBuyNow = async () => {
+  if (!canPurchase.value) {
+    alert('Sản phẩm hiện đang tạm hết hàng')
+    return
+  }
+
   try {
     await handleAddToCart()
     // Redirect to checkout or open cart
@@ -385,6 +422,18 @@ watch(
   { immediate: true },
 )
 
+watch(quantity, () => {
+  clampQuantity()
+})
+
+watch(
+  stockQuantity,
+  () => {
+    clampQuantity()
+  },
+  { immediate: true },
+)
+
 watch(() => props.slug, fetchProduct)
 
 onMounted(() => {
@@ -513,30 +562,53 @@ onBeforeUnmount(() => {
             </p>
 
             <div class="prod-price-box">
-              <span class="price-label">Giá niêm yết:</span>
-              <span class="price-value">{{ formatPrice(product.price) }}</span>
+              <div class="price-head">
+                <span class="price-label">{{ t('user.products.priceLabel') }}:</span>
+                <div v-if="getDisplayPrice(product).hasSale" class="price-badges">
+                  <span class="price-badge price-badge--sale">Giá khuyến mãi</span>
+                  <span class="price-badge price-badge--original">Giá gốc</span>
+                </div>
+              </div>
+              <div class="price-stack">
+                <span
+                  class="price-value"
+                  :class="{ 'price-value--sale': getDisplayPrice(product).hasSale }"
+                >
+                  {{ formatPrice(getDisplayPrice(product).finalPrice) }}
+                </span>
+                <span
+                  v-if="getDisplayPrice(product).hasSale"
+                  class="price-original"
+                >
+                  {{ formatPrice(getDisplayPrice(product).originalPrice) }}
+                </span>
+              </div>
+              <div class="stock-overview" :class="{ 'stock-overview--empty': isOutOfStock, 'stock-overview--low': isLowStock }">
+                <Package :size="16" />
+                <span>{{ stockStatusText }}</span>
+              </div>
             </div>
 
             <div class="prod-purchase-ctrl">
-              <div class="quantity-picker">
-                <button type="button" @click="quantity > 1 && quantity--" :disabled="quantity <= 1">
+              <div class="quantity-picker" :class="{ 'quantity-picker--disabled': isOutOfStock }">
+                <button type="button" @click="quantity > 1 && quantity--" :disabled="quantity <= 1 || isOutOfStock">
                   <Minus :size="16" />
                 </button>
-                <input type="number" v-model.number="quantity" min="1" />
-                <button type="button" @click="quantity++">
+                <input type="number" v-model.number="quantity" min="1" :max="maxPurchasableQuantity" :disabled="isOutOfStock" />
+                <button type="button" @click="quantity < maxPurchasableQuantity && quantity++" :disabled="quantity >= maxPurchasableQuantity || isOutOfStock">
                   <Plus :size="16" />
                 </button>
               </div>
 
               <div class="purchase-actions">
-                <button class="btn-add-cart" @click="handleAddToCart" :disabled="isAdding">
+                <button class="btn-add-cart" @click="handleAddToCart" :disabled="isAdding || !canPurchase">
                   <Loader2 v-if="isAdding" class="spinner" :size="18" />
                   <ShoppingCart v-else :size="18" />
-                  <span>Thêm vào giỏ hàng</span>
+                  <span>{{ canPurchase ? 'Thêm vào giỏ hàng' : 'Tạm hết hàng' }}</span>
                 </button>
-                <button class="btn-buy-now" @click="handleBuyNow">
+                <button class="btn-buy-now" @click="handleBuyNow" :disabled="!canPurchase || isAdding">
                   <Zap :size="18" fill="currentColor" />
-                  <span>Mua ngay</span>
+                  <span>{{ canPurchase ? 'Mua ngay' : 'Chưa thể mua' }}</span>
                 </button>
               </div>
             </div>
@@ -658,6 +730,13 @@ onBeforeUnmount(() => {
                   <router-link :to="`/products/${item.slug}`" class="rel-card__name">
                     {{ item.name }}
                   </router-link>
+                  <div class="rel-card__price-row">
+                    <template v-if="getDisplayPrice(item).hasSale">
+                      <span class="rel-card__price rel-card__price--sale">{{ formatPrice(getDisplayPrice(item).finalPrice) }}</span>
+                      <span class="rel-card__price-original">{{ formatPrice(getDisplayPrice(item).originalPrice) }}</span>
+                    </template>
+                    <span v-else class="rel-card__price">{{ formatPrice(getDisplayPrice(item).finalPrice) }}</span>
+                  </div>
                   <router-link :to="`/products/${item.slug}`" class="rel-card__cta">
                     {{ t('user.products.relatedViewProduct') }}
                     <ChevronRight :size="16" />
@@ -1242,6 +1321,30 @@ onBeforeUnmount(() => {
   text-transform: uppercase;
 }
 
+.rel-card__price-row {
+  display: flex;
+  align-items: baseline;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.rel-card__price {
+  color: #0f172a;
+  font-size: 17px;
+  font-weight: 800;
+}
+
+.rel-card__price--sale {
+  color: #dc2626;
+}
+
+.rel-card__price-original {
+  color: #94a3b8;
+  font-size: 12px;
+  font-weight: 700;
+  text-decoration: line-through;
+}
+
 .rel-card__cta {
   display: inline-flex;
   align-items: center;
@@ -1426,12 +1529,22 @@ onBeforeUnmount(() => {
 .prod-price-box {
   margin: 24px 0;
   display: flex;
-  align-items: baseline;
-  gap: 12px;
+  flex-direction: column;
+  align-items: stretch;
+  gap: 14px;
   padding: 20px;
   background: #f8fafc;
   border-radius: 16px;
   border: 1px solid #f1f5f9;
+
+  .price-head {
+    width: 100%;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
+    flex-wrap: wrap;
+  }
 
   .price-label {
     font-size: 14px;
@@ -1439,11 +1552,81 @@ onBeforeUnmount(() => {
     font-weight: 500;
   }
 
+  .price-badges {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+  }
+
+  .price-badge {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    min-height: 28px;
+    padding: 6px 12px;
+    border-radius: 999px;
+    font-size: 12px;
+    font-weight: 700;
+    letter-spacing: 0.02em;
+  }
+
+  .price-badge--sale {
+    background: rgba(220, 38, 38, 0.1);
+    color: #dc2626;
+  }
+
+  .price-badge--original {
+    background: #e2e8f0;
+    color: #475569;
+  }
+
+  .price-stack {
+    display: flex;
+    align-items: baseline;
+    gap: 10px;
+    flex-wrap: wrap;
+  }
+
   .price-value {
     font-size: 32px;
     font-weight: 800;
     color: #1e293b;
   }
+
+  .price-value--sale {
+    color: #dc2626;
+  }
+
+  .price-original {
+    color: #94a3b8;
+    font-size: 15px;
+    font-weight: 700;
+    text-decoration: line-through;
+  }
+}
+
+.stock-overview {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  width: fit-content;
+  min-height: 38px;
+  padding: 8px 12px;
+  border-radius: 999px;
+  background: rgba(22, 163, 74, 0.12);
+  color: #166534;
+  font-size: 13px;
+  font-weight: 700;
+}
+
+.stock-overview--low {
+  background: rgba(217, 119, 6, 0.14);
+  color: #b45309;
+}
+
+.stock-overview--empty {
+  background: rgba(220, 38, 38, 0.12);
+  color: #dc2626;
 }
 
 .prod-purchase-ctrl {
@@ -1502,6 +1685,10 @@ onBeforeUnmount(() => {
   }
 }
 
+.quantity-picker--disabled {
+  opacity: 0.72;
+}
+
 .purchase-actions {
   display: grid;
   grid-template-columns: 1.2fr 0.8fr;
@@ -1518,6 +1705,14 @@ onBeforeUnmount(() => {
     gap: 10px;
     cursor: pointer;
     transition: all 0.3s ease;
+
+    &:disabled {
+      opacity: 0.55;
+      cursor: not-allowed;
+      transform: none;
+      box-shadow: none;
+      filter: none;
+    }
   }
 }
 
@@ -1526,7 +1721,7 @@ onBeforeUnmount(() => {
   color: #fff;
   border: none;
 
-  &:hover {
+  &:hover:not(:disabled) {
     background: #0f172a;
     transform: translateY(-2px);
   }
@@ -1537,7 +1732,7 @@ onBeforeUnmount(() => {
   color: #0c1831;
   border: none;
 
-  &:hover {
+  &:hover:not(:disabled) {
     filter: brightness(1.1);
     transform: translateY(-2px);
     box-shadow: 0 10px 20px rgba(214, 176, 116, 0.2);
@@ -1618,6 +1813,10 @@ onBeforeUnmount(() => {
   .btn-catalog {
     min-height: 56px;
     font-size: 16px;
+  }
+
+  .purchase-actions {
+    grid-template-columns: 1fr;
   }
 
   .prod-related__grid {

@@ -15,6 +15,12 @@ const adminRoutes = [
     meta: { requiresAdminAuth: true },
   },
   {
+    path: 'users/:id',
+    name: 'AdminUserDetail',
+    component: () => import('@/views/admin/features/system/pages/UserDetailPage.vue'),
+    meta: { requiresAdminAuth: true },
+  },
+  {
     path: 'news/new',
     name: 'AdminNewsCreate',
     component: () => import('@/views/admin/features/news/pages/NewsEditor.vue'),

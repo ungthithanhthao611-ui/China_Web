@@ -92,7 +92,7 @@ export default {
   cartAddSuccess: 'Added to cart successfully',
   loginError: 'Invalid email or password',
   registerError: 'Email or username already exists',
-  contactPrice: 'Contact for price',
+  contactPrice: 'Contact for quotation',
   cart: 'Cart',
   cartEmpty: 'Your cart is empty',
   cartEmptyHint: 'Choose the right products for your project.',

@@ -94,7 +94,7 @@ export default {
   cartAddSuccess: 'Đã thêm vào giỏ hàng thành công',
   loginError: 'Email hoặc mật khẩu không chính xác',
   registerError: 'Email hoặc tên đăng nhập đã tồn tại',
-  contactPrice: 'Liên hệ',
+  contactPrice: 'Liên hệ báo giá',
   cart: 'Giỏ hàng',
   cartEmpty: 'Giỏ hàng trống',
   cartEmptyHint: 'Hãy chọn sản phẩm phù hợp cho công trình của bạn.',

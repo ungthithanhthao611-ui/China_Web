@@ -14,9 +14,21 @@ const props = defineProps({
     type: String,
     required: true,
   },
+  productStockFilter: {
+    type: String,
+    default: '',
+  },
   hasStatusFilter: {
     type: Boolean,
     required: true,
+  },
+  hasProductStockFilter: {
+    type: Boolean,
+    default: false,
+  },
+  productStockFilterOptions: {
+    type: Array,
+    default: () => [],
   },
   statusOptions: {
     type: Array,
@@ -63,6 +75,7 @@ const props = defineProps({
 const emit = defineEmits([
   'update:searchKeyword',
   'update:statusFilter',
+  'update:productStockFilter',
   'update:aboutSectionFilter',
   'update:aboutBlockFilter',
   'update:aboutCompletenessFilter',
@@ -122,6 +135,25 @@ const mediaStateOptions = computed(() => [
             :value="status.value"
           >
             {{ status.label }}
+          </option>
+        </select>
+      </div>
+
+      <div v-if="hasProductStockFilter" class="filters__group filters__group--stock">
+        <span class="filters__label">Tồn kho</span>
+        <select
+          id="product-filter-stock"
+          :value="productStockFilter"
+          aria-label="Lọc tồn kho"
+          @change="emit('update:productStockFilter', $event.target.value)"
+        >
+          <option value="">Tất cả tồn kho</option>
+          <option
+            v-for="option in productStockFilterOptions"
+            :key="option.value"
+            :value="option.value"
+          >
+            {{ option.label }}
           </option>
         </select>
       </div>

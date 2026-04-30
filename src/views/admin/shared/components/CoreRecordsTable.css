@@ -153,7 +153,11 @@ td a:hover {
 }
 
 .cell-featured {
-  background: linear-gradient(180deg, rgba(47, 137, 238, 0.06), rgba(47, 137, 238, 0.02));
+  background: linear-gradient(
+    180deg,
+    rgba(47, 137, 238, 0.06),
+    rgba(47, 137, 238, 0.02)
+  );
 }
 
 .category-tree-cell {
@@ -176,7 +180,7 @@ td a:hover {
 
 .category-tree-cell__branch::before,
 .category-tree-cell__branch::after {
-  content: '';
+  content: "";
   position: absolute;
   background: currentColor;
   border-radius: 999px;
@@ -297,7 +301,11 @@ td a:hover {
   padding: 10px;
   border-radius: 12px;
   border: 1px solid rgba(215, 228, 241, 0.96);
-  background: linear-gradient(180deg, rgba(250, 252, 255, 0.98), rgba(242, 247, 253, 0.94));
+  background: linear-gradient(
+    180deg,
+    rgba(250, 252, 255, 0.98),
+    rgba(242, 247, 253, 0.94)
+  );
 }
 
 .entity-rich-preview__head {
@@ -394,6 +402,79 @@ td a:hover {
   text-align: center;
 }
 
+.order-customer-cell,
+.order-total-cell,
+.order-time-cell {
+  display: grid;
+  gap: 4px;
+}
+
+.order-customer-cell strong,
+.order-total-cell strong,
+.order-time-cell strong {
+  color: #17324d;
+  font-size: 12px;
+}
+
+.order-customer-cell small,
+.order-total-cell small,
+.order-time-cell small {
+  color: #607893;
+  font-size: 11px;
+  line-height: 1.45;
+}
+
+.table-status-chip {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 28px;
+  padding: 0 10px;
+  border-radius: 999px;
+  border: 1px solid transparent;
+  font-size: 11px;
+  font-weight: 800;
+  letter-spacing: 0.03em;
+  white-space: nowrap;
+}
+
+.table-status-chip.is-soft {
+  background: rgba(15, 23, 42, 0.05);
+}
+
+.table-status-chip.is-success,
+.entity-rich-preview__status.is-success {
+  color: #166534;
+  background: rgba(34, 197, 94, 0.12);
+  border-color: rgba(34, 197, 94, 0.18);
+}
+
+.table-status-chip.is-danger,
+.entity-rich-preview__status.is-danger {
+  color: #991b1b;
+  background: rgba(239, 68, 68, 0.12);
+  border-color: rgba(239, 68, 68, 0.18);
+}
+
+.table-status-chip.is-warning,
+.entity-rich-preview__status.is-warning {
+  color: #8a5a12;
+  background: rgba(246, 192, 73, 0.16);
+  border-color: rgba(246, 192, 73, 0.24);
+}
+
+.table-status-chip.is-info,
+.entity-rich-preview__status.is-info {
+  color: #1d4ed8;
+  background: rgba(59, 130, 246, 0.12);
+  border-color: rgba(59, 130, 246, 0.18);
+}
+
+.order-preview-card {
+  min-width: 200px;
+  max-width: 240px;
+}
+
 .banner-preview-card {
   position: relative;
   min-width: 168px;
@@ -423,8 +504,17 @@ td a:hover {
 
 .banner-preview-card__overlay {
   background:
-    linear-gradient(180deg, rgba(2, 9, 19, 0.16) 0%, rgba(2, 10, 23, 0.18) 22%, rgba(2, 10, 23, 0.54) 100%),
-    radial-gradient(circle at 72% 22%, rgba(38, 115, 208, 0.26) 0%, rgba(38, 115, 208, 0) 38%);
+    linear-gradient(
+      180deg,
+      rgba(2, 9, 19, 0.16) 0%,
+      rgba(2, 10, 23, 0.18) 22%,
+      rgba(2, 10, 23, 0.54) 100%
+    ),
+    radial-gradient(
+      circle at 72% 22%,
+      rgba(38, 115, 208, 0.26) 0%,
+      rgba(38, 115, 208, 0) 38%
+    );
   pointer-events: none;
 }
 
@@ -525,7 +615,11 @@ td a:hover {
 
 .btn-secondary {
   color: #284767;
-  background: linear-gradient(180deg, rgba(255, 255, 255, 0.98), rgba(241, 247, 252, 0.96));
+  background: linear-gradient(
+    180deg,
+    rgba(255, 255, 255, 0.98),
+    rgba(241, 247, 252, 0.96)
+  );
   border-color: rgba(198, 216, 233, 0.95);
 }
 
@@ -699,5 +793,10 @@ button:disabled {
 
   .pagination__divider {
     display: none;
+  }
+
+  .order-preview-card {
+    min-width: 0;
+    max-width: none;
   }
 }

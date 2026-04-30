@@ -289,6 +289,9 @@ export function createEntityManagerFormHelpers({
         "project_year",
         "width",
         "height",
+        "price",
+        "original_price",
+        "sale_price",
         "image_id",
         "hero_image_id",
         "thumbnail_id",
@@ -300,6 +303,7 @@ export function createEntityManagerFormHelpers({
       return "number";
     }
     if (field === "email") return "email";
+    if (field === "password") return "password";
     if (
       field.endsWith("_url") ||
       field === "url" ||
@@ -363,8 +367,22 @@ export function createEntityManagerFormHelpers({
     return options[field] || [];
   };
 
-  const formatCell = (value) => {
+  const formatCell = (value, field = "") => {
     if (value === null || value === undefined || value === "") return "-";
+
+    if (["original_price", "sale_price", "price", "effective_price", "unit_price", "line_total", "subtotal_amount", "total_amount"].includes(field)) {
+      const amount = Number(value);
+      if (!Number.isFinite(amount) || amount <= 0) return "Liên hệ báo giá";
+      return `${new Intl.NumberFormat("vi-VN").format(amount)}đ`;
+    }
+
+    if (field === "stock_quantity") {
+      const quantity = Number(value || 0);
+      if (!Number.isFinite(quantity) || quantity <= 0) return "Hết hàng";
+      if (quantity <= 5) return `${quantity} (Sắp hết)`;
+      return `${quantity}`;
+    }
+
     if (typeof value === "boolean") return value ? "Bật/Phát" : "Tắt/Ẩn";
     if (typeof value === "string" && value.length > 80) {
       return `${value.slice(0, 80)}...`;

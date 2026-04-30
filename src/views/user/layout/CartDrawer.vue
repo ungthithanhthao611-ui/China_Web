@@ -1,8 +1,11 @@
 <script setup>
 import { computed } from 'vue'
+import { useRouter } from 'vue-router'
 import { useI18n } from 'vue-i18n'
 import { X, ShoppingBag, Trash2, Plus, Minus, ArrowRight, Loader2 } from 'lucide-vue-next'
+import { useAuthStore } from '@/views/user/stores/auth'
 import { useCartStore } from '@/views/user/stores/cart'
+import { resolveProductDisplayPrice } from '@/views/user/utils/productPricing'
 
 const props = defineProps({
   isOpen: Boolean,
@@ -10,11 +13,15 @@ const props = defineProps({
 
 const emit = defineEmits(['close'])
 
+const router = useRouter()
 const { t } = useI18n()
+const authStore = useAuthStore()
 const cartStore = useCartStore()
 
+const getDisplayPrice = (product) => resolveProductDisplayPrice(product)
+
 const formatPrice = (price) => {
-  if (!price) return 'Liên hệ'
+  if (!price) return t('user.home.contactPrice') || 'Liên hệ báo giá'
   return new Intl.NumberFormat('vi-VN', { style: 'currency', currency: 'VND' }).format(price)
 }
 
@@ -25,6 +32,17 @@ const handleUpdateQuantity = async (item, delta) => {
   } else {
     await cartStore.updateItem(item.id, newQty)
   }
+}
+
+const handleCheckout = () => {
+  emit('close')
+
+  if (!authStore.isAuthenticated) {
+    router.push({ path: '/login', query: { redirect: '/checkout' } })
+    return
+  }
+
+  router.push('/checkout')
 }
 </script>
 
@@ -55,7 +73,7 @@ const handleUpdateQuantity = async (item, delta) => {
             <h3>{{ t('user.home.cartEmpty') || 'Giỏ hàng trống' }}</h3>
             <p>Hãy chọn những sản phẩm tuyệt vời của chúng tôi</p>
             <button class="continue-btn" @click="emit('close')">
-              Tiếp tục mua sắm
+              {{ t('user.home.continueShopping') }}
             </button>
           </div>
 
@@ -67,7 +85,25 @@ const handleUpdateQuantity = async (item, delta) => {
               <div class="item-details">
                 <div class="item-info">
                   <h3>{{ item.product.name }}</h3>
-                  <p class="item-price">{{ formatPrice(item.product.price) }}</p>
+                  <div class="item-price-block">
+                    <span class="item-price-label">{{ t('user.products.priceLabel') }}</span>
+                    <div v-if="getDisplayPrice(item.product).hasSale" class="item-price-badges">
+                      <span class="item-price-badge item-price-badge--sale">Giá khuyến mãi</span>
+                      <span class="item-price-badge item-price-badge--original">Giá gốc</span>
+                    </div>
+                    <p
+                      class="item-price"
+                      :class="{ 'item-price--sale': getDisplayPrice(item.product).hasSale }"
+                    >
+                      {{ formatPrice(getDisplayPrice(item.product).finalPrice) }}
+                    </p>
+                    <span
+                      v-if="getDisplayPrice(item.product).hasSale"
+                      class="item-price-original"
+                    >
+                      {{ formatPrice(getDisplayPrice(item.product).originalPrice) }}
+                    </span>
+                  </div>
                 </div>
                 <div class="item-actions">
                   <div class="quantity-ctrl">
@@ -91,14 +127,14 @@ const handleUpdateQuantity = async (item, delta) => {
         <div v-if="cartStore.items.length > 0" class="cart-footer">
           <div class="cart-summary">
             <div class="summary-row">
-              <span>Tạm tính:</span>
+              <span>{{ t('user.home.subtotal') }}:</span>
               <span class="total-price">{{ formatPrice(cartStore.totalPrice) }}</span>
             </div>
-            <p class="shipping-note">Phí vận chuyển sẽ được tính khi thanh toán.</p>
+            <p class="shipping-note">{{ t('user.home.shippingNote') }}</p>
           </div>
           <div class="footer-actions">
-            <button class="checkout-btn">
-              <span>Thanh toán</span>
+            <button class="checkout-btn" @click="handleCheckout">
+              <span>{{ t('user.home.checkout') }}</span>
               <ArrowRight :size="18" />
             </button>
           </div>
@@ -256,10 +292,64 @@ const handleUpdateQuantity = async (item, delta) => {
       margin: 0 0 4px;
     }
 
+    .item-price-block {
+      display: flex;
+      flex-direction: column;
+      align-items: flex-start;
+      gap: 4px;
+    }
+
+    .item-price-label {
+      color: #64748b;
+      font-size: 11px;
+      font-weight: 800;
+      letter-spacing: 0.05em;
+      text-transform: uppercase;
+    }
+
+    .item-price-badges {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 6px;
+    }
+
+    .item-price-badge {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      min-height: 22px;
+      padding: 3px 9px;
+      border-radius: 999px;
+      font-size: 10px;
+      font-weight: 800;
+    }
+
+    .item-price-badge--sale {
+      background: rgba(220, 38, 38, 0.1);
+      color: #dc2626;
+    }
+
+    .item-price-badge--original {
+      background: #e2e8f0;
+      color: #475569;
+    }
+
     .item-price {
       color: #d6b074;
       font-weight: 700;
       font-size: 15px;
+      margin: 0;
+    }
+
+    .item-price--sale {
+      color: #dc2626;
+    }
+
+    .item-price-original {
+      color: #94a3b8;
+      font-size: 12px;
+      font-weight: 700;
+      text-decoration: line-through;
     }
   }
 
