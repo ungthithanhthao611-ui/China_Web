@@ -5,6 +5,14 @@ function getAuthHeader() {
   return token ? { Authorization: `Bearer ${token}` } : {}
 }
 
+function buildVnpayReturnUrl() {
+  if (typeof window === 'undefined' || !window.location?.origin) {
+    return ''
+  }
+
+  return `${window.location.origin}/payment/vnpay-return`
+}
+
 export function createMyOrder(payload) {
   return fetchJson('/user/orders', {
     method: 'POST',
@@ -17,7 +25,10 @@ export function createVnpayPayment(payload) {
   return fetchJson('/user/payments/vnpay/create', {
     method: 'POST',
     headers: getAuthHeader(),
-    body: payload,
+    body: {
+      ...payload,
+      return_url: buildVnpayReturnUrl(),
+    },
   })
 }
 
