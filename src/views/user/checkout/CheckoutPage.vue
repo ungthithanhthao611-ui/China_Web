@@ -46,6 +46,7 @@ const form = reactive({
   phone: '',
   email: '',
   note: '',
+  paymentMethod: 'cod',
 })
 
 const touched = reactive({
@@ -57,6 +58,30 @@ const touched = reactive({
 })
 
 const noteText = 'Nhân viên tư vấn sẽ liên hệ để xác nhận giá, phí vận chuyển và phương thức thanh toán phù hợp.'
+
+const paymentMethodOptions = [
+  {
+    value: 'cod',
+    label: 'Thanh toán khi nhận hàng (COD)',
+    description: 'Kiểm tra hàng và thanh toán trực tiếp khi đơn được giao tới nơi nhận.',
+    icon: Truck,
+    available: true,
+    badge: 'Khuyến nghị',
+  },
+  {
+    value: 'vnpay',
+    label: 'Thanh toán qua VNPAY',
+    description: 'Thanh toán online qua QR/ATM/thẻ. Tính năng sẽ được kích hoạt ở bước tiếp theo.',
+    icon: CreditCard,
+    available: false,
+    badge: 'Sắp hỗ trợ',
+  },
+]
+
+const paymentMethodLabels = {
+  cod: 'Thanh toán khi nhận hàng',
+  vnpay: 'Thanh toán qua VNPAY',
+}
 
 const assuranceItems = [
   {
@@ -162,6 +187,7 @@ const successOrderItemCount = computed(() => getOrderItemCount(successOrder.valu
 const successOrderTotalText = computed(() => getSuccessOrderTotalText(successOrder.value))
 const successOrderStatusText = computed(() => getOrderStatusText(successOrder.value?.status))
 const successPaymentStatusText = computed(() => getPaymentStatusText(successOrder.value?.payment_status))
+const successPaymentMethodText = computed(() => getPaymentMethodText(successOrder.value?.payment_method))
 
 function parsePrice(price) {
   const normalized = Number(price)
@@ -187,6 +213,10 @@ function getOrderStatusText(statusValue) {
 
 function getPaymentStatusText(statusValue) {
   return paymentStatusLabels[normalizeStatusKey(statusValue)] || 'Chưa thanh toán'
+}
+
+function getPaymentMethodText(methodValue) {
+  return paymentMethodLabels[normalizeStatusKey(methodValue)] || 'Thanh toán khi nhận hàng'
 }
 
 function getOrderItemCount(order) {
@@ -357,7 +387,7 @@ async function submitOrder() {
       customer_email: form.email.trim(),
       shipping_address: form.address.trim(),
       note: form.note.trim(),
-      payment_method: 'cod',
+      payment_method: form.paymentMethod,
       client_request_id: checkoutRequestId.value,
     })
 
@@ -464,6 +494,13 @@ onMounted(() => {
               </span>
               <span class="checkout-success__stat-label">Trạng thái thanh toán</span>
               <strong class="checkout-status-pill checkout-status-pill--payment">{{ successPaymentStatusText }}</strong>
+            </article>
+            <article>
+              <span class="checkout-success__stat-icon">
+                <Truck :size="24" />
+              </span>
+              <span class="checkout-success__stat-label">Phương thức thanh toán</span>
+              <strong class="checkout-status-pill checkout-status-pill--method">{{ successPaymentMethodText }}</strong>
             </article>
             <article>
               <span class="checkout-success__stat-icon">
@@ -597,6 +634,43 @@ onMounted(() => {
                 </div>
                 <small v-if="getFieldError('email')" class="checkout-field__error">{{ getFieldError('email') }}</small>
               </label>
+
+              <div class="checkout-subtitle">PHƯƠNG THỨC THANH TOÁN</div>
+
+              <div class="checkout-payment-methods" role="radiogroup" aria-label="Phương thức thanh toán">
+                <button
+                  v-for="method in paymentMethodOptions"
+                  :id="`checkout-payment-${method.value}`"
+                  :key="method.value"
+                  type="button"
+                  class="checkout-payment-card"
+                  :class="{
+                    'is-active': form.paymentMethod === method.value,
+                    'is-disabled': !method.available,
+                  }"
+                  :disabled="!method.available"
+                  @click="form.paymentMethod = method.value"
+                >
+                  <span class="checkout-payment-card__icon">
+                    <component :is="method.icon" :size="18" />
+                  </span>
+                  <span class="checkout-payment-card__content">
+                    <span class="checkout-payment-card__head">
+                      <strong>{{ method.label }}</strong>
+                      <em>{{ method.badge }}</em>
+                    </span>
+                    <small>{{ method.description }}</small>
+                  </span>
+                </button>
+              </div>
+
+              <div class="checkout-info-box checkout-info-box--payment">
+                <Info :size="18" />
+                <p>
+                  COD đang hoạt động hoàn chỉnh. VNPAY sẽ được triển khai ở bước tiếp theo sau khi hoàn tất API tạo giao dịch,
+                  URL callback và luồng đối soát trạng thái thanh toán.
+                </p>
+              </div>
 
               <div class="checkout-subtitle">THÔNG TIN BỔ SUNG</div>
 
@@ -945,6 +1019,103 @@ onMounted(() => {
   border: 1px solid #f3d9ab;
   background: #fff7e8;
   color: #7c4a03;
+}
+
+.checkout-info-box--payment {
+  border-color: #d7e4ff;
+  background: linear-gradient(135deg, #f8fbff 0%, #eef4ff 100%);
+  color: #1e3a8a;
+}
+
+.checkout-payment-methods {
+  display: grid;
+  gap: 12px;
+}
+
+.checkout-payment-card {
+  width: 100%;
+  display: grid;
+  grid-template-columns: 44px minmax(0, 1fr);
+  gap: 12px;
+  align-items: start;
+  padding: 16px;
+  border: 1px solid #d9dee7;
+  border-radius: 14px;
+  background: #ffffff;
+  text-align: left;
+  cursor: pointer;
+  transition:
+    border-color 0.2s ease,
+    box-shadow 0.2s ease,
+    transform 0.2s ease,
+    opacity 0.2s ease;
+}
+
+.checkout-payment-card:hover:not(:disabled) {
+  transform: translateY(-1px);
+  border-color: #d8ad62;
+  box-shadow: 0 12px 24px rgba(15, 23, 42, 0.08);
+}
+
+.checkout-payment-card.is-active {
+  border-color: #d8ad62;
+  background: linear-gradient(135deg, #fffaf0 0%, #ffffff 100%);
+  box-shadow: 0 0 0 4px rgba(216, 173, 98, 0.14);
+}
+
+.checkout-payment-card.is-disabled {
+  cursor: not-allowed;
+  opacity: 0.72;
+}
+
+.checkout-payment-card__icon {
+  width: 44px;
+  height: 44px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 12px;
+  background: #fff7ed;
+  color: #d97706;
+}
+
+.checkout-payment-card__content {
+  display: grid;
+  gap: 6px;
+}
+
+.checkout-payment-card__head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+
+.checkout-payment-card__head strong {
+  color: #0f172a;
+  font-size: 14px;
+  line-height: 1.5;
+}
+
+.checkout-payment-card__head em {
+  display: inline-flex;
+  align-items: center;
+  min-height: 24px;
+  padding: 0 10px;
+  border-radius: 999px;
+  background: #eef2ff;
+  color: #4338ca;
+  font-size: 11px;
+  font-style: normal;
+  font-weight: 800;
+  letter-spacing: 0.03em;
+}
+
+.checkout-payment-card__content small {
+  color: #64748b;
+  font-size: 12px;
+  line-height: 1.55;
 }
 
 .checkout-info-box p,
@@ -1771,6 +1942,11 @@ onMounted(() => {
   color: #ea580c !important;
 }
 
+.checkout-status-pill--method {
+  background: #e0f2fe;
+  color: #0369a1 !important;
+}
+
 .checkout-success__actions {
   display: flex;
   justify-content: center;
@@ -1949,6 +2125,15 @@ onMounted(() => {
   .checkout-success__grid,
   .checkout-assurance--success {
     grid-template-columns: 1fr;
+  }
+
+  .checkout-payment-card {
+    grid-template-columns: 1fr;
+  }
+
+  .checkout-payment-card__icon {
+    width: 40px;
+    height: 40px;
   }
 
   .checkout-success__actions {

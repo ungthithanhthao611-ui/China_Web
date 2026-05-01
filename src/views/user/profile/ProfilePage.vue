@@ -1585,18 +1585,21 @@ onMounted(loadProfile)
 }
 
 .profile-order-status-stack {
-  display: flex;
-  flex-wrap: wrap;
+  display: grid;
   gap: 10px;
 }
 
 .profile-order-status-pill {
-  min-height: 34px;
+  min-height: 38px;
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  padding: 0 12px;
+  width: fit-content;
+  max-width: 100%;
+  padding: 0 14px;
   border-radius: 999px;
+  border: 1px solid rgba(148, 163, 184, 0.22);
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.5);
   font-size: 13px;
   font-weight: 800;
   text-align: center;

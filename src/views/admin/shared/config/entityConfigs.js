@@ -945,7 +945,6 @@ export const ENTITY_MANAGER_CONFIGS = {
       payment_status: [
         { value: 'unpaid', label: 'Chưa thanh toán' },
         { value: 'paid', label: 'Đã thanh toán' },
-        { value: 'refunded', label: 'Đã hoàn tiền' },
       ],
     },
     fieldLabels: {

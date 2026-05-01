@@ -997,6 +997,20 @@ export function useEntityManager(props, emit) {
 
   function handleFieldUpdate(field, value) {
     form[field] = value
+
+    if (props.entityKey === 'orders' && field === 'status') {
+      const normalizedStatus = String(value || '').trim().toLowerCase()
+      const normalizedPaymentMethod = String(form.payment_method || '').trim().toLowerCase()
+
+      if (normalizedPaymentMethod === 'cod') {
+        if (normalizedStatus === 'delivered') {
+          form.payment_status = 'paid'
+        } else if (form.payment_status === 'paid') {
+          form.payment_status = 'unpaid'
+        }
+      }
+    }
+
     if (props.entityKey === 'content_block_items' && field === 'image_id')
       form.__legacy_image_url = ''
   }

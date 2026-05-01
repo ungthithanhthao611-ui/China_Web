@@ -555,6 +555,13 @@ export function createEntityManagerFormHelpers({
       form[field] = "";
     });
 
+    Object.entries(record || {}).forEach(([field, value]) => {
+      if (field in form) return;
+      form[field] = field.endsWith("_at")
+        ? normalizeDatetimeForInput(value)
+        : value;
+    });
+
     uploadTargetField.value = isBannerEntity.value
       ? "image_id"
       : config.value?.mediaUploadTargetField || mediaFieldOptions.value[0] || "image_id";

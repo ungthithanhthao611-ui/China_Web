@@ -338,9 +338,19 @@ const formatMoney = (value, currency = "VND") => {
     maximumFractionDigits: 0,
   }).format(amount);
 };
+const formatOrderDateTime = (value) => {
+  if (!value) return "-";
+  const text = String(value).replace("T", " ");
+  return text.includes(".") ? text.split(".")[0] : text.slice(0, 19);
+};
 const orderFieldValue = (field) => {
   const value = props.form?.[field];
-  if (field === "total_amount" || field === "subtotal_amount" || field === "shipping_fee" || field === "discount_amount") {
+  if (
+    field === "total_amount" ||
+    field === "subtotal_amount" ||
+    field === "shipping_fee" ||
+    field === "discount_amount"
+  ) {
     return formatMoney(value, props.form?.currency || "VND");
   }
   if (field === "item_count") {
@@ -348,7 +358,7 @@ const orderFieldValue = (field) => {
     return `${count} sản phẩm`;
   }
   if (field === "created_at" || field === "updated_at" || field === "placed_at") {
-    return value ? String(value).replace("T", " ").slice(0, 19) : "-";
+    return formatOrderDateTime(value);
   }
   return value === null || value === undefined || String(value).trim() === "" ? "-" : String(value);
 };
@@ -394,6 +404,83 @@ const orderPaymentTone = computed(() => {
   if (value === "refunded") return "is-danger";
   return "is-warning";
 });
+const orderHeroTitle = computed(
+  () => String(props.form?.code || `ORD-${editingRecordId || "--"}`).trim(),
+);
+const orderHeroPlacedAt = computed(() => formatOrderDateTime(props.form?.placed_at));
+const orderCustomerNameText = computed(() => orderFieldValue("customer_name"));
+const orderCustomerEmailText = computed(() => orderFieldValue("customer_email"));
+const orderCustomerPhoneText = computed(() => orderFieldValue("customer_phone"));
+const orderNoteSummary = computed(() => {
+  const note = String(props.form?.note || "").trim();
+  return note || "Không có ghi chú";
+});
+const orderSubtotalText = computed(() =>
+  formatMoney(props.form?.subtotal_amount, props.form?.currency || "VND"),
+);
+const orderShippingText = computed(() =>
+  formatMoney(props.form?.shipping_fee, props.form?.currency || "VND"),
+);
+const orderDiscountText = computed(() =>
+  formatMoney(props.form?.discount_amount, props.form?.currency || "VND"),
+);
+const orderTotalText = computed(() =>
+  formatMoney(props.form?.total_amount, props.form?.currency || "VND"),
+);
+const orderSummaryCards = computed(() => [
+  {
+    key: "total_amount",
+    label: "Tổng thanh toán",
+    value: orderTotalText.value,
+    icon: "💳",
+  },
+  {
+    key: "payment_method",
+    label: "Phương thức thanh toán",
+    value: orderPaymentMethodText.value,
+    icon: "🧾",
+  },
+  {
+    key: "note",
+    label: "Ghi chú",
+    value: orderNoteSummary.value,
+    icon: "📝",
+  },
+]);
+const orderTimeline = computed(() => {
+  const placedAt = orderHeroPlacedAt.value;
+  return [
+    {
+      key: "status",
+      title: orderStatusText.value,
+      time: placedAt,
+      description: `Đơn hàng đang ở trạng thái ${orderStatusText.value.toLowerCase()}.`,
+      tone: orderStatusTone.value,
+    },
+    {
+      key: "payment",
+      title: orderPaymentStatusText.value,
+      time: placedAt,
+      description: `Trạng thái thanh toán hiện tại là ${orderPaymentStatusText.value.toLowerCase()}.`,
+      tone: orderPaymentTone.value,
+    },
+    {
+      key: "created",
+      title: "Đã đặt hàng",
+      time: placedAt,
+      description: "Đơn hàng đã được tạo thành công trên hệ thống.",
+      tone: "is-info",
+    },
+  ];
+});
+const orderMetaRows = computed(() => [
+  { key: "code", label: "Mã đơn hàng", value: orderHeroTitle.value },
+  { key: "placed_at", label: "Ngày đặt", value: orderHeroPlacedAt.value },
+  { key: "order_id", label: "ID đặt hàng", value: `#${props.form?.id || editingRecordId || "-"}` },
+  { key: "payment_method", label: "Thanh toán", value: orderPaymentMethodText.value },
+  { key: "payment_status", label: "Trạng thái thanh toán", value: orderPaymentStatusText.value },
+  { key: "admin_note", label: "Ghi chú admin", value: orderNoteSummary.value },
+]);
 const orderItemImage = (item) => {
   const direct = String(item?.product_image_url || "").trim();
   return direct ? props.resolveMediaUrl(direct) : "";
@@ -656,128 +743,175 @@ const supportsTranslation = computed(() => ["products", "product_categories"].in
 
       <form class="dynamic-form" @submit.prevent="emit('submit')">
         <section v-if="isOrdersEntity" class="order-editor-detail">
-          <div class="order-editor-detail__hero">
-            <div>
-              <p class="eyebrow">Chi tiết đơn hàng COD</p>
-              <h4>{{ form.code || `Đơn #${editingRecordId || '-'}` }}</h4>
-              <p>{{ orderAddressSummary }}</p>
+          <div class="order-editor-breadcrumbs">
+            <span>Dashboard</span>
+            <span>/</span>
+            <span>Quản lý đơn hàng</span>
+            <span>/</span>
+            <strong>Chi tiết đơn hàng</strong>
+          </div>
+
+          <div class="order-editor-topbar">
+            <div class="order-editor-topbar__main">
+              <p class="order-editor-kicker">Chi tiết đơn hàng</p>
+              <h4>{{ orderHeroTitle }}</h4>
+              <p class="order-editor-topbar__time">🗓️ Ngày đặt: {{ orderHeroPlacedAt }}</p>
             </div>
-            <div class="order-editor-detail__hero-metrics">
-              <article>
-                <span>Tổng thanh toán</span>
-                <strong>{{ formatMoney(form.total_amount, form.currency || 'VND') }}</strong>
-              </article>
-              <article>
-                <span>Phương thức</span>
-                <strong>{{ orderPaymentMethodText }}</strong>
-              </article>
-              <article>
-                <span>Trạng thái</span>
-                <div class="order-editor-status-row">
-                  <span :class="['order-editor-status-chip', orderStatusTone]">
-                    {{ orderStatusText }}
-                  </span>
-                  <span :class="['order-editor-status-chip', 'is-soft', orderPaymentTone]">
-                    {{ orderPaymentStatusText }}
-                  </span>
-                </div>
-              </article>
+            <div class="order-editor-topbar__status">
+              <span>Trạng thái</span>
+              <strong :class="['order-editor-status-chip', orderStatusTone]">
+                {{ orderStatusText }}
+              </strong>
             </div>
           </div>
 
-          <div class="order-editor-grid">
-            <article class="order-editor-card">
-              <div class="order-editor-card__head">
-                <strong>Thông tin khách hàng</strong>
-                <small>Thông tin nhận hàng và liên hệ</small>
+          <div class="order-editor-summary-strip">
+            <article
+              v-for="card in orderSummaryCards"
+              :key="card.key"
+              class="order-editor-summary-card"
+            >
+              <div class="order-editor-summary-card__icon">{{ card.icon }}</div>
+              <div class="order-editor-summary-card__content">
+                <span>{{ card.label }}</span>
+                <strong>{{ card.value }}</strong>
               </div>
-              <div class="order-editor-info-list">
-                <div class="order-editor-info-item">
-                  <span>Người nhận</span>
-                  <strong>{{ orderFieldValue('customer_name') }}</strong>
+            </article>
+          </div>
+
+          <div class="order-editor-dashboard-grid">
+            <article class="order-editor-card order-editor-card--customer">
+              <div class="order-editor-card__head order-editor-card__head--icon">
+                <strong>👤 Thông tin khách hàng</strong>
+              </div>
+              <div class="order-editor-profile-list">
+                <div class="order-editor-profile-row">
+                  <span>Họ và tên</span>
+                  <strong>{{ orderCustomerNameText }}</strong>
                 </div>
-                <div class="order-editor-info-item">
-                  <span>Liên hệ</span>
-                  <strong>{{ orderCustomerContact }}</strong>
+                <div class="order-editor-profile-row">
+                  <span>Số điện thoại</span>
+                  <strong>{{ orderCustomerPhoneText }}</strong>
                 </div>
-                <div class="order-editor-info-item order-editor-info-item--wide">
+                <div class="order-editor-profile-row">
+                  <span>Email</span>
+                  <strong>{{ orderCustomerEmailText }}</strong>
+                </div>
+                <div class="order-editor-profile-row">
                   <span>Địa chỉ giao hàng</span>
                   <strong>{{ orderAddressSummary }}</strong>
                 </div>
-                <div class="order-editor-info-item order-editor-info-item--wide">
-                  <span>Ghi chú hiện tại</span>
-                  <strong>{{ orderFieldValue('note') }}</strong>
+              </div>
+            </article>
+
+            <article class="order-editor-card order-editor-card--products">
+              <div class="order-editor-card__head order-editor-card__head--icon">
+                <strong>📦 Sản phẩm đã đặt</strong>
+              </div>
+
+              <div v-if="orderHasItems" class="order-editor-table-wrap">
+                <div class="order-editor-table order-editor-table--head">
+                  <span>Sản phẩm</span>
+                  <span>Đơn giá</span>
+                  <span>Số lượng</span>
+                  <span>Thành tiền</span>
+                </div>
+
+                <article
+                  v-for="(item, index) in orderItems"
+                  :key="`${item.product_id || 'item'}-${index}`"
+                  class="order-editor-table order-editor-table--row"
+                >
+                  <div class="order-editor-product-cell">
+                    <div class="order-editor-product-thumb">
+                      <img
+                        v-if="orderItemImage(item)"
+                        :src="orderItemImage(item)"
+                        :alt="item.product_name || `Sản phẩm ${index + 1}`"
+                        loading="lazy"
+                      />
+                      <div v-else class="order-editor-product-thumb__placeholder">
+                        SP
+                      </div>
+                    </div>
+                    <div class="order-editor-product-copy">
+                      <strong>{{ item.product_name || `Sản phẩm #${index + 1}` }}</strong>
+                      <small>SKU: {{ item.product_sku || 'Chưa có SKU' }}</small>
+                    </div>
+                  </div>
+                  <strong>{{ orderItemUnitPrice(item) }}</strong>
+                  <strong>{{ item.quantity || 0 }}</strong>
+                  <strong class="order-editor-amount--primary">{{ orderItemLineTotal(item) }}</strong>
+                </article>
+
+                <div class="order-editor-totals">
+                  <div>
+                    <span>Tạm tính</span>
+                    <strong>{{ orderSubtotalText }}</strong>
+                  </div>
+                  <div v-if="Number(form.discount_amount || 0) > 0">
+                    <span>Giảm giá</span>
+                    <strong>{{ orderDiscountText }}</strong>
+                  </div>
+                  <div class="order-editor-totals__grand">
+                    <span>Tổng thanh toán</span>
+                    <strong>{{ orderTotalText }}</strong>
+                  </div>
+                </div>
+              </div>
+              <p v-else class="order-editor-empty">Chưa có dữ liệu sản phẩm cho đơn hàng này.</p>
+            </article>
+
+            <article class="order-editor-card order-editor-card--timeline">
+              <div class="order-editor-card__head order-editor-card__head--icon">
+                <strong>🕘 Lịch sử đơn hàng</strong>
+              </div>
+              <div class="order-editor-timeline">
+                <div
+                  v-for="(item, index) in orderTimeline"
+                  :key="item.key"
+                  class="order-editor-timeline__item"
+                >
+                  <div :class="['order-editor-timeline__dot', item.tone]"></div>
+                  <div
+                    v-if="index < orderTimeline.length - 1"
+                    class="order-editor-timeline__line"
+                  ></div>
+                  <div class="order-editor-timeline__content">
+                    <strong>{{ item.title }}</strong>
+                    <small>{{ item.time }}</small>
+                    <p>{{ item.description }}</p>
+                  </div>
                 </div>
               </div>
             </article>
 
-            <article class="order-editor-card">
-              <div class="order-editor-card__head">
-                <strong>Tổng quan thanh toán</strong>
-                <small>Các mốc tiền và thời gian của đơn</small>
+            <article class="order-editor-card order-editor-card--meta">
+              <div class="order-editor-card__head order-editor-card__head--icon">
+                <strong>📋 Thông tin bổ sung</strong>
               </div>
-              <div class="order-editor-info-list">
-                <div v-for="field in orderReadonlyFields" :key="field" class="order-editor-info-item">
-                  <span>{{ fieldLabel(field) }}</span>
-                  <strong>{{ orderFieldValue(field) }}</strong>
+              <div class="order-editor-meta-list">
+                <div
+                  v-for="row in orderMetaRows"
+                  :key="row.key"
+                  class="order-editor-meta-row"
+                >
+                  <span>{{ row.label }}</span>
+                  <strong>{{ row.value }}</strong>
                 </div>
               </div>
             </article>
           </div>
 
-          <article class="order-editor-card order-editor-card--full">
-            <div class="order-editor-card__head">
-              <strong>Danh sách sản phẩm</strong>
+          <article class="order-editor-card order-editor-card--full order-editor-card--actions">
+            <div class="order-editor-card__head order-editor-card__head--icon">
+              <strong>⚙️ Cập nhật trạng thái đơn hàng</strong>
               <small>
-                {{ orderHasItems ? `${orderItems.length} sản phẩm trong đơn` : 'Chưa có dữ liệu sản phẩm' }}
+                Chỉnh sửa trạng thái xử lý, trạng thái thanh toán và ghi chú nội bộ của admin.
               </small>
             </div>
-
-            <div v-if="orderHasItems" class="order-editor-items">
-              <article v-for="(item, index) in orderItems" :key="`${item.product_id || 'item'}-${index}`" class="order-editor-item-card">
-                <div class="order-editor-item-card__media">
-                  <img
-                    v-if="orderItemImage(item)"
-                    :src="orderItemImage(item)"
-                    :alt="item.product_name || `Sản phẩm ${index + 1}`"
-                    loading="lazy"
-                  />
-                  <div v-else class="order-editor-item-card__placeholder">
-                    SP {{ index + 1 }}
-                  </div>
-                </div>
-                <div class="order-editor-item-card__content">
-                  <div class="order-editor-item-card__title-row">
-                    <strong>{{ item.product_name || `Sản phẩm #${index + 1}` }}</strong>
-                    <span>{{ orderItemLineTotal(item) }}</span>
-                  </div>
-                  <div class="order-editor-item-card__meta">
-                    <span>SKU: {{ item.product_sku || 'Chưa có SKU' }}</span>
-                    <span>Số lượng: {{ item.quantity || 0 }}</span>
-                    <span>Đơn giá: {{ orderItemUnitPrice(item) }}</span>
-                  </div>
-                  <a
-                    v-if="item.product_slug"
-                    class="order-editor-item-card__link"
-                    :href="`/product/${item.product_slug}`"
-                    target="_blank"
-                    rel="noreferrer noopener"
-                  >
-                    Xem sản phẩm công khai
-                  </a>
-                </div>
-              </article>
-            </div>
-            <p v-else class="order-editor-empty">Chưa có dữ liệu sản phẩm cho đơn hàng này.</p>
-          </article>
-
-          <article class="order-editor-card order-editor-card--full">
-            <div class="order-editor-card__head">
-              <strong>Cập nhật trạng thái vận hành</strong>
-              <small>Admin chỉ chỉnh sửa trạng thái và ghi chú, các dữ liệu còn lại là thông tin đơn thật.</small>
-            </div>
             <div class="order-editor-actions-grid">
-              <label v-if="orderStatusField" class="editor-field">
+              <label v-if="orderStatusField" class="editor-field order-editor-field-shell">
                 <span>{{ fieldLabel(orderStatusField) }}</span>
                 <select
                   :value="form[orderStatusField]"
@@ -795,7 +929,7 @@ const supportsTranslation = computed(() => ["products", "product_categories"].in
                 <small v-if="fieldHelpText(orderStatusField)" class="field-help">{{ fieldHelpText(orderStatusField) }}</small>
               </label>
 
-              <label v-if="orderPaymentStatusField" class="editor-field">
+              <label v-if="orderPaymentStatusField" class="editor-field order-editor-field-shell">
                 <span>{{ fieldLabel(orderPaymentStatusField) }}</span>
                 <select
                   :value="form[orderPaymentStatusField]"
@@ -813,7 +947,7 @@ const supportsTranslation = computed(() => ["products", "product_categories"].in
                 <small v-if="fieldHelpText(orderPaymentStatusField)" class="field-help">{{ fieldHelpText(orderPaymentStatusField) }}</small>
               </label>
 
-              <label v-if="orderNoteField" class="editor-field order-editor-note-field">
+              <label v-if="orderNoteField" class="editor-field order-editor-note-field order-editor-field-shell">
                 <span>{{ fieldLabel(orderNoteField) }}</span>
                 <textarea
                   :value="form[orderNoteField]"

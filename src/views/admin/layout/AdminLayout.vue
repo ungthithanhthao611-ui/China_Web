@@ -45,7 +45,7 @@ onBeforeUnmount(() => {
 <style scoped>
 .admin-layout {
   min-height: 100vh;
-  color: #17324d;
+  color: #0f172a;
   font-family: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
   --admin-sidebar-width: clamp(210px, 14vw, 220px);
   --admin-sidebar-padding: clamp(10px, 1vw, 12px);
@@ -74,9 +74,6 @@ onBeforeUnmount(() => {
 }
 
 :global(body.admin-body) {
-  background:
-    radial-gradient(circle at 12% 18%, rgba(91, 160, 255, 0.18), transparent 28%),
-    radial-gradient(circle at 88% 84%, rgba(79, 205, 196, 0.14), transparent 24%),
-    linear-gradient(180deg, #edf4fb 0%, #e8f0fa 100%);
+  background: #f6f9fc;
 }
 </style>

@@ -1,6 +1,35 @@
 <script setup>
 import { computed, nextTick, onBeforeUnmount, onMounted, reactive, ref, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
+import {
+  Bell,
+  BookOpen,
+  Box,
+  BriefcaseBusiness,
+  CalendarDays,
+  ChevronDown,
+  CircleDollarSign,
+  ClipboardList,
+  FileText,
+  Gauge,
+  Headphones,
+  Home,
+  Image,
+  LayoutDashboard,
+  LogOut,
+  Menu,
+  MessageSquare,
+  Package,
+  Search,
+  Settings,
+  ShoppingBag,
+  SlidersHorizontal,
+  Star,
+  Tags,
+  UserCircle,
+  Users,
+  Video,
+} from 'lucide-vue-next'
 
 import { ADMIN_TOKEN_STORAGE_KEY, ADMIN_USER_STORAGE_KEY } from '@/views/admin/shared/constants/auth'
 import { ADMIN_SECTION_GROUPS, ADMIN_SECTION_INDEX } from '@/views/admin/shared/config/entityConfigs'
@@ -34,6 +63,132 @@ const LEGACY_SECTION_REDIRECTS = {
   project_products: 'projects',
   entity_media: 'projects',
 }
+
+const adminSidebarGroups = [
+  {
+    title: 'TỔNG QUAN',
+    items: [
+      { key: 'dashboard', label: 'Dashboard', icon: LayoutDashboard },
+      { key: 'dashboard', label: 'Bảng điều khiển', icon: Home },
+    ],
+  },
+  {
+    title: 'QUẢN LÝ NỘI DUNG',
+    items: [
+      { key: 'products', label: 'Sản phẩm', icon: Package },
+      { key: 'product_categories', label: 'Danh mục', icon: Tags },
+      { key: 'videos', label: 'Video', icon: Video },
+      { key: 'news_posts', label: 'Bài viết', icon: FileText },
+      { key: 'navigation', label: 'Menu', icon: ClipboardList },
+      { key: 'banners', label: 'Banner & Slider', icon: SlidersHorizontal },
+      { key: 'content_block_items', label: 'Giới thiệu công ty', icon: BookOpen },
+      { key: 'capability_settings', label: 'Cấu hình năng lực', icon: Gauge },
+      { key: 'honor_categories', label: 'Danh mục năng lực', icon: Tags },
+      { key: 'honors', label: 'Năng lực / Chứng nhận', icon: Star },
+      { key: 'media_assets', label: 'Thư viện ảnh', icon: Image },
+      { key: 'projects', label: 'Dự án', icon: BriefcaseBusiness },
+      { key: 'contacts', label: 'Thông tin liên hệ', icon: Headphones },
+      { key: 'inquiry_submissions', label: 'Phản hồi từ form', icon: MessageSquare },
+    ],
+  },
+  {
+    title: 'ĐƠN HÀNG & KHÁCH HÀNG',
+    items: [
+      { key: 'orders', label: 'Đơn hàng', icon: ShoppingBag },
+      { key: 'users', label: 'Khách hàng', icon: Users },
+      { key: 'reviews', label: 'Đánh giá', icon: Star, disabled: true },
+    ],
+  },
+  {
+    title: 'CẤU HÌNH HỆ THỐNG',
+    items: [
+      { key: 'site_settings', label: 'Cài đặt website', icon: Settings },
+      { key: 'users', label: 'Quản lý tài khoản', icon: UserCircle },
+      { key: 'activity_logs', label: 'Nhật ký hoạt động', icon: FileText, disabled: true },
+    ],
+  },
+]
+
+const sectionLabelOverrides = Object.fromEntries(
+  adminSidebarGroups.flatMap((group) => group.items.map((item) => [item.key, item.label])),
+)
+
+const dashboardKpis = [
+  {
+    title: 'Tổng đơn hàng',
+    value: '125',
+    growth: '12.5%',
+    icon: ShoppingBag,
+    tone: 'blue',
+  },
+  {
+    title: 'Tổng doanh thu',
+    value: '58.450.000đ',
+    growth: '18.7%',
+    icon: CircleDollarSign,
+    tone: 'green',
+  },
+  {
+    title: 'Sản phẩm',
+    value: '320',
+    growth: '8.3%',
+    icon: Box,
+    tone: 'violet',
+  },
+  {
+    title: 'Khách hàng',
+    value: '476',
+    growth: '10.2%',
+    icon: Users,
+    tone: 'orange',
+  },
+  {
+    title: 'Đánh giá',
+    value: '89',
+    growth: '15.9%',
+    icon: MessageSquare,
+    tone: 'cyan',
+  },
+]
+
+const revenuePoints = [
+  { label: '24/04', value: 5.8 },
+  { label: '25/04', value: 8 },
+  { label: '26/04', value: 4.6 },
+  { label: '27/04', value: 6.8 },
+  { label: '28/04', value: 10.8 },
+  { label: '29/04', value: 7.2 },
+  { label: '30/04', value: 11 },
+]
+
+const latestOrders = [
+  { code: '#DH2504300001', customer: 'Nguyễn Văn A', time: '10:30 AM', status: 'Chờ xác nhận', amount: '1.996.000đ', tone: 'pending' },
+  { code: '#DH2504300002', customer: 'Trần Thị B', time: '09:15 AM', status: 'Đã xác nhận', amount: '950.000đ', tone: 'confirmed' },
+  { code: '#DH2504300003', customer: 'Lê Văn C', time: '08:45 AM', status: 'Đang giao', amount: '2.450.000đ', tone: 'shipping' },
+  { code: '#DH2504300004', customer: 'Phạm Thị D', time: '08:20 AM', status: 'Hoàn thành', amount: '780.000đ', tone: 'completed' },
+  { code: '#DH2504300005', customer: 'Hoàng Văn E', time: '07:50 AM', status: 'Đã hủy', amount: '0đ', tone: 'cancelled' },
+]
+
+const topProducts = [
+  { name: 'Đá hoa cương 3D', sold: 120, texture: 'granite' },
+  { name: 'Travertine', sold: 85, texture: 'travertine' },
+  { name: 'Đá granite tự nhiên', sold: 68, texture: 'stone' },
+]
+
+const orderStatusStats = [
+  { label: 'Chờ xác nhận', value: 32, percent: '25.6%', color: '#f8b72b' },
+  { label: 'Đã xác nhận', value: 28, percent: '22.4%', color: '#3b82f6' },
+  { label: 'Đang giao', value: 18, percent: '14.4%', color: '#8b5cf6' },
+  { label: 'Hoàn thành', value: 42, percent: '33.6%', color: '#10b981' },
+  { label: 'Đã hủy', value: 5, percent: '4.0%', color: '#ef4444' },
+]
+
+const quickStats = [
+  { label: 'Sản phẩm hết hàng', value: 12, tone: 'danger', icon: Box },
+  { label: 'Khách hàng mới', value: 24, tone: 'success', icon: Users },
+  { label: 'Bài viết', value: 15, tone: 'info', icon: FileText },
+  { label: 'Video', value: 8, tone: 'blue', icon: Video },
+]
 
 function resolveSection(value) {
   const normalized = String(value || '').trim()
@@ -77,72 +232,49 @@ const currentSectionMeta = computed(() => {
   if (activeSection.value === 'dashboard') {
     return {
       label: 'Dashboard',
-      eyebrow: 'Admin overview',
-      description: 'Review the current CMS footprint and jump into the module you need to edit.',
+      eyebrow: 'Tổng quan',
+      description: 'Theo dõi nhanh hoạt động quản trị Thiên Đông Việt Nam.',
     }
   }
 
   if (activeSection.value === 'navigation') {
     return {
-      label: 'Menu Navigation',
-      eyebrow: 'Navigation menus',
-      description: 'Manage header and footer menu trees, labels, links, and ordering.',
+      label: 'Menu',
+      eyebrow: 'Quản lý nội dung',
+      description: 'Quản lý cây menu, nhãn, liên kết và thứ tự hiển thị.',
     }
   }
 
   const config = ADMIN_SECTION_INDEX[activeSection.value]
   return {
-    label: config?.label || 'Dashboard',
+    label: sectionLabelOverrides[activeSection.value] || config?.label || 'Dashboard',
     eyebrow: config?.eyebrow || 'Admin module',
     description: config?.description || '',
   }
 })
 
 const currentTitle = computed(() => currentSectionMeta.value.label)
-const currentBreadcrumb = computed(() => `Home / Admin / ${currentSectionMeta.value.label}`)
-const userLabel = computed(() => currentUser.value?.full_name || currentUser.value?.username || 'Admin user')
-const userRole = computed(() => currentUser.value?.role || 'admin')
+const currentBreadcrumb = computed(() => (activeSection.value === 'dashboard' ? 'Dashboard / Tổng quan' : `Dashboard / ${currentSectionMeta.value.label}`))
+const userLabel = computed(() => currentUser.value?.full_name || currentUser.value?.username || 'Admin Admin')
+const userRole = computed(() => {
+  const role = String(currentUser.value?.role || '').toLowerCase()
+  return role === 'admin' || !role ? 'Quản trị viên' : role
+})
 const isUnsupportedSection = computed(() => false) // All sections are now supported
 const unsupportedSectionMeta = computed(() => null)
 
+const revenuePolylinePoints = computed(() => {
+  const maxValue = 12
+  return revenuePoints
+    .map((point, index) => {
+      const x = 40 + index * 96
+      const y = 250 - (point.value / maxValue) * 210
+      return `${x},${y}`
+    })
+    .join(' ')
+})
 
-const statCards = computed(() => [
-  {
-    key: 'menus',
-    title: 'Nav menus',
-    value: navMenuCount.value,
-    subtitle: 'Header and footer trees',
-    tone: 'rose',
-  },
-  {
-    key: 'videos',
-    title: 'Videos',
-    value: summary.videos,
-    subtitle: 'Published video entries',
-    tone: 'yellow',
-  },
-  {
-    key: 'products',
-    title: 'Sản phẩm',
-    value: summary.products,
-    subtitle: 'Tổng số sản phẩm',
-    tone: 'rose',
-  },
-  {
-    key: 'honors',
-    title: 'Honors',
-    value: summary.honors,
-    subtitle: 'Certificates and awards',
-    tone: 'cyan',
-  },
-  {
-    key: 'media_assets',
-    title: 'Media assets',
-    value: summary.media_assets,
-    subtitle: 'Uploaded library items',
-    tone: 'cyan',
-  },
-])
+const revenueAreaPoints = computed(() => `40,250 ${revenuePolylinePoints.value} 616,250`)
 
 function setSuccess(message) {
   showToast('success', message)
@@ -195,6 +327,13 @@ function handleSectionChange(section) {
   if (window.innerWidth <= 1024) {
     closeSidebar()
   }
+}
+
+function isSidebarItemActive(item) {
+  if (item?.disabled) return false
+  if (activeSection.value !== item?.key) return false
+  if (item?.key === 'dashboard') return item?.label === 'Dashboard'
+  return true
 }
 
 function hasActiveChild(item) {
@@ -400,33 +539,32 @@ onBeforeUnmount(() => {
     </aside>
 
     <main class="workspace">
-      <header class="topbar card-shell">
+      <header class="topbar">
         <div class="title-panel">
-          <button class="sidebar-toggle" type="button" aria-label="Open sidebar" @click="isSidebarOpen = true">Menu</button>
-          <div v-if="activeSection === 'dashboard'">
-            <p class="eyebrow">{{ currentSectionMeta.eyebrow }}</p>
-            <h1>{{ currentTitle }}</h1>
-          </div>
-          <div v-else>
-            <p class="breadcrumb-mini">{{ currentBreadcrumb }}</p>
-          </div>
+          <button class="sidebar-toggle" type="button" aria-label="Open sidebar" @click="isSidebarOpen = true">
+            <Menu :size="22" />
+          </button>
+          <p class="breadcrumb-mini">{{ currentBreadcrumb }}</p>
         </div>
 
         <div class="session-panel">
-          <div class="session-card">
-            <span class="user-name">{{ userLabel }}</span>
-            <span class="user-role">{{ userRole }}</span>
-          </div>
-          <button 
-            v-if="activeSection === 'dashboard'"
-            class="btn btn-secondary btn-sm" 
-            type="button" 
-            @click="loadDashboardSummary" 
-            :disabled="loadingSummary"
-          >
-            {{ loadingSummary ? '...' : 'Làm mới' }}
+          <button class="topbar-icon-btn" type="button" aria-label="Tìm kiếm">
+            <Search :size="22" />
           </button>
-          <button class="btn btn-primary btn-sm" type="button" @click="handleLogout">Đăng xuất</button>
+          <button class="topbar-icon-btn topbar-icon-btn--notify" type="button" aria-label="Thông báo">
+            <Bell :size="21" />
+            <span>3</span>
+          </button>
+          <div class="admin-profile">
+            <div class="admin-avatar">
+              <UserCircle :size="26" />
+            </div>
+            <div>
+              <strong>{{ userLabel }}</strong>
+              <span>{{ userRole }}</span>
+            </div>
+            <ChevronDown :size="18" />
+          </div>
         </div>
       </header>
 
@@ -437,19 +575,144 @@ onBeforeUnmount(() => {
       </transition>
 
       <section v-if="activeSection === 'dashboard'" class="dashboard-panel">
-        <div class="hero-card card-shell">
-          <p class="hero-eyebrow">Admin overview</p>
-          <h2>Manage content by module</h2>
-          <p class="hero-copy">
-            Choose a module from the sidebar to manage each data type directly from database-backed records.
-          </p>
+        <div class="welcome-card">
+          <div>
+            <h1>Xin chào, Admin!</h1>
+            <p>Chào mừng bạn trở lại trang quản trị Thiên Đông Việt Nam.</p>
+          </div>
+          <button class="date-range" type="button">
+            <CalendarDays :size="18" />
+            <span>30/04/2026 - 30/04/2026</span>
+            <ChevronDown :size="16" />
+          </button>
         </div>
 
-        <div class="stats">
-          <article v-for="card in statCards" :key="card.key" class="stat-card" :class="`tone-${card.tone}`">
-            <p class="stat-value">{{ card.value }}</p>
-            <p class="stat-title">{{ card.title }}</p>
-            <p class="stat-sub">{{ card.subtitle }}</p>
+        <div class="kpi-grid">
+          <article v-for="card in dashboardKpis" :key="card.title" class="kpi-card" :class="`kpi-card--${card.tone}`">
+            <span class="kpi-card__icon">
+              <component :is="card.icon" :size="30" stroke-width="1.8" />
+            </span>
+            <div>
+              <p>{{ card.title }}</p>
+              <strong>{{ card.value }}</strong>
+              <span>↑ {{ card.growth }} so với kỳ trước</span>
+            </div>
+          </article>
+        </div>
+
+        <div class="dashboard-main-grid">
+          <article class="dashboard-card revenue-card">
+            <div class="dashboard-card__head">
+              <h2>Doanh thu theo ngày</h2>
+              <button class="small-select" type="button">
+                7 ngày qua
+                <ChevronDown :size="16" />
+              </button>
+            </div>
+            <div class="chart-wrap">
+              <svg viewBox="0 0 660 300" role="img" aria-label="Biểu đồ doanh thu theo ngày">
+                <defs>
+                  <linearGradient id="revenue-fill" x1="0" x2="0" y1="0" y2="1">
+                    <stop offset="0%" stop-color="#3b82f6" stop-opacity="0.26" />
+                    <stop offset="100%" stop-color="#3b82f6" stop-opacity="0.04" />
+                  </linearGradient>
+                </defs>
+                <g class="chart-grid">
+                  <line v-for="tick in [40, 82, 124, 166, 208, 250]" :key="`h-${tick}`" x1="40" x2="616" :y1="tick" :y2="tick" />
+                  <line v-for="tick in [40, 136, 232, 328, 424, 520, 616]" :key="`v-${tick}`" :x1="tick" :x2="tick" y1="40" y2="250" />
+                </g>
+                <g class="chart-axis">
+                  <text x="7" y="254">0</text>
+                  <text x="2" y="212">2M</text>
+                  <text x="2" y="170">4M</text>
+                  <text x="2" y="128">6M</text>
+                  <text x="2" y="86">8M</text>
+                  <text x="-2" y="44">12M</text>
+                  <text v-for="(point, index) in revenuePoints" :key="point.label" :x="36 + index * 96" y="284">{{ point.label }}</text>
+                </g>
+                <polygon :points="revenueAreaPoints" fill="url(#revenue-fill)" />
+                <polyline :points="revenuePolylinePoints" fill="none" stroke="#3b82f6" stroke-width="3.5" stroke-linecap="round" stroke-linejoin="round" />
+                <circle
+                  v-for="(point, index) in revenuePoints"
+                  :key="`dot-${point.label}`"
+                  :cx="40 + index * 96"
+                  :cy="250 - (point.value / 12) * 210"
+                  r="5"
+                  fill="#3b82f6"
+                  stroke="#fff"
+                  stroke-width="2"
+                />
+                <g class="chart-legend">
+                  <rect x="300" y="18" width="18" height="10" rx="2" fill="#3b82f6" />
+                  <text x="326" y="27">Doanh thu (đ)</text>
+                </g>
+              </svg>
+            </div>
+          </article>
+
+          <article class="dashboard-card latest-orders-card">
+            <div class="dashboard-card__head">
+              <h2>Đơn hàng mới nhất</h2>
+              <button class="link-button" type="button" @click="handleSectionChange('orders')">Xem tất cả</button>
+            </div>
+            <div class="latest-order-list">
+              <div v-for="item in latestOrders" :key="item.code" class="latest-order-row">
+                <span class="latest-order-row__icon">
+                  <ShoppingBag :size="17" />
+                </span>
+                <strong>{{ item.code }}</strong>
+                <span>{{ item.customer }}</span>
+                <span>{{ item.time }}</span>
+                <em :class="`status-badge status-badge--${item.tone}`">{{ item.status }}</em>
+                <b>{{ item.amount }}</b>
+              </div>
+            </div>
+          </article>
+        </div>
+
+        <div class="dashboard-bottom-grid">
+          <article class="dashboard-card top-products-card">
+            <div class="dashboard-card__head">
+              <h2>Sản phẩm bán chạy</h2>
+              <button class="link-button" type="button" @click="handleSectionChange('products')">Xem tất cả</button>
+            </div>
+            <div class="top-product-list">
+              <div v-for="(item, index) in topProducts" :key="item.name" class="top-product-row">
+                <span class="top-product-row__rank">{{ index + 1 }}</span>
+                <span class="product-thumb" :class="`product-thumb--${item.texture}`"></span>
+                <div>
+                  <strong>{{ item.name }}</strong>
+                  <p>Đã bán: {{ item.sold }}</p>
+                </div>
+              </div>
+            </div>
+          </article>
+
+          <article class="dashboard-card status-card">
+            <h2>Đơn hàng theo trạng thái</h2>
+            <div class="status-card__body">
+              <div class="donut-chart" aria-hidden="true"></div>
+              <div class="status-legend">
+                <div v-for="item in orderStatusStats" :key="item.label">
+                  <span :style="{ backgroundColor: item.color }"></span>
+                  <p>{{ item.label }}</p>
+                  <strong>{{ item.value }} ({{ item.percent }})</strong>
+                </div>
+              </div>
+            </div>
+          </article>
+
+          <article class="dashboard-card quick-stats-card">
+            <h2>Thống kê nhanh</h2>
+            <div class="quick-stat-list">
+              <div v-for="item in quickStats" :key="item.label" class="quick-stat-row" :class="`quick-stat-row--${item.tone}`">
+                <span>
+                  <component :is="item.icon" :size="18" />
+                </span>
+                <p>{{ item.label }}</p>
+                <strong>{{ item.value }}</strong>
+              </div>
+            </div>
           </article>
         </div>
       </section>
@@ -1274,6 +1537,650 @@ button:disabled {
   margin: 0;
   color: #15314d;
   font-size: clamp(24px, 2.4vw, 30px);
+}
+
+.workspace {
+  min-height: 100vh;
+  padding: 28px 30px 32px;
+  border-top-left-radius: 34px;
+  background: #f6f9fc;
+}
+
+.topbar {
+  min-height: 44px;
+  padding: 0;
+  margin-bottom: 24px;
+  background: transparent;
+  border: 0;
+  box-shadow: none;
+}
+
+.title-panel {
+  gap: 24px;
+}
+
+.sidebar-toggle,
+.topbar-icon-btn {
+  width: 42px;
+  height: 42px;
+  min-height: 42px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0;
+  border: 0;
+  border-radius: 12px;
+  background: transparent;
+  color: #07152b;
+  cursor: pointer;
+}
+
+.breadcrumb-mini {
+  margin: 0;
+  color: #0f172a;
+  font-size: 15px;
+  font-weight: 700;
+}
+
+.session-panel {
+  gap: 14px;
+  flex-wrap: nowrap;
+}
+
+.topbar-icon-btn {
+  position: relative;
+}
+
+.topbar-icon-btn--notify span {
+  position: absolute;
+  top: 4px;
+  right: 4px;
+  min-width: 17px;
+  height: 17px;
+  display: grid;
+  place-items: center;
+  border-radius: 999px;
+  background: #ef4444;
+  color: #fff;
+  font-size: 10px;
+  font-weight: 900;
+}
+
+.admin-profile {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  color: #0f172a;
+}
+
+.admin-avatar {
+  width: 34px;
+  height: 34px;
+  display: grid;
+  place-items: center;
+  border-radius: 50%;
+  background: #eef4fb;
+  color: #64748b;
+}
+
+.admin-profile strong,
+.admin-profile span {
+  display: block;
+  white-space: nowrap;
+}
+
+.admin-profile strong {
+  font-size: 14px;
+  font-weight: 900;
+}
+
+.admin-profile span {
+  margin-top: 2px;
+  color: #64748b;
+  font-size: 12px;
+  font-weight: 700;
+}
+
+.dashboard-panel {
+  margin-top: 0;
+  gap: 20px;
+}
+
+.welcome-card,
+.dashboard-card,
+.kpi-card {
+  background: #fff;
+  border: 1px solid #e5e7eb;
+  border-radius: 20px;
+  box-shadow: 0 12px 34px rgba(15, 23, 42, 0.06);
+}
+
+.welcome-card {
+  min-height: 112px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 24px;
+  padding: 26px 28px;
+  background:
+    linear-gradient(135deg, #ffffff 0%, #f5f9ff 100%);
+}
+
+.welcome-card h1 {
+  margin: 0;
+  color: #0f172a;
+  font-size: 28px;
+  font-weight: 900;
+  letter-spacing: 0;
+}
+
+.welcome-card p {
+  margin: 8px 0 0;
+  color: #64748b;
+  font-size: 15px;
+  font-weight: 600;
+}
+
+.date-range,
+.small-select {
+  min-height: 44px;
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
+  padding: 0 16px;
+  border: 1px solid #dbe3ee;
+  border-radius: 8px;
+  background: #fff;
+  color: #0f172a;
+  font-weight: 700;
+}
+
+.kpi-grid {
+  display: grid;
+  grid-template-columns: repeat(5, minmax(0, 1fr));
+  gap: 18px;
+}
+
+.kpi-card {
+  min-height: 116px;
+  display: flex;
+  align-items: center;
+  gap: 18px;
+  padding: 22px 18px;
+}
+
+.kpi-card__icon {
+  width: 62px;
+  height: 62px;
+  display: grid;
+  place-items: center;
+  border-radius: 50%;
+  flex: 0 0 auto;
+}
+
+.kpi-card p {
+  margin: 0;
+  color: #475569;
+  font-size: 14px;
+  font-weight: 700;
+}
+
+.kpi-card strong {
+  display: block;
+  margin-top: 6px;
+  color: #0f172a;
+  font-size: 28px;
+  line-height: 1;
+  font-weight: 900;
+}
+
+.kpi-card div > span {
+  display: block;
+  margin-top: 10px;
+  color: #10b981;
+  font-size: 13px;
+  font-weight: 800;
+}
+
+.kpi-card--blue .kpi-card__icon {
+  background: #dbeafe;
+  color: #2563eb;
+}
+
+.kpi-card--green .kpi-card__icon {
+  background: #dff8ea;
+  color: #10b981;
+}
+
+.kpi-card--violet .kpi-card__icon {
+  background: #ede5ff;
+  color: #7c3aed;
+}
+
+.kpi-card--orange .kpi-card__icon {
+  background: #ffedd5;
+  color: #f59e0b;
+}
+
+.kpi-card--cyan .kpi-card__icon {
+  background: #e0f7ff;
+  color: #0ea5e9;
+}
+
+.dashboard-main-grid {
+  display: grid;
+  grid-template-columns: minmax(0, 1.4fr) minmax(420px, 0.95fr);
+  gap: 20px;
+}
+
+.dashboard-bottom-grid {
+  display: grid;
+  grid-template-columns: minmax(280px, 0.95fr) minmax(360px, 1fr) minmax(280px, 0.95fr);
+  gap: 20px;
+}
+
+.dashboard-card {
+  padding: 22px;
+}
+
+.dashboard-card__head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  margin-bottom: 20px;
+}
+
+.dashboard-card h2,
+.dashboard-card__head h2 {
+  margin: 0;
+  color: #0f172a;
+  font-size: 17px;
+  font-weight: 900;
+}
+
+.link-button {
+  border: 0;
+  background: transparent;
+  color: #2563eb;
+  font-size: 14px;
+  font-weight: 800;
+  cursor: pointer;
+}
+
+.chart-wrap {
+  width: 100%;
+  overflow: hidden;
+}
+
+.chart-wrap svg {
+  width: 100%;
+  min-height: 290px;
+  display: block;
+}
+
+.chart-grid line {
+  stroke: #e5e7eb;
+  stroke-width: 1;
+}
+
+.chart-axis text,
+.chart-legend text {
+  fill: #64748b;
+  font-size: 12px;
+  font-weight: 700;
+}
+
+.latest-order-list {
+  display: grid;
+  gap: 18px;
+}
+
+.latest-order-row {
+  display: grid;
+  grid-template-columns: 34px 1.05fr 1fr 0.75fr auto 0.85fr;
+  align-items: center;
+  gap: 12px;
+  color: #334155;
+  font-size: 13px;
+}
+
+.latest-order-row strong,
+.latest-order-row b {
+  color: #0f172a;
+  font-weight: 900;
+}
+
+.latest-order-row b {
+  text-align: right;
+}
+
+.latest-order-row__icon {
+  width: 32px;
+  height: 32px;
+  display: grid;
+  place-items: center;
+  border-radius: 8px;
+  background: #f3f7fb;
+  color: #64748b;
+}
+
+.status-badge {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 28px;
+  padding: 0 12px;
+  border-radius: 999px;
+  font-style: normal;
+  font-size: 12px;
+  font-weight: 800;
+  white-space: nowrap;
+}
+
+.status-badge--pending {
+  background: #fef3c7;
+  color: #d97706;
+}
+
+.status-badge--confirmed {
+  background: #dbeafe;
+  color: #2563eb;
+}
+
+.status-badge--shipping {
+  background: #ede9fe;
+  color: #7c3aed;
+}
+
+.status-badge--completed {
+  background: #d1fae5;
+  color: #059669;
+}
+
+.status-badge--cancelled {
+  background: #fee2e2;
+  color: #ef4444;
+}
+
+.top-product-list,
+.quick-stat-list {
+  display: grid;
+  gap: 14px;
+}
+
+.top-product-row {
+  display: grid;
+  grid-template-columns: 24px 50px minmax(0, 1fr);
+  align-items: center;
+  gap: 14px;
+}
+
+.top-product-row__rank {
+  color: #0f172a;
+  font-weight: 900;
+  text-align: center;
+}
+
+.product-thumb {
+  width: 50px;
+  height: 50px;
+  border-radius: 8px;
+  background:
+    linear-gradient(135deg, rgba(255, 255, 255, 0.16), rgba(0, 0, 0, 0.06)),
+    repeating-linear-gradient(45deg, #cfc8bc 0 8px, #aaa397 8px 12px);
+}
+
+.product-thumb--travertine {
+  background:
+    linear-gradient(135deg, rgba(255, 255, 255, 0.2), rgba(0, 0, 0, 0.04)),
+    repeating-linear-gradient(0deg, #ddd3c7 0 7px, #c7b9a8 7px 11px);
+}
+
+.product-thumb--stone {
+  background:
+    radial-gradient(circle at 30% 25%, #b6b3ad 0 3px, transparent 4px),
+    radial-gradient(circle at 70% 55%, #8c8984 0 4px, transparent 5px),
+    #9d9a94;
+}
+
+.top-product-row strong {
+  color: #0f172a;
+  font-size: 15px;
+}
+
+.top-product-row p {
+  margin: 6px 0 0;
+  color: #64748b;
+  font-size: 13px;
+  font-weight: 700;
+}
+
+.status-card__body {
+  display: grid;
+  grid-template-columns: 170px minmax(0, 1fr);
+  align-items: center;
+  gap: 20px;
+}
+
+.donut-chart {
+  width: 160px;
+  height: 160px;
+  border-radius: 50%;
+  background: conic-gradient(#f8b72b 0 25.6%, #3b82f6 25.6% 48%, #8b5cf6 48% 62.4%, #10b981 62.4% 96%, #ef4444 96% 100%);
+  position: relative;
+}
+
+.donut-chart::after {
+  content: '';
+  position: absolute;
+  inset: 42px;
+  border-radius: 50%;
+  background: #fff;
+}
+
+.status-legend {
+  display: grid;
+  gap: 12px;
+}
+
+.status-legend div {
+  display: grid;
+  grid-template-columns: 10px minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 10px;
+}
+
+.status-legend span {
+  width: 10px;
+  height: 10px;
+  border-radius: 3px;
+}
+
+.status-legend p,
+.status-legend strong {
+  margin: 0;
+  color: #475569;
+  font-size: 13px;
+  font-weight: 700;
+}
+
+.quick-stat-row {
+  display: grid;
+  grid-template-columns: 34px minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 14px;
+  padding-bottom: 14px;
+  border-bottom: 1px solid #e5e7eb;
+}
+
+.quick-stat-row:last-child {
+  padding-bottom: 0;
+  border-bottom: 0;
+}
+
+.quick-stat-row span {
+  width: 34px;
+  height: 34px;
+  display: grid;
+  place-items: center;
+  border-radius: 8px;
+}
+
+.quick-stat-row p {
+  margin: 0;
+  color: #334155;
+  font-weight: 700;
+}
+
+.quick-stat-row strong {
+  font-weight: 900;
+}
+
+.quick-stat-row--danger span {
+  background: #fee2e2;
+  color: #ef4444;
+}
+
+.quick-stat-row--danger strong {
+  color: #ef4444;
+}
+
+.quick-stat-row--success span {
+  background: #dcfce7;
+  color: #16a34a;
+}
+
+.quick-stat-row--success strong {
+  color: #16a34a;
+}
+
+.quick-stat-row--info span {
+  background: #e0f2fe;
+  color: #0ea5e9;
+}
+
+.quick-stat-row--info strong {
+  color: #2563eb;
+}
+
+.quick-stat-row--blue span {
+  background: #dbeafe;
+  color: #2563eb;
+}
+
+.quick-stat-row--blue strong {
+  color: #2563eb;
+}
+
+@media (max-width: 1280px) {
+  .kpi-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .dashboard-main-grid,
+  .dashboard-bottom-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .latest-order-row {
+    grid-template-columns: 34px 1fr 1fr 0.8fr auto 0.8fr;
+  }
+}
+
+@media (max-width: 1024px) {
+  .admin-shell {
+    padding-left: 0;
+  }
+
+  .workspace {
+    border-top-left-radius: 0;
+  }
+}
+
+@media (max-width: 768px) {
+  .workspace {
+    padding: 18px 14px 28px;
+  }
+
+  .topbar {
+    align-items: flex-start;
+    gap: 14px;
+  }
+
+  .session-panel {
+    width: 100%;
+    justify-content: flex-start;
+    flex-wrap: wrap;
+  }
+
+  .welcome-card {
+    align-items: flex-start;
+    flex-direction: column;
+    padding: 22px 18px;
+  }
+
+  .date-range {
+    width: 100%;
+    justify-content: center;
+  }
+
+  .kpi-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .latest-order-row {
+    grid-template-columns: 34px minmax(0, 1fr) auto;
+    padding-bottom: 14px;
+    border-bottom: 1px solid #e5e7eb;
+  }
+
+  .latest-order-row span:nth-child(3),
+  .latest-order-row span:nth-child(4),
+  .latest-order-row b {
+    grid-column: 2 / -1;
+    text-align: left;
+  }
+
+  .status-badge {
+    grid-column: 3;
+    grid-row: 1;
+  }
+
+  .status-card__body {
+    grid-template-columns: 1fr;
+    justify-items: center;
+  }
+
+  .status-legend {
+    width: 100%;
+  }
+
+  .admin-profile div:not(.admin-avatar) {
+    display: none;
+  }
+}
+
+@media (max-width: 480px) {
+  .dashboard-card {
+    padding: 18px 14px;
+  }
+
+  .welcome-card h1 {
+    font-size: 24px;
+  }
+
+  .kpi-card {
+    padding: 18px 14px;
+  }
+
+  .chart-wrap {
+    overflow-x: auto;
+  }
+
+  .chart-wrap svg {
+    width: 640px;
+  }
 }
 </style>
 

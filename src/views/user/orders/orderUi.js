@@ -32,7 +32,7 @@ export const ORDER_STATUS_META = {
     color: '#15803d',
   },
   cancelled: {
-    label: 'Đã huỷ',
+    label: 'Đã hủy',
     background: '#fee2e2',
     color: '#dc2626',
   },
@@ -66,13 +66,19 @@ export const PAYMENT_STATUS_META = {
   },
 }
 
+const PAYMENT_METHOD_LABELS = {
+  cod: 'Thanh toán khi nhận hàng',
+  bank_transfer: 'Chuyển khoản ngân hàng',
+  vnpay: 'Thanh toán qua VNPAY',
+}
+
 export function cleanText(value) {
   return String(value ?? '').trim()
 }
 
 export function formatCurrencyVnd(value) {
   const amount = Number(value)
-  if (!Number.isFinite(amount)) return 'Liên hệ'
+  if (!Number.isFinite(amount) || amount <= 0) return 'Liên hệ'
 
   return `${new Intl.NumberFormat('vi-VN', {
     maximumFractionDigits: 0,
@@ -98,19 +104,17 @@ export function formatDateTime(value) {
   const date = new Date(value)
   if (Number.isNaN(date.getTime())) return cleanText(value) || 'Chưa cập nhật'
 
-  const timeText = new Intl.DateTimeFormat('vi-VN', {
-    hour: '2-digit',
-    minute: '2-digit',
-    hour12: false,
-  }).format(date)
-
   const dateText = new Intl.DateTimeFormat('vi-VN', {
     day: '2-digit',
     month: '2-digit',
     year: 'numeric',
   }).format(date)
+  const hours24 = date.getHours()
+  const minutes = String(date.getMinutes()).padStart(2, '0')
+  const period = hours24 >= 12 ? 'PM' : 'AM'
+  const hours12 = hours24 % 12 || 12
 
-  return `${timeText} ${dateText}`
+  return `${dateText} ${String(hours12).padStart(2, '0')}:${minutes} ${period}`
 }
 
 export function getOrderStatusMeta(statusValue) {
@@ -118,7 +122,7 @@ export function getOrderStatusMeta(statusValue) {
 
   return (
     ORDER_STATUS_META[key] || {
-      label: cleanText(statusValue) || 'Đang cập nhật',
+      label: 'Đang cập nhật',
       background: '#e2e8f0',
       color: '#475569',
     }
@@ -130,7 +134,7 @@ export function getPaymentStatusMeta(statusValue) {
 
   return (
     PAYMENT_STATUS_META[key] || {
-      label: cleanText(statusValue) || 'Đang cập nhật',
+      label: 'Đang cập nhật',
       background: '#e2e8f0',
       color: '#475569',
     }
@@ -157,7 +161,12 @@ export function getOrderRecipientName(order, fallback = 'Nguyễn Văn A') {
 }
 
 export function getPaymentMethodLabel(order) {
-  return cleanText(order?.payment_method_label) || cleanText(order?.payment_method) || 'Chưa cập nhật'
+  const label = cleanText(order?.payment_method_label)
+  const method = cleanText(order?.payment_method).toLowerCase()
+
+  if (label && !PAYMENT_METHOD_LABELS[label.toLowerCase()]) return label
+
+  return PAYMENT_METHOD_LABELS[method] || PAYMENT_METHOD_LABELS[label.toLowerCase()] || 'Chưa cập nhật'
 }
 
 export function getOrderTotalLabel(order) {
