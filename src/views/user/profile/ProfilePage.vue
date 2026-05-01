@@ -248,6 +248,12 @@ const normalizedOrders = computed(() =>
     const paymentStatus = getPaymentStatusMeta(item?.payment_status)
     const itemCount = getOrderItemCount(item)
     const previewPricing = getOrderPreviewPricing(item)
+    const paymentMethod = cleanText(item?.payment_method).toLowerCase()
+    const paymentLabel = paymentMethod === 'vnpay'
+      ? `VNPAY • ${paymentStatus.label}`
+      : paymentMethod === 'cod'
+        ? `COD • ${paymentStatus.label}`
+        : paymentStatus.label
 
     return {
       ...item,
@@ -258,7 +264,7 @@ const normalizedOrders = computed(() =>
       totalLabel: getOrderTotalLabel(item),
       orderStatus,
       paymentStatus,
-      paymentLabel: paymentStatus.label,
+      paymentLabel,
       previewPricing,
     }
   }),
@@ -1603,7 +1609,8 @@ onMounted(loadProfile)
   font-size: 13px;
   font-weight: 800;
   text-align: center;
-  white-space: nowrap;
+  white-space: normal;
+  line-height: 1.35;
 }
 
 .profile-order-cell--action {

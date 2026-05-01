@@ -57,6 +57,25 @@ const subtotalAmount = computed(() => Number(order.value?.subtotal_amount || 0))
 const totalAmount = computed(() => Number(order.value?.total_amount || 0))
 const subtotalLabel = computed(() => formatMoneyOrContact(subtotalAmount.value))
 const totalLabel = computed(() => formatMoneyOrContact(totalAmount.value))
+const statusNotice = computed(() => {
+  const paymentMethod = cleanText(order.value?.payment_method).toLowerCase()
+  const orderStatusKey = cleanText(order.value?.status).toLowerCase()
+  const paymentStatusKey = cleanText(order.value?.payment_status).toLowerCase()
+
+  if (paymentMethod === 'vnpay' && paymentStatusKey === 'paid') {
+    return 'Giao dịch VNPAY đã thanh toán thành công. Đơn hàng của bạn đang được hệ thống tiếp nhận và xử lý.'
+  }
+
+  if (paymentMethod === 'vnpay' && (paymentStatusKey === 'failed' || orderStatusKey === 'cancelled')) {
+    return 'Thanh toán VNPAY không thành công hoặc đã bị hủy. Đơn hàng online này đã được hủy và sẽ không tiếp tục xử lý.'
+  }
+
+  if (paymentMethod === 'vnpay' && paymentStatusKey === 'pending') {
+    return 'Đơn hàng VNPAY đang chờ hoàn tất giao dịch. Vui lòng kiểm tra lại trạng thái thanh toán trước khi rời trang.'
+  }
+
+  return 'Nhân viên tư vấn sẽ liên hệ để xác nhận giá, phí vận chuyển và phương thức thanh toán phù hợp.'
+})
 
 const assuranceItems = [
   {
@@ -223,7 +242,7 @@ onMounted(loadOrderDetail)
 
           <div class="order-status-card__notice">
             <Info :size="18" />
-            <span>Nhân viên tư vấn sẽ liên hệ để xác nhận giá, phí vận chuyển và phương thức thanh toán phù hợp.</span>
+            <span>{{ statusNotice }}</span>
           </div>
         </section>
 
