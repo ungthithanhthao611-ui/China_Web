@@ -4,6 +4,7 @@ import { useRoute } from 'vue-router'
 import { ArrowLeft, MapPin, CalendarDays, Ruler, Building2, LayoutGrid } from 'lucide-vue-next'
 import { getProjectDetail } from '@/views/user/services/publicApi'
 import { uiState } from '@/shared/utils/uiState'
+import { buildDocumentTitle } from '@/shared/utils/pageTitle'
 import { useI18n } from 'vue-i18n'
 
 const { locale, t } = useI18n({ useScope: 'global' })
@@ -98,7 +99,7 @@ async function loadProject(slug) {
     if (project.value?.meta_title) {
       document.title = project.value.meta_title
     } else if (project.value?.title) {
-      document.title = `${project.value.title} ${t('user.home.companySuffix')}`
+      document.title = buildDocumentTitle(project.value.title, t('user.home.companySuffix'))
     }
 
     const desc = project.value?.meta_description || project.value?.summary || ''

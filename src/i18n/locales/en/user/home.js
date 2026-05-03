@@ -126,5 +126,5 @@ export default {
   highlight2Desc: 'Soft-stone portfolio is curated for visual consistency, durability, and real-world fit for local climate conditions.',
   highlight3Title: 'Fast Project Support',
   highlight3Desc: 'Quick response for pricing, sample suggestion, and solution recommendation matching project schedule.',
-  companySuffix: '| Thien Dong Viet Nam',
+  companySuffix: 'Thien Dong Viet Nam',
 }

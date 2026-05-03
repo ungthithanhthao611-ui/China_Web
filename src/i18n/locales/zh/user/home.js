@@ -126,5 +126,5 @@ export default {
   highlight2Desc: '软瓷系列经过精选，以确保视觉一致性、耐用性并符合当地气候条件的实际应用。',
   highlight3Title: '快速项目支持',
   highlight3Desc: '快速响应报价、样品建议和符合项目进度的解决方案建议。',
-  companySuffix: '| 越南天同',
+  companySuffix: '越南天同',
 }

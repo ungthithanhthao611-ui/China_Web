@@ -3,6 +3,7 @@ import { computed, onMounted, ref, watch } from 'vue'
 import { useI18n } from 'vue-i18n'
 import { getProjects } from '@/views/user/services/publicApi'
 import { uiState } from '@/shared/utils/uiState'
+import { buildDocumentTitle } from '@/shared/utils/pageTitle'
 
 const projects = ref([])
 const loading = ref(true)
@@ -33,7 +34,7 @@ async function loadProjects() {
 watch(locale, loadProjects)
 
 onMounted(() => {
-  document.title = t('user.home.projects') + ' ' + t('user.home.companySuffix')
+  document.title = buildDocumentTitle(t('user.home.projects'), t('user.home.companySuffix'))
   uiState.isHeaderHidden = false
   uiState.isFooterHidden = false
   loadProjects()

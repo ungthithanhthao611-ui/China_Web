@@ -128,5 +128,5 @@ export default {
   highlight2Desc: 'Danh mục đá mềm được tuyển chọn để đảm bảo tính đồng nhất về mặt thẩm mỹ, độ bền và phù hợp thực tế với điều kiện khí hậu địa phương.',
   highlight3Title: 'Hỗ trợ dự án nhanh chóng',
   highlight3Desc: 'Phản hồi nhanh chóng về báo giá, đề xuất mẫu và gợi ý giải pháp phù hợp với tiến độ dự án.',
-  companySuffix: '| Thiên Đồng Việt Nam',
+  companySuffix: 'Thiên Đồng Việt Nam',
 }

@@ -18,6 +18,7 @@ import {
   Minus,
 } from 'lucide-vue-next'
 import { uiState } from '@/shared/utils/uiState'
+import { buildDocumentTitle } from '@/shared/utils/pageTitle'
 import { useI18n } from 'vue-i18n'
 import { useCartStore } from '@/views/user/stores/cart'
 import { useAuthStore } from '@/views/user/stores/auth'
@@ -304,7 +305,7 @@ async function fetchProduct() {
     activeMediaIndex.value = defaultMediaIndex.value
     relatedPage.value = 0
     if (data?.name) {
-      document.title = `${data.name} ${t('user.home.companySuffix')}`
+      document.title = buildDocumentTitle(data.name, t('user.home.companySuffix'))
     }
   } catch (err) {
     error.value = err.message || t('user.products.errorLoading')
