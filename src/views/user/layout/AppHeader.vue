@@ -1738,6 +1738,10 @@ onBeforeUnmount(() => {
   margin-left: 6px;
   padding-left: 8px;
   border-left: 1px solid rgba(214, 176, 116, 0.2);
+
+  @media (max-width: 1023px) {
+    display: none;
+  }
 }
 
 .header-action-btn {
