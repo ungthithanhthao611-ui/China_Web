@@ -992,6 +992,31 @@ export const ENTITY_MANAGER_CONFIGS = {
     },
     featuredTableFields: ['email', 'role', 'is_active'],
   },
+  admin_users: {
+    label: 'admin.entities.admin_users.label',
+    eyebrow: 'admin.entities.admin_users.eyebrow',
+    description: 'admin.entities.admin_users.description',
+    titleField: 'username',
+    editorPresentation: 'modal',
+    table: ['id', 'username', 'role', 'is_active', 'last_login_at', 'created_at'],
+    required: ['username'],
+    fields: ['username', 'role', 'password', 'is_active'],
+    fieldLabels: {
+      username: 'admin.entities.admin_users.fields.username',
+      role: 'admin.entities.admin_users.fields.role',
+      password: 'admin.entities.admin_users.fields.password',
+      is_active: 'admin.entities.admin_users.fields.is_active',
+      last_login_at: 'admin.entities.admin_users.fields.last_login_at',
+      created_at: 'admin.entities.admin_users.fields.created_at',
+    },
+    selectOptions: {
+      role: [
+        { value: 'admin', label: 'Admin' },
+        { value: 'superadmin', label: 'Super Admin' },
+      ],
+    },
+  },
+
   orders: {
     label: 'admin.entities.orders.label',
     editLabel: 'admin.entities.orders.edit_label',
@@ -1070,14 +1095,16 @@ export const ENTITY_MANAGER_CONFIGS = {
 
 export const ADMIN_SECTION_GROUPS = [
   { title: 'admin.sidebar.overview', items: [{ key: 'dashboard', label: 'admin.sidebar.dashboard' }] },
+
   {
     title: 'admin.sidebar.system',
     items: [
       { key: 'navigation', label: 'admin.sidebar.navigation' },
       { key: 'site_settings', label: 'admin.sidebar.site_settings' },
       { key: 'banners', label: 'admin.sidebar.banners' },
-      { key: 'users', label: 'admin.sidebar.accounts' },
+      { key: 'admin_users', label: 'admin.sidebar.accounts' },
     ],
+
   },
   {
     title: 'admin.sidebar.about',

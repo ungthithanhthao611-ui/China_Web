@@ -24,7 +24,7 @@ export default {
   error: 'Lỗi',
   confirm_delete: 'Bạn có chắc chắn muốn xóa bản ghi này?',
   admin_profile: 'Hồ sơ quản trị',
-  brand_kicker: 'China',
+  brand_kicker: '',
   brand_name: 'Admin',
   notifications: 'Thông báo',
   module_unavailable: 'Mô-đun không khả dụng',

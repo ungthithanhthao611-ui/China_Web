@@ -3,14 +3,17 @@
 Date: 2026-04-22
 Owner: FE + BE team
 Status: Step 1 planning checklist created
+muc
 
 ## Scope and target
+
 - Add mapping from one Project to many Products (and one Product can belong to many Projects).
 - Support CMS admin CRUD for mapping.
 - Expose mapped products in public project detail API.
 - Render mapped products in FE project detail page.
 
 ## Suggested data contract (target)
+
 - New table/entity key: `project_product_items`
 - Core fields:
   - `project_id` (FK -> projects.id)
@@ -119,6 +122,7 @@ Status: Step 1 planning checklist created
 ---
 
 ## Definition of done (Step 1)
+
 - [ ] Admin can create/edit/delete project-product mappings.
 - [ ] Public project detail API returns `used_products` with stable order.
 - [ ] Project detail page displays mapped products and links to product detail.
@@ -126,6 +130,7 @@ Status: Step 1 planning checklist created
 - [ ] FE build passes (`npm run build`) after UI update.
 
 ## Execution order (recommended)
+
 1. BE model/schema/registry/admin error handling.
 2. BE public payload + tests.
 3. FE admin config + FE project detail render.

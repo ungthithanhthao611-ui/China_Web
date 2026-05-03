@@ -170,3 +170,33 @@ export function replaceNavigationMenuTree(menuId, token, items) {
     body: { items },
   })
 }
+
+export function getDashboardStats(token, params = {}) {
+  const query = new URLSearchParams()
+  if (params.start_date) query.append('start_date', params.start_date)
+  if (params.end_date) query.append('end_date', params.end_date)
+  
+  const queryString = query.toString() ? `?${query.toString()}` : ''
+  
+  return fetchJson(`/admin/dashboard/stats${queryString}`, {
+    headers: withAdminHeaders(token),
+  })
+}
+
+export function updateSiteSettings(token, payload) {
+  return fetchJson('/admin/site-settings', {
+    method: 'PUT',
+    headers: withAdminHeaders(token),
+    body: payload,
+  })
+}
+
+export function uploadImage(file, token) {
+  const formData = new FormData()
+  formData.append('file', file)
+  return fetchJson('/upload/image', {
+    method: 'POST',
+    headers: withAdminHeaders(token),
+    body: formData,
+  })
+}

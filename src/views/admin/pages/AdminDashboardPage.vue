@@ -35,6 +35,10 @@ import {
 import { useI18n } from 'vue-i18n'
 import { LOCALE_STORAGE_KEY } from '@/i18n'
 
+import RevenueChart from '@/admin/components/RevenueChart.vue'
+import SidebarHeader from '@/admin/components/SidebarHeader.vue'
+import AdminProfilePage from '@/admin/pages/AdminProfilePage.vue'
+import { getDashboardStats } from '@/admin/api/dashboard.api'
 import { ADMIN_TOKEN_STORAGE_KEY, ADMIN_USER_STORAGE_KEY } from '@/views/admin/shared/constants/auth'
 import { ADMIN_SECTION_GROUPS, ADMIN_SECTION_INDEX } from '@/views/admin/shared/config/entityConfigs'
 import { getCurrentAdminUser, listAdminEntityRecords, listNavigationMenus } from '@/views/admin/shared/api/adminApi.js'
@@ -50,9 +54,13 @@ import ProjectsManager from '@/views/admin/features/projects/pages/ProjectsManag
 
 import BannersManager from '@/views/admin/features/system/pages/BannersManager.vue'
 import SiteSettingsManager from '@/views/admin/features/system/pages/SiteSettingsManager.vue'
+import AdminSiteSettings from '@/admin/pages/AdminSiteSettings.vue'
 import MediaAssetsManager from '@/views/admin/features/system/pages/MediaAssetsManager.vue'
 import OrdersManager from '@/views/admin/features/system/pages/OrdersManager.vue'
 import UsersManager from '@/views/admin/features/system/pages/UsersManager.vue'
+import AdminUsersManager from '@/views/admin/features/system/pages/AdminUsersManager.vue'
+
+
 import HonorsManager from '@/views/admin/features/honors/pages/HonorsManager.vue'
 import CapabilitySettingsManager from '@/views/admin/features/honors/pages/CapabilitySettingsManager.vue'
 import NavigationMenusManager from '@/views/admin/features/navigation/pages/NavigationMenusManager.vue'
@@ -75,52 +83,70 @@ const sectionLabelOverrides = Object.fromEntries(
   adminSidebarGroups.flatMap((group) => group.items.map((item) => [item.key, item.label])),
 )
 
-const dashboardKpis = reactive([
-  { key: 'total_orders', value: '125', growth: '12.5%', tone: 'blue', icon: ShoppingBag },
-  { key: 'total_revenue', value: '58.450.000', growth: '18.7%', tone: 'success', icon: CircleDollarSign },
-  { key: 'products', value: '320', growth: '8.3%', tone: 'purple', icon: Package },
-  { key: 'customers', value: '476', growth: '10.2%', tone: 'orange', icon: Users },
-  { key: 'reviews', value: '89', growth: '15.9%', tone: 'info', icon: MessageSquare },
-])
+const dashboardKpis = ref([])
 
-const revenuePoints = [
-  { label: '24/04', value: 5.8 },
-  { label: '25/04', value: 8 },
-  { label: '26/04', value: 4.6 },
-  { label: '27/04', value: 6.8 },
-  { label: '28/04', value: 10.8 },
-  { label: '29/04', value: 7.2 },
-  { label: '30/04', value: 11 },
-]
+const latestOrders = ref([])
 
-const latestOrders = [
-  { code: 'DH2504300001', customer: 'Nguyễn Văn A', time: '10:30 AM', statusKey: 'pending', amount: '1.996.000đ' },
-  { code: 'DH2504300002', customer: 'Trần Thị B', time: '09:15 AM', statusKey: 'confirmed', amount: '950.000đ' },
-  { code: 'DH2504300003', customer: 'Lê Văn C', time: '08:45 AM', statusKey: 'shipping', amount: '2.450.000đ' },
-  { code: 'DH2504300004', customer: 'Phạm Thị D', time: '08:20 AM', statusKey: 'completed', amount: '780.000đ' },
-  { code: 'DH2504300005', customer: 'Hoàng Văn E', time: '07:50 AM', statusKey: 'cancelled', amount: '0đ' },
-]
+const topProducts = ref([])
 
-const topProducts = [
-  { name: 'Đá hoa cương 3D', sold: 120, type: 'granite' },
-  { name: 'Travertine', sold: 85, type: 'travertine' },
-  { name: 'Đá granite tự nhiên', sold: 68, type: 'stone' },
-]
+const orderStats = ref([])
 
-const orderStats = [
-  { key: 'pending', value: 25.6, color: '#f8b72b' },
-  { key: 'confirmed', value: 22.4, color: '#3b82f6' },
-  { key: 'shipping', value: 14.4, color: '#8b5cf6' },
-  { key: 'completed', value: 33.6, color: '#10b981' },
-  { key: 'cancelled', value: 4.0, color: '#ef4444' },
-]
+const quickStats = ref([])
 
-const quickStats = [
-  { key: 'out_of_stock', value: 12, tone: 'danger', icon: Box },
-  { key: 'new_customers', value: 24, tone: 'success', icon: Users },
-  { key: 'posts', value: 15, tone: 'info', icon: FileText },
-  { key: 'videos', value: 8, tone: 'blue', icon: Video },
-]
+const KPI_ICONS = {
+  total_orders: ShoppingBag,
+  total_revenue: CircleDollarSign,
+  products: Package,
+  customers: Users,
+  reviews: MessageSquare
+}
+
+const QUICK_STAT_ICONS = {
+  out_of_stock: Box,
+  new_customers: Users,
+  posts: FileText,
+  videos: Video
+}
+
+const STATUS_MAP = {
+  pending_confirmation: 'Chờ xác nhận',
+  confirmed: 'Đã xác nhận',
+  shipping: 'Đang giao',
+  completed: 'Hoàn thành',
+  cancelled: 'Đã hủy',
+  unpaid: 'Chưa thanh toán',
+  paid: 'Đã thanh toán',
+}
+
+const dashboardFilters = reactive({
+  range: '30d',
+  from: '',
+  to: '',
+})
+
+function syncDateRange() {
+  if (dashboardFilters.range === 'custom') return
+  const end = new Date()
+  const start = new Date()
+  
+  if (dashboardFilters.range === '1d') {
+    start.setDate(end.getDate())
+  } else if (dashboardFilters.range === '7d') {
+    start.setDate(end.getDate() - 6)
+  } else if (dashboardFilters.range === '30d') {
+    start.setDate(end.getDate() - 29)
+  }
+  
+  const offset = start.getTimezoneOffset()
+  dashboardFilters.from = new Date(start.getTime() - (offset * 60 * 1000)).toISOString().split('T')[0]
+  dashboardFilters.to = new Date(end.getTime() - (offset * 60 * 1000)).toISOString().split('T')[0]
+}
+
+syncDateRange()
+
+async function onDateFilterChange() {
+  syncDateRange()
+}
 
 function resolveSection(value) {
   const normalized = String(value || '').trim()
@@ -162,9 +188,9 @@ let dashboardSummaryRequestId = 0
 
 const isLangOpen = ref(false)
 const supportedLanguages = [
-  { code: 'vi', label: 'Tiếng Việt', flag: '🇻🇳' },
-  { code: 'en', label: 'English', flag: '🇺🇸' },
-  { code: 'zh', label: '中文', flag: '🇨🇳' },
+  { code: 'vi', label: 'Tiếng Việt', flag: 'VN' },
+  { code: 'en', label: 'English', flag: 'EN' },
+  { code: 'zh', label: '中文', flag: 'ZH' },
 ]
 
 function switchLanguage(code) {
@@ -177,6 +203,25 @@ function closeLangDropdown(event) {
   if (!isLangOpen.value) return
   if (!event.target.closest('.lang-switcher')) {
     isLangOpen.value = false
+  }
+}
+
+const isProfileOpen = ref(false)
+
+function closeProfileDropdown(event) {
+  if (!isProfileOpen.value) return
+  if (!event.target.closest('.admin-profile-wrapper')) {
+    isProfileOpen.value = false
+  }
+}
+
+const isDesktopSidebarCollapsed = ref(false)
+
+function toggleSidebar() {
+  if (window.innerWidth <= 1024) {
+    isSidebarOpen.value = true
+  } else {
+    isDesktopSidebarCollapsed.value = !isDesktopSidebarCollapsed.value
   }
 }
 
@@ -219,18 +264,17 @@ const userRole = computed(() => {
 const isUnsupportedSection = computed(() => false) 
 const unsupportedSectionMeta = computed(() => null)
 
-const revenuePolylinePoints = computed(() => {
-  const maxValue = 12
-  return revenuePoints
-    .map((point, index) => {
-      const x = 40 + index * 96
-      const y = 250 - (point.value / maxValue) * 210
-      return `${x},${y}`
-    })
-    .join(' ')
+const pieChartStyle = computed(() => {
+  if (!orderStats.value || orderStats.value.length === 0) return { background: '#e2e8f0' }
+  
+  let stops = []
+  let currentPct = 0
+  for (const item of orderStats.value) {
+    stops.push(`${item.color} ${currentPct}% ${currentPct + item.value}%`)
+    currentPct += item.value
+  }
+  return { background: `conic-gradient(${stops.join(', ')})` }
 })
-
-const revenueAreaPoints = computed(() => `40,250 ${revenuePolylinePoints.value} 616,250`)
 
 function setSuccess(message) {
   showToast('success', message)
@@ -273,6 +317,11 @@ function clearToast() {
   }
 }
 
+function handleProfileUpdated(profile) {
+  currentUser.value = profile
+  localStorage.setItem(ADMIN_USER_STORAGE_KEY, JSON.stringify(profile))
+}
+
 function closeSidebar() {
   isSidebarOpen.value = false
 }
@@ -309,6 +358,33 @@ function handleViewportChange() {
   }
 }
 
+async function loadDashboardStats() {
+  const normalizedToken = String(token.value || '').trim()
+  if (!normalizedToken) return
+
+  try {
+    const dashboardStats = await getDashboardStats(normalizedToken, {
+      start_date: dashboardFilters.from,
+      end_date: dashboardFilters.to,
+    })
+
+    if (!isDashboardAlive) return
+
+    if (dashboardStats) {
+      dashboardKpis.value = (dashboardStats.kpis || []).map(kpi => ({ ...kpi, icon: KPI_ICONS[kpi.key] || Box }))
+      latestOrders.value = dashboardStats.latestOrders || []
+      topProducts.value = dashboardStats.topProducts || []
+      orderStats.value = dashboardStats.orderStats || []
+      quickStats.value = (dashboardStats.quickStats || []).map(stat => ({ ...stat, icon: QUICK_STAT_ICONS[stat.key] || Box }))
+    }
+  } catch (err) {
+    console.error('[Dashboard Stats Error]', err)
+    if (isDashboardAlive) {
+      setError('Không thể tải dữ liệu dashboard. Vui lòng thử lại.')
+    }
+  }
+}
+
 async function loadDashboardSummary() {
   const normalizedToken = String(token.value || '').trim()
   const requestId = ++dashboardSummaryRequestId
@@ -342,6 +418,9 @@ async function loadDashboardSummary() {
     summary.honors = honors.pagination?.total || 0
     summary.products = products.pagination?.total || 0
     summary.media_assets = mediaAssets.pagination?.total || 0
+
+    // Gọi dashboard stats riêng để lỗi biểu đồ không ảnh hưởng phần admin core.
+    await loadDashboardStats()
   } catch (error) {
     if (!isDashboardAlive || requestId !== dashboardSummaryRequestId) {
       return
@@ -402,6 +481,15 @@ watch(activeSection, async (section) => {
 })
 
 watch(
+  () => [dashboardFilters.range, dashboardFilters.from, dashboardFilters.to],
+  async ([range, from, to]) => {
+    if (!token.value.trim() || activeSection.value !== 'dashboard') return
+    if (range === 'custom' && (!from || !to)) return
+    await loadDashboardStats()
+  },
+)
+
+watch(
   () => route.query.section,
   async (value) => {
     const rawSection = String(value || '').trim()
@@ -430,6 +518,7 @@ onMounted(async () => {
   uiState.isHeaderHovered = false
   window.addEventListener('resize', handleViewportChange)
   window.addEventListener('click', closeLangDropdown)
+  window.addEventListener('click', closeProfileDropdown)
 
   if (!token.value.trim()) {
     await router.replace({ name: 'AdminLogin' })
@@ -444,6 +533,7 @@ onBeforeUnmount(() => {
   dashboardSummaryRequestId += 1
   window.removeEventListener('resize', handleViewportChange)
   window.removeEventListener('click', closeLangDropdown)
+  window.removeEventListener('click', closeProfileDropdown)
   clearToast()
   uiState.isNavHidden = false
   uiState.isFooterHidden = false
@@ -452,20 +542,11 @@ onBeforeUnmount(() => {
 </script>
 
 <template>
-  <div class="admin-shell">
+  <div class="admin-shell" :class="{ 'sidebar-collapsed': isDesktopSidebarCollapsed }">
     <div v-if="isSidebarOpen" class="sidebar-backdrop" @click="closeSidebar" />
 
     <aside class="sidebar" :class="{ open: isSidebarOpen }">
-      <div class="brand-row">
-        <div>
-          <p class="brand-kicker">{{ $t('admin.common.brand_kicker') }}</p>
-          <h2>{{ $t('admin.common.brand_name') }}</h2>
-        </div>
-        <button class="sidebar-close" type="button" aria-label="Close sidebar" @click="closeSidebar">
-          ×
-        </button>
-      </div>
-
+      <SidebarHeader @close="closeSidebar" />
       <nav class="nav-groups" aria-label="Admin sections">
         <section v-for="group in ADMIN_SECTION_GROUPS" :key="group.title" class="nav-group">
           <p class="nav-group-title">{{ $t(group.title) }}</p>
@@ -499,7 +580,7 @@ onBeforeUnmount(() => {
     <main class="workspace">
       <header class="topbar">
         <div class="title-panel">
-          <button class="sidebar-toggle" type="button" aria-label="Open sidebar" @click="isSidebarOpen = true">
+          <button class="sidebar-toggle" type="button" aria-label="Toggle sidebar" @click="toggleSidebar">
             <Menu :size="22" />
           </button>
           <p class="breadcrumb-mini">{{ $t(currentBreadcrumb) }}</p>
@@ -538,15 +619,34 @@ onBeforeUnmount(() => {
             <Bell :size="21" />
             <span>3</span>
           </button>
-          <div class="admin-profile">
-            <div class="admin-avatar">
-              <UserCircle :size="26" />
-            </div>
-            <div>
-              <strong>{{ userLabel }}</strong>
-              <span>{{ userRole }}</span>
-            </div>
-            <ChevronDown :size="18" />
+          <div class="admin-profile-wrapper">
+            <button class="admin-profile" type="button" @click="isProfileOpen = !isProfileOpen">
+              <div class="admin-avatar">
+                <img v-if="currentUser?.avatar_url" :src="currentUser.avatar_url" :alt="userLabel" class="admin-avatar__image" />
+                <UserCircle v-else :size="26" />
+              </div>
+              <div>
+                <strong>{{ userLabel }}</strong>
+                <span>{{ userRole }}</span>
+              </div>
+              <ChevronDown :size="18" />
+            </button>
+            <transition name="dropdown">
+              <div v-if="isProfileOpen" class="profile-dropdown shadow-xl">
+                <button type="button" class="profile-item profile-info" @click="handleSectionChange('admin_profile'); isProfileOpen = false">
+
+                  <div class="profile-info-text">
+                    <strong>{{ userLabel }}</strong>
+                    <span>{{ currentUser?.email || 'Chưa cập nhật email' }}</span>
+                  </div>
+                </button>
+                <div class="dropdown-divider"></div>
+                <button type="button" class="profile-item logout-btn" @click="handleLogout">
+                  <LogOut :size="16" />
+                  <span>Đăng xuất</span>
+                </button>
+              </div>
+            </transition>
           </div>
         </div>
       </header>
@@ -563,11 +663,20 @@ onBeforeUnmount(() => {
             <h1>{{ $t('admin.dashboard.welcome_title') }}</h1>
             <p>{{ $t('admin.dashboard.welcome_subtitle') }}</p>
           </div>
-          <button class="date-range" type="button">
-            <CalendarDays :size="18" />
-            <span>30/04/2026 - 30/04/2026</span>
-            <ChevronDown :size="16" />
-          </button>
+          <div class="date-filter-group">
+            <select v-model="dashboardFilters.range" @change="onDateFilterChange" class="date-preset-select">
+              <option value="1d">Hôm nay</option>
+              <option value="7d">7 ngày</option>
+              <option value="30d">30 ngày</option>
+              <option value="custom">Chọn khoảng ngày</option>
+            </select>
+
+            <div v-if="dashboardFilters.range === 'custom'" class="custom-date-inputs">
+              <input v-model="dashboardFilters.from" type="date" class="date-input" />
+              <span>-</span>
+              <input v-model="dashboardFilters.to" type="date" class="date-input" />
+            </div>
+          </div>
         </div>
 
         <div class="kpi-grid">
@@ -578,7 +687,9 @@ onBeforeUnmount(() => {
             <div>
               <p>{{ $t(`admin.dashboard.${card.key}`) }}</p>
               <strong>{{ card.value }}</strong>
-              <span>↑ {{ card.growth }} {{ $t('admin.dashboard.growth_suffix') }}</span>
+              <span :style="{ color: card.growth.startsWith('-') ? '#ef4444' : '#10b981' }">
+                {{ card.growth.startsWith('-') ? '↓' : '↑' }} {{ card.growth.replace(/^[+-]/, '') }} {{ $t('admin.dashboard.growth_suffix') }}
+              </span>
             </div>
           </article>
         </div>
@@ -587,51 +698,9 @@ onBeforeUnmount(() => {
           <section class="dashboard-card chart-card">
             <div class="card-header">
               <h2>{{ $t('admin.dashboard.revenue_chart_title') }}</h2>
-              <div class="card-actions">
-                <button class="filter-btn" type="button">
-                  <span>{{ $t('admin.dashboard.last_7_days') }}</span>
-                  <ChevronDown :size="16" />
-                </button>
-              </div>
             </div>
             <div class="chart-wrap">
-              <svg viewBox="0 0 660 300" role="img" :aria-label="$t('admin.dashboard.revenue_chart_aria')">
-                <defs>
-                  <linearGradient id="revenue-fill" x1="0" x2="0" y1="0" y2="1">
-                    <stop offset="0%" stop-color="#3b82f6" stop-opacity="0.26" />
-                    <stop offset="100%" stop-color="#3b82f6" stop-opacity="0.04" />
-                  </linearGradient>
-                </defs>
-                <g class="chart-grid">
-                  <line v-for="tick in [40, 82, 124, 166, 208, 250]" :key="`h-${tick}`" x1="40" x2="616" :y1="tick" :y2="tick" />
-                  <line v-for="tick in [40, 136, 232, 328, 424, 520, 616]" :key="`v-${tick}`" :x1="tick" :x2="tick" y1="40" y2="250" />
-                </g>
-                <g class="chart-axis">
-                  <text x="7" y="254">0</text>
-                  <text x="2" y="212">2M</text>
-                  <text x="2" y="170">4M</text>
-                  <text x="2" y="128">6M</text>
-                  <text x="2" y="86">8M</text>
-                  <text x="-2" y="44">12M</text>
-                  <text v-for="(point, index) in revenuePoints" :key="point.label" :x="36 + index * 96" y="284">{{ point.label }}</text>
-                </g>
-                <polygon :points="revenueAreaPoints" fill="url(#revenue-fill)" />
-                <polyline :points="revenuePolylinePoints" fill="none" stroke="#3b82f6" stroke-width="3.5" stroke-linecap="round" stroke-linejoin="round" />
-                <circle
-                  v-for="(point, index) in revenuePoints"
-                  :key="`dot-${point.label}`"
-                  :cx="40 + index * 96"
-                  :cy="250 - (point.value / 12) * 210"
-                  r="5"
-                  fill="#3b82f6"
-                  stroke="#fff"
-                  stroke-width="2"
-                />
-                <g class="chart-legend">
-                  <rect x="300" y="18" width="18" height="10" rx="2" fill="#3b82f6" />
-                  <text x="326" y="27">{{ $t('admin.dashboard.revenue_unit') }}</text>
-                </g>
-              </svg>
+              <RevenueChart :token="token" :filters="dashboardFilters" />
             </div>
           </section>
 
@@ -643,7 +712,10 @@ onBeforeUnmount(() => {
               </button>
             </div>
             <div class="latest-order-list">
-              <article v-for="order in latestOrders" :key="order.code" class="latest-order-row">
+              <div v-if="!latestOrders.length" class="empty-state">
+                <p>Chưa có đơn hàng mới trong khoảng thời gian này</p>
+              </div>
+              <article v-else v-for="order in latestOrders" :key="order.code" class="latest-order-row">
                 <span class="latest-order-row__icon">
                   <ClipboardList :size="18" />
                 </span>
@@ -651,7 +723,7 @@ onBeforeUnmount(() => {
                 <span>{{ order.customer }}</span>
                 <span>{{ order.time }}</span>
                 <span class="status-badge" :class="`status-badge--${order.statusKey}`">
-                  {{ $t(`admin.dashboard.status.${order.statusKey}`) }}
+                  {{ STATUS_MAP[order.statusKey] || order.statusKey }}
                 </span>
                 <b>{{ order.amount }}</b>
               </article>
@@ -665,12 +737,23 @@ onBeforeUnmount(() => {
               <h2>{{ $t('admin.dashboard.top_selling_products') }}</h2>
             </div>
             <div class="top-product-list">
-              <article v-for="(product, idx) in topProducts" :key="product.name" class="top-product-row">
+              <div v-if="!topProducts.length" class="empty-state">
+                <p>Chưa có dữ liệu sản phẩm bán chạy trong khoảng thời gian này</p>
+              </div>
+              <article v-else v-for="(product, idx) in topProducts" :key="product.name" class="top-product-row">
                 <span class="top-product-row__rank">#{{ idx + 1 }}</span>
-                <div class="product-thumb" :class="`product-thumb--${product.type}`"></div>
-                <div>
-                  <strong>{{ product.name }}</strong>
-                  <p>{{ $t('admin.dashboard.sold_count', { count: product.sold }) }}</p>
+                <div class="product-thumb">
+                  <img v-if="product.image_url" :src="product.image_url" :alt="product.name" />
+                  <div v-else class="product-thumb-placeholder"><Package :size="16" stroke-width="1.5" /></div>
+                </div>
+                <div class="product-info-wrap">
+                  <div class="product-info-main">
+                    <strong>{{ product.name }}</strong>
+                    <p>{{ product.sold }} đã bán | Còn: {{ product.stock_quantity }}</p>
+                  </div>
+                  <div class="product-revenue">
+                    <strong>{{ product.revenue.toLocaleString('vi-VN') }}đ</strong>
+                  </div>
                 </div>
               </article>
             </div>
@@ -681,14 +764,19 @@ onBeforeUnmount(() => {
               <h2>{{ $t('admin.dashboard.orders_by_status') }}</h2>
             </div>
             <div class="status-card__body">
-              <div class="donut-chart"></div>
-              <div class="status-legend">
-                <div v-for="item in orderStats" :key="item.key">
-                  <span :style="{ background: item.color }"></span>
-                  <p>{{ $t(`admin.dashboard.status.${item.key}`) }}</p>
-                  <strong>{{ item.value }}%</strong>
-                </div>
+              <div v-if="!orderStats.length" class="empty-state">
+                <p>Chưa có đơn hàng trong khoảng thời gian này</p>
               </div>
+              <template v-else>
+                <div class="donut-chart" :style="pieChartStyle"></div>
+                <div class="status-legend">
+                  <div v-for="item in orderStats" :key="item.key">
+                    <span :style="{ background: item.color }"></span>
+                    <p>{{ STATUS_MAP[item.key] || item.key }}</p>
+                    <strong>{{ item.value }}% ({{ item.count }})</strong>
+                  </div>
+                </div>
+              </template>
             </div>
           </section>
 
@@ -708,6 +796,7 @@ onBeforeUnmount(() => {
           </section>
         </div>
       </section>
+
       <NavigationMenusManager
         v-else-if="activeSection === 'navigation'"
         ref="navigationManagerRef"
@@ -832,7 +921,6 @@ onBeforeUnmount(() => {
         @clear-notify="clearMessages"
       />
 
-
       <BannersManager
         v-else-if="activeSection === 'banners'"
         :token="token"
@@ -842,13 +930,30 @@ onBeforeUnmount(() => {
         @clear-notify="clearMessages"
       />
 
-      <SiteSettingsManager
+      <AdminSiteSettings
         v-else-if="activeSection === 'site_settings'"
         :token="token"
         :active="true"
         @notify-success="setSuccess"
         @notify-error="setError"
         @clear-notify="clearMessages"
+      />
+
+      <AdminUsersManager
+        v-else-if="activeSection === 'admin_users'"
+        :token="token"
+        :active="true"
+        @notify-success="setSuccess"
+        @notify-error="setError"
+        @clear-notify="clearMessages"
+      />
+
+      <AdminProfilePage
+        v-else-if="activeSection === 'admin_profile'"
+        :token="token"
+        @notify-success="setSuccess"
+        @notify-error="setError"
+        @profile-updated="handleProfileUpdated"
       />
 
       <UsersManager
@@ -871,12 +976,18 @@ onBeforeUnmount(() => {
     </main>
   </div>
 </template>
+
 <style scoped>
 .admin-shell {
   min-height: 100vh;
   padding-left: var(--admin-sidebar-width);
   width: 100%;
   overflow-x: clip;
+  transition: padding-left 0.3s ease;
+}
+
+.admin-shell.sidebar-collapsed {
+  padding-left: 0;
 }
 
 .sidebar {
@@ -891,6 +1002,11 @@ onBeforeUnmount(() => {
   background: #0f172a;
   border-right: 1px solid rgba(255, 255, 255, 0.05);
   z-index: 20;
+  transition: transform 0.3s ease;
+}
+
+.admin-shell.sidebar-collapsed .sidebar {
+  transform: translateX(-100%);
 }
 
 .sidebar::-webkit-scrollbar {
@@ -1598,11 +1714,25 @@ button:disabled {
   font-weight: 900;
 }
 
+.admin-profile-wrapper {
+  position: relative;
+}
+
 .admin-profile {
   display: flex;
   align-items: center;
   gap: 8px;
   color: #0f172a;
+  background: transparent;
+  border: none;
+  cursor: pointer;
+  padding: 4px;
+  border-radius: 12px;
+  transition: background 0.2s;
+}
+
+.admin-profile:hover {
+  background: rgba(0, 0, 0, 0.04);
 }
 
 .admin-avatar {
@@ -1613,6 +1743,14 @@ button:disabled {
   border-radius: 50%;
   background: #eef4fb;
   color: #64748b;
+  overflow: hidden;
+}
+
+.admin-avatar__image {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  display: block;
 }
 
 .admin-profile strong,
@@ -1631,6 +1769,84 @@ button:disabled {
   color: #64748b;
   font-size: 12px;
   font-weight: 700;
+}
+
+.profile-dropdown {
+  position: absolute;
+  top: calc(100% + 8px);
+  right: 0;
+  width: 220px;
+  background: #fff;
+  border-radius: 14px;
+  border: 1px solid rgba(0, 0, 0, 0.06);
+  z-index: 100;
+  padding: 8px;
+  transform-origin: top right;
+}
+
+.profile-info {
+  align-items: flex-start;
+  color: #0f172a;
+}
+
+.profile-info-text {
+  text-align: left;
+  min-width: 0;
+  width: 100%;
+}
+
+.profile-info strong {
+  display: block;
+  font-size: 14px;
+  font-weight: 800;
+  color: #0f172a;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.profile-info span {
+  display: block;
+  margin-top: 4px;
+  font-size: 12px;
+  color: #64748b;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.dropdown-divider {
+  height: 1px;
+  background: rgba(0, 0, 0, 0.06);
+  margin: 4px 0;
+}
+
+.profile-item {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  width: 100%;
+  padding: 10px 12px;
+  border: none;
+  background: transparent;
+  border-radius: 8px;
+  font-size: 14px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.2s;
+  text-align: left;
+}
+
+.profile-item.logout-btn {
+  color: #ef4444;
+}
+
+.profile-item.logout-btn:hover {
+  background: #fef2f2;
+}
+
+.profile-info:hover {
+  background: rgba(0, 0, 0, 0.04);
 }
 
 .dashboard-panel {
@@ -2246,7 +2462,246 @@ button:disabled {
     width: 640px;
   }
 }
+
+.date-filter-group {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.date-preset-select {
+  padding: 8px 12px;
+  border-radius: 8px;
+  border: 1px solid #e2e8f0;
+  background: #f8fafc;
+  color: #334155;
+  font-weight: 600;
+  outline: none;
+  cursor: pointer;
+}
+
+.custom-date-inputs {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.date-input {
+  padding: 8px;
+  border-radius: 8px;
+  border: 1px solid #e2e8f0;
+  outline: none;
+  font-family: inherit;
+}
+
+.product-thumb {
+  width: 48px;
+  height: 48px;
+  border-radius: 8px;
+  background: #f1f5f9;
+  overflow: hidden;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.product-thumb img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.product-thumb-placeholder {
+  color: #94a3b8;
+}
+
+.product-info-wrap {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  width: 100%;
+}
+
+.product-info-main p {
+  font-size: 13px;
+  color: #64748b;
+  margin-top: 4px;
+}
+
+.product-revenue strong {
+  color: #10b981;
+  font-size: 14px;
+}
+
+.empty-state {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 32px 0;
+  color: #94a3b8;
+  font-size: 14px;
+  text-align: center;
+}
+
+@media (max-width: 768px) {
+  .date-filter-group {
+    flex-direction: column;
+    align-items: flex-start;
+    width: 100%;
+  }
+
+  .date-preset-select {
+    width: 100%;
+  }
+
+  .custom-date-inputs {
+    width: 100%;
+    justify-content: space-between;
+  }
+}
+
+/* Profile Panel Styles */
+.profile-panel {
+  padding: 40px;
+  max-width: 900px;
+  margin: 0 auto;
+}
+
+.profile-header {
+  display: flex;
+  align-items: center;
+  gap: 32px;
+  margin-bottom: 40px;
+  padding-bottom: 32px;
+  border-bottom: 1px solid #e2e8f0;
+}
+
+.profile-avatar-large {
+  width: 120px;
+  height: 120px;
+  border-radius: 50%;
+  background: #f1f5f9;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: #64748b;
+  border: 4px solid #fff;
+  box-shadow: 0 4px 6px -1px rgb(0 0 0 / 0.1);
+}
+
+.profile-title-text h1 {
+  font-size: 32px;
+  font-weight: 700;
+  color: #1e293b;
+  margin-bottom: 4px;
+}
+
+.profile-title-text p {
+  color: #64748b;
+  font-size: 16px;
+  margin-bottom: 12px;
+}
+
+.role-badge {
+  display: inline-block;
+  padding: 4px 12px;
+  background: #3b82f6;
+  color: #fff;
+  border-radius: 20px;
+  font-size: 13px;
+  font-weight: 600;
+  text-transform: uppercase;
+}
+
+.profile-details-grid {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 24px;
+  margin-bottom: 48px;
+}
+
+.detail-item label {
+  display: block;
+  font-size: 13px;
+  font-weight: 600;
+  color: #94a3b8;
+  text-transform: uppercase;
+  margin-bottom: 8px;
+  letter-spacing: 0.025em;
+}
+
+.detail-item p {
+  font-size: 16px;
+  color: #334155;
+  font-weight: 500;
+  padding: 12px;
+  background: #f8fafc;
+  border-radius: 8px;
+  border: 1px solid #f1f5f9;
+}
+
+.profile-actions {
+  display: flex;
+  gap: 16px;
+}
+
+.btn-primary {
+  padding: 12px 24px;
+  background: #3b82f6;
+  color: #fff;
+  border: none;
+  border-radius: 10px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.btn-primary:hover {
+  background: #2563eb;
+  transform: translateY(-1px);
+}
+
+.btn-outline {
+  padding: 12px 24px;
+  background: #fff;
+  color: #64748b;
+  border: 1px solid #e2e8f0;
+  border-radius: 10px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.btn-outline:hover {
+  background: #f8fafc;
+  border-color: #cbd5e1;
+}
+
+.logout-btn-profile {
+  color: #ef4444;
+}
+
+.logout-btn-profile:hover {
+  background: #fef2f2;
+  border-color: #fee2e2;
+}
+
+@media (max-width: 768px) {
+  .profile-header {
+    flex-direction: column;
+    text-align: center;
+    gap: 20px;
+  }
+  .profile-details-grid {
+    grid-template-columns: 1fr;
+  }
+  .profile-actions {
+    flex-direction: column;
+  }
+}
 </style>
+
+
 
 
 
