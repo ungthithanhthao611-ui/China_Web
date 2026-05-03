@@ -1638,13 +1638,17 @@ onBeforeUnmount(() => {
   }
 
   .user-auth-actions {
-    border-left: none;
-    margin-left: 0;
-    padding-left: 0;
-  }
-  
-  .user-name {
     display: none;
+  }
+
+  .header_actions {
+    flex-shrink: 0;
+    overflow: visible;
+  }
+
+  .header-main__inner {
+    flex-wrap: nowrap;
+    overflow: hidden;
   }
 }
 
