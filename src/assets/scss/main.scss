@@ -16,12 +16,9 @@ body {
   min-height: 100vh;
 }
 
-// Global skeleton effect for better perceived speed
-.main-content:empty {
-  min-height: 80vh;
-  background: linear-gradient(90deg, #f9f9f9 25%, #efefef 50%, #f9f9f9 75%);
-  background-size: 200% 100%;
-  animation: shimmer 2s infinite linear;
+// Global background for better perceived speed
+.main-content {
+  min-height: 100vh;
 }
 
 a {

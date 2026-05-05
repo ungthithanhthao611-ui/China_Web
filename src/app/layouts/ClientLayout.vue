@@ -54,7 +54,6 @@ onBeforeUnmount(() => {
 
 <template>
   <div class="app-wrapper" :class="{ 'app-wrapper--admin-preview': isAdminPreviewMode }">
-    <GlobalLoading />
     <AppHeader v-if="!uiState.isNavHidden && !isAdminPreviewMode" />
 
     <main class="main-content">

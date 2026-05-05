@@ -311,7 +311,6 @@ defineExpose({ goToSlide })
       <span class="hero-scroll__arrow"></span>
     </button>
   </section>
-  <div v-else class="hero-banner-placeholder"></div>
 </template>
 
 <style scoped>
