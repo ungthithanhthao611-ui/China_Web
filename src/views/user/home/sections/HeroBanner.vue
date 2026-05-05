@@ -1,10 +1,11 @@
 <script setup>
-import { computed, nextTick, ref, watch } from 'vue'
+import { computed, nextTick, onMounted, ref, watch } from 'vue'
 import { Swiper, SwiperSlide } from 'swiper/vue'
 import { Autoplay, EffectFade } from 'swiper/modules'
 import { useI18n } from 'vue-i18n'
 
 import { useBootstrapStore } from '@/views/user/stores/bootstrap'
+import { getBanners } from '@/views/user/services/publicApi'
 import { env } from '@/shared/config/env'
 
 import 'swiper/css'
@@ -26,6 +27,8 @@ const modules = [Autoplay, EffectFade]
 const activeSlide = ref(0)
 const swiperRef = ref(null)
 const videoRefs = ref([])
+const fallbackApiBanners = ref([])
+const isFetchingFallbackBanners = ref(false)
 
 const defaultSlides = computed(() => [
   {
@@ -121,8 +124,32 @@ function clampBannerFocus(value) {
   return Math.min(100, Math.max(0, numeric))
 }
 
+async function fetchFallbackHeroBanners() {
+  if (isFetchingFallbackBanners.value || fallbackApiBanners.value.length || bootstrapStore.heroBanners?.length) {
+    return
+  }
+
+  isFetchingFallbackBanners.value = true
+
+  try {
+    const payload = await getBanners({ bannerType: 'hero' })
+    fallbackApiBanners.value = Array.isArray(payload) ? payload : payload?.items || []
+  } catch (error) {
+    if (import.meta.env.DEV) {
+      console.warn('[hero-banner] Failed to fetch hero banners fallback', error)
+    }
+  } finally {
+    isFetchingFallbackBanners.value = false
+  }
+}
+
+const sourceBanners = computed(() => {
+  const bootstrapBanners = bootstrapStore.heroBanners || []
+  return bootstrapBanners.length ? bootstrapBanners : fallbackApiBanners.value
+})
+
 const slides = computed(() => {
-  const banners = bootstrapStore.heroBanners || []
+  const banners = sourceBanners.value
 
   // Trả về mảng rỗng nếu chưa có dữ liệu từ DB để tránh hiện ảnh cũ
   if (!banners.length) {
@@ -218,6 +245,14 @@ const isExternalLink = (link) => /^https?:\/\//i.test(String(link || '').trim())
 const bannerLinkProps = (link) => (isExternalLink(link) ? { href: link, target: '_blank', rel: 'noreferrer noopener' } : { to: link })
 
 watch(
+  () => bootstrapStore.heroBanners,
+  (banners) => {
+    if (!banners?.length) fetchFallbackHeroBanners()
+  },
+  { immediate: true }
+)
+
+watch(
   slides,
   () => {
     if (activeSlide.value >= slides.value.length) {
@@ -227,6 +262,8 @@ watch(
   },
   { deep: true }
 )
+
+onMounted(fetchFallbackHeroBanners)
 
 defineExpose({ goToSlide })
 </script>
@@ -273,8 +310,9 @@ defineExpose({ goToSlide })
       </swiper-slide>
     </swiper>
 
-    <!-- Fallback background while DB is connecting -->
+    <!-- Fallback background while API is connecting -->
     <div v-else class="hero-media hero-media--placeholder">
+      <div class="hero-loading-copy">Đang tải banner...</div>
       <div class="overlay"></div>
       <div class="overlay overlay--grain"></div>
     </div>
@@ -344,6 +382,21 @@ defineExpose({ goToSlide })
 .hero-media video {
   object-fit: cover;
   transition: transform 7s linear, filter 0.5s ease;
+}
+
+.hero-loading-copy {
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  z-index: 3;
+  transform: translate(-50%, -50%);
+  padding: 10px 16px;
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.9);
+  color: #243044;
+  font-size: 14px;
+  font-weight: 700;
+  box-shadow: 0 14px 34px rgba(0, 0, 0, 0.18);
 }
 
 :deep(.swiper-slide-active) .hero-media img,
