@@ -34,14 +34,26 @@ ul {
 img {
   max-width: 100%;
   display: block;
-  background: linear-gradient(90deg, #f0f0f0 25%, #f8f8f8 50%, #f0f0f0 75%);
-  background-size: 200% 100%;
+}
+
+img.is-image-loading {
+  color: transparent;
+  background:
+    url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='220' height='40' viewBox='0 0 220 40'%3E%3Crect x='38' y='6' width='144' height='28' rx='14' fill='white' fill-opacity='.92'/%3E%3Ctext x='110' y='25' text-anchor='middle' font-family='Arial, sans-serif' font-size='13' font-weight='700' fill='%23374151'%3E%C4%90ang t%E1%BA%A3i %E1%BA%A3nh...%3C/text%3E%3C/svg%3E") center center / 220px 40px no-repeat,
+    linear-gradient(90deg, #f0f0f0 25%, #f8f8f8 50%, #f0f0f0 75%);
+  background-size: 220px 40px, 200% 100%;
   animation: shimmer 1.5s infinite linear;
 }
 
+img.is-image-loaded,
+img.is-image-error {
+  background: none;
+  animation: none;
+}
+
 @keyframes shimmer {
-  0% { background-position: 200% 0; }
-  100% { background-position: -200% 0; }
+  0% { background-position: center center, 200% 0; }
+  100% { background-position: center center, -200% 0; }
 }
 
 h1, h2, h3, h4, h5, h6 {

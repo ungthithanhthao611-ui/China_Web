@@ -3,6 +3,7 @@ import { createPinia } from 'pinia'
 import App from './App.vue'
 import router from './app/router'
 import i18n from './i18n'
+import { installImageLoading } from './shared/utils/imageLoading'
 import './assets/scss/main.scss'
 import './assets/css/style.css'
 
@@ -20,6 +21,7 @@ const app = createApp(App)
 app.use(createPinia())
 app.use(router)
 app.use(i18n)
+installImageLoading(app)
 
 app.mount('#app')
 
@@ -31,11 +33,3 @@ AOS.init({
   mirror: false,
   disable: 'mobile' // Tối ưu cho điện thoại
 })
-
-// Remove image shimmer when loaded
-document.addEventListener('load', (e) => {
-  if (e.target instanceof HTMLImageElement) {
-    e.target.style.background = 'none';
-    e.target.style.animation = 'none';
-  }
-}, true);
