@@ -9,6 +9,7 @@ import AdminLayout from '@/views/admin/layout/AdminLayout.vue'
 import ClientLayout from '@/app/layouts/ClientLayout.vue'
 import adminRoutes from '@/views/admin/routes/admin.routes'
 import clientRoutes from './client.routes'
+import { uiState } from '@/shared/utils/uiState'
 
 const routes = [
   {
@@ -49,6 +50,8 @@ const router = createRouter({
 })
 
 router.beforeEach((to) => {
+  uiState.loadingCount++
+  uiState.loadingProgress = 20
   const isAdminLogin = to.name === 'AdminLogin'
   const adminToken = getStoredAdminToken()
 
@@ -69,6 +72,10 @@ router.beforeEach((to) => {
   }
 
   return true
+})
+
+router.afterEach(() => {
+  uiState.loadingCount = Math.max(0, uiState.loadingCount - 1)
 })
 
 export default router

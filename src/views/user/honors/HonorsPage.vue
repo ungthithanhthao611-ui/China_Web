@@ -662,7 +662,7 @@ onBeforeUnmount(() => {
 
 
 
-    <div v-if="loading" class="loading-mask">{{ t('user.capability.loading') || t('user.home.loading') }}</div>
+    <!-- Removed local loading mask to allow immediate content visibility -->
   </main>
 </template>
 

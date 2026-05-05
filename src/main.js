@@ -31,3 +31,11 @@ AOS.init({
   mirror: false,
   disable: 'mobile' // Tối ưu cho điện thoại
 })
+
+// Remove image shimmer when loaded
+document.addEventListener('load', (e) => {
+  if (e.target instanceof HTMLImageElement) {
+    e.target.style.background = 'none';
+    e.target.style.animation = 'none';
+  }
+}, true);

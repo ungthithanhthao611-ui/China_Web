@@ -1,5 +1,6 @@
 import { env } from '@/shared/config/env'
 import { clearAdminSession } from '@/views/admin/shared/constants/auth'
+import { uiState } from '@/shared/utils/uiState'
 
 export class HttpError extends Error {
   constructor(message, { status = 0, statusText = '', url = '', body = null } = {}) {
@@ -85,6 +86,10 @@ export async function fetchJson(path, options = {}) {
     signal.addEventListener('abort', () => controller.abort(), { once: true })
   }
 
+  // Tăng bộ đếm loading để hiển thị thanh tiến trình
+  uiState.loadingCount++
+  uiState.loadingProgress = 30
+
   try {
     const response = await fetch(url, {
       method,
@@ -160,6 +165,9 @@ export async function fetchJson(path, options = {}) {
       url: url.toString(),
     })
   } finally {
+    // Giảm bộ đếm loading
+    uiState.loadingCount = Math.max(0, uiState.loadingCount - 1)
+    uiState.loadingProgress = 100
     window.clearTimeout(timeoutId)
   }
 }

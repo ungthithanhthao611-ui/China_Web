@@ -4,6 +4,7 @@ import { useRoute } from 'vue-router'
 
 import AppFooter from '@/views/user/layout/AppFooter.vue'
 import AppHeader from '@/views/user/layout/AppHeader.vue'
+import GlobalLoading from '@/shared/components/GlobalLoading.vue'
 import { useBootstrapStore } from '@/views/user/stores/bootstrap'
 import { NAVIGATION_MENUS_SYNC_KEY } from '@/shared/utils/navigationSync'
 import { uiState } from '@/shared/utils/uiState'
@@ -53,12 +54,13 @@ onBeforeUnmount(() => {
 
 <template>
   <div class="app-wrapper" :class="{ 'app-wrapper--admin-preview': isAdminPreviewMode }">
+    <GlobalLoading />
     <AppHeader v-if="!uiState.isNavHidden && !isAdminPreviewMode" />
 
     <main class="main-content">
       <router-view v-slot="{ Component }">
-        <transition name="fade" mode="out-in">
-          <component :is="Component" />
+        <transition name="fade">
+          <component :is="Component" :key="route.fullPath" />
         </transition>
       </router-view>
     </main>
@@ -84,7 +86,7 @@ onBeforeUnmount(() => {
 
 .fade-enter-active,
 .fade-leave-active {
-  transition: opacity 0.3s ease;
+  transition: opacity 0.15s ease;
 }
 
 .fade-enter-from,

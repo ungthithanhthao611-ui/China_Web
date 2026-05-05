@@ -542,16 +542,16 @@ onBeforeUnmount(() => {
                     </component>
 
                     <div v-if="child.children?.length" class="colum3">
-                      <component
-                        v-for="grandChild in child.children"
-                        :key="`${grandChild.path || ''}-${grandChild.name}`"
-                        :is="grandChild.external ? 'a' : 'router-link'"
-                        v-bind="getLinkProps(grandChild)"
-                        class="dropdown-link dropdown-link--product-child"
-                      >
-                        <span class="dropdown-link__branch" aria-hidden="true" />
-                        <span class="dropdown-link__text">{{ grandChild.name }}</span>
-                      </component>
+                        <component
+                          v-for="grandChild in child.children"
+                          :key="`${grandChild.path || ''}-${grandChild.name}`"
+                          :is="grandChild.external ? 'a' : 'router-link'"
+                          v-bind="getLinkProps(grandChild)"
+                          class="dropdown-link dropdown-link--product-child"
+                        >
+                          <span class="dropdown-link__branch" aria-hidden="true" />
+                          <span class="dropdown-link__text">{{ grandChild.name }}</span>
+                        </component>
                     </div>
                   </div>
                 </template>
