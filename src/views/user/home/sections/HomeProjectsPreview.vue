@@ -63,7 +63,21 @@ onMounted(loadProjects)
         <span class="sub-head">{{ t('user.home.projectSubtitle') }}</span>
       </header>
 
-      <div v-if="items.length" class="grid">
+      <div v-if="loading" class="grid">
+        <article v-for="index in 4" :key="`project-skeleton-${index}`" class="card card--skeleton" data-reveal-item>
+          <div class="card-inner">
+            <div class="visual skeleton-block"></div>
+            <div class="content">
+              <div class="skeleton-line skeleton-line--sm"></div>
+              <div class="skeleton-line"></div>
+              <div class="skeleton-line skeleton-line--md"></div>
+              <div class="skeleton-line skeleton-line--lg"></div>
+            </div>
+          </div>
+        </article>
+      </div>
+
+      <div v-else-if="items.length" class="grid">
         <article v-for="(item, index) in items" :key="item.id" class="card" data-reveal-item>
           <div class="card-inner">
             <router-link :to="`/projects/${item.slug}`" class="visual">
@@ -94,6 +108,10 @@ onMounted(loadProjects)
             </div>
           </div>
         </article>
+      </div>
+
+      <div v-else class="home-projects__empty" data-reveal-item>
+        <p>{{ t('user.home.aboutEmpty') }}</p>
       </div>
 
       <div class="foot-actions" data-reveal-item>
@@ -272,6 +290,43 @@ onMounted(loadProjects)
   transform: scale(1.05);
 }
 
+.card--skeleton:hover {
+  transform: none;
+  box-shadow: none;
+}
+
+.home-projects__empty {
+  min-height: 200px;
+  display: grid;
+  place-items: center;
+  text-align: center;
+  color: #64748b;
+}
+
+.skeleton-block,
+.skeleton-line {
+  background: linear-gradient(90deg, #f2f4f7 20%, #e7ecf3 50%, #f2f4f7 80%);
+  background-size: 220% 100%;
+  animation: projectShimmer 1.4s infinite;
+}
+
+.skeleton-line {
+  height: 12px;
+  border-radius: 999px;
+}
+
+.skeleton-line--sm {
+  width: 34%;
+}
+
+.skeleton-line--md {
+  width: 72%;
+}
+
+.skeleton-line--lg {
+  width: 88%;
+}
+
 .foot-actions {
   margin-top: 60px;
   text-align: center;
@@ -294,6 +349,16 @@ onMounted(loadProjects)
   background: #d0101f;
   transform: translateY(-2px);
   box-shadow: 0 15px 30px rgba(238, 19, 36, 0.3);
+}
+
+@keyframes projectShimmer {
+  from {
+    background-position: 200% 0;
+  }
+
+  to {
+    background-position: -200% 0;
+  }
 }
 
 @media (max-width: 1200px) {

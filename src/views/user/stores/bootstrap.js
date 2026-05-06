@@ -17,6 +17,7 @@ export const useBootstrapStore = defineStore('bootstrap', {
     rawBootstrap: null,
     initializedAt: null,
     menusRevision: 0,
+    hydratedFromCache: false,
     _inFlight: null,
   }),
 
@@ -29,6 +30,10 @@ export const useBootstrapStore = defineStore('bootstrap', {
 
     hasBootstrap(state) {
       return Boolean(state.rawBootstrap)
+    },
+
+    hasRenderableBootstrapShell(state) {
+      return Boolean(state.rawBootstrap || state.hydratedFromCache)
     },
   },
 
@@ -62,9 +67,12 @@ export const useBootstrapStore = defineStore('bootstrap', {
             this.settings = bootstrap.settings || []
             this.heroBanners = bootstrap.hero_banners || []
             this.rawBootstrap = bootstrap
+            this.hydratedFromCache = true
             // Vẫn để initialized = false để UI biết là đang nạp bản mới nhất trong nền
           }
-        } catch (e) {}
+        } catch (e) {
+          this.hydratedFromCache = false
+        }
       }
 
       // Chiến thuật: Nạp thẳng Bootstrap, bỏ qua Health Check để nhanh hơn 1s
@@ -78,6 +86,7 @@ export const useBootstrapStore = defineStore('bootstrap', {
           this.heroBanners = bootstrap.hero_banners || []
           this.rawBootstrap = bootstrap
           this.initialized = true
+          this.hydratedFromCache = false
           this.initializedAt = new Date().toISOString()
           this.menusRevision = latestMenusRevision || Date.now()
           
@@ -93,6 +102,7 @@ export const useBootstrapStore = defineStore('bootstrap', {
           console.warn('[bootstrap] Backend không kết nối được, dùng fallback data:', error?.message)
           this.error = error
           this.initialized = true  // cho phép FE render với fallbackNavItems / fallbackFooterGroups
+          this.hydratedFromCache = false
           this.menus = {}
           this.settings = []
           this.heroBanners = []

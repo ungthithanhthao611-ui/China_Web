@@ -105,7 +105,21 @@ onMounted(loadProducts)
         <span class="sub-head">{{ t('user.home.productSubtitle') }}</span>
       </header>
 
-      <div v-if="items.length" class="grid">
+      <div v-if="loading" class="grid grid--skeleton">
+        <article v-for="index in 4" :key="`product-skeleton-${index}`" class="card card--skeleton" data-reveal-item>
+          <div class="visual skeleton-block"></div>
+          <div class="body">
+            <div class="skeleton-line skeleton-line--sm"></div>
+            <div class="skeleton-line"></div>
+            <div class="skeleton-line skeleton-line--md"></div>
+            <div class="meta">
+              <div class="skeleton-line skeleton-line--sm"></div>
+            </div>
+          </div>
+        </article>
+      </div>
+
+      <div v-else-if="items.length" class="grid">
         <article v-for="item in items" :key="item.id" class="card" data-reveal-item>
           <router-link :to="`/products/${item.slug}`" class="visual-link">
             <div class="visual">
@@ -128,6 +142,10 @@ onMounted(loadProducts)
             </div>
           </div>
         </article>
+      </div>
+
+      <div v-else class="home-products__empty" data-reveal-item>
+        <p>{{ t('user.home.aboutEmpty') }}</p>
       </div>
 
       <div class="foot-actions" data-reveal-item>
@@ -197,6 +215,11 @@ onMounted(loadProducts)
 .card:hover {
   transform: translateY(-10px);
   box-shadow: 0 20px 40px rgba(0, 0, 0, 0.1);
+}
+
+.card--skeleton:hover {
+  transform: none;
+  box-shadow: 0 10px 30px rgba(0, 0, 0, 0.05);
 }
 
 .visual {
@@ -299,6 +322,34 @@ onMounted(loadProducts)
   gap: 12px;
 }
 
+.home-products__empty {
+  min-height: 180px;
+  display: grid;
+  place-items: center;
+  text-align: center;
+  color: #64748b;
+}
+
+.skeleton-block,
+.skeleton-line {
+  background: linear-gradient(90deg, #f2f4f7 20%, #e7ecf3 50%, #f2f4f7 80%);
+  background-size: 220% 100%;
+  animation: productShimmer 1.4s infinite;
+}
+
+.skeleton-line {
+  height: 12px;
+  border-radius: 999px;
+}
+
+.skeleton-line--sm {
+  width: 34%;
+}
+
+.skeleton-line--md {
+  width: 68%;
+}
+
 .foot-actions {
   margin-top: 64px;
   text-align: center;
@@ -321,6 +372,16 @@ onMounted(loadProducts)
   background: #d0101f;
   transform: translateY(-2px);
   box-shadow: 0 15px 30px rgba(238, 19, 36, 0.3);
+}
+
+@keyframes productShimmer {
+  from {
+    background-position: 200% 0;
+  }
+
+  to {
+    background-position: -200% 0;
+  }
 }
 
 @media (max-width: 1200px) {

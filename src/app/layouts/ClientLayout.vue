@@ -4,15 +4,14 @@ import { useRoute } from 'vue-router'
 
 import AppFooter from '@/views/user/layout/AppFooter.vue'
 import AppHeader from '@/views/user/layout/AppHeader.vue'
-import GlobalLoading from '@/shared/components/GlobalLoading.vue'
 import logoImage from '@/assets/logo-cty.png'
 import { useBootstrapStore } from '@/views/user/stores/bootstrap'
 import { NAVIGATION_MENUS_SYNC_KEY } from '@/shared/utils/navigationSync'
 import { uiState } from '@/shared/utils/uiState'
 import { useI18n } from 'vue-i18n'
 
-const MIN_SPLASH_MS = 900
-const MAX_SPLASH_MS = 10000
+const MIN_SPLASH_MS = 450
+const MAX_SPLASH_MS = 2500
 
 const { locale } = useI18n({ useScope: 'global' })
 const route = useRoute()
@@ -36,8 +35,7 @@ const readAdminPreviewMode = () => {
 
 const isAdminPreviewMode = computed(() => readAdminPreviewMode())
 const shouldShowSplash = computed(() => isSplashVisible.value && !isAdminPreviewMode.value)
-const isBootstrapReady = computed(() => bootstrapStore.initialized && !bootstrapStore.loading)
-const isInitialDataReady = computed(() => isBootstrapReady.value && !uiState.isLoading)
+const hasRenderableShell = computed(() => bootstrapStore.hasRenderableBootstrapShell || (bootstrapStore.initialized && !bootstrapStore.loading))
 
 function logBootstrapError(error) {
   if (import.meta.env.DEV) {
@@ -79,7 +77,7 @@ onBeforeUnmount(() => {
 })
 
 watch(
-  isInitialDataReady,
+  hasRenderableShell,
   (ready) => {
     if (ready) hideSplashWhenReady()
   },

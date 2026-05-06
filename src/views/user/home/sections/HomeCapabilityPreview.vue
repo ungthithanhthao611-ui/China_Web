@@ -204,7 +204,66 @@ onMounted(loadData)
 
 <template>
   <section class="home-capability" ref="rootRef">
-    <div class="stage capability-stage capability-stage--overview capability-stage--overview-refined home-reveal" :class="{ 'is-visible': isVisible }">
+    <div
+      v-if="loading"
+      class="stage capability-stage capability-stage--overview capability-stage--overview-refined home-reveal"
+      :class="{ 'is-visible': isVisible }"
+    >
+      <div class="capability-overview__media-shell" data-reveal-item>
+        <div class="capability-overview__media capability-overview__media--refined skeleton-block"></div>
+
+        <div class="capability-overview__thumb-grid">
+          <div
+            v-for="index in 3"
+            :key="`capability-thumb-${index}`"
+            class="capability-overview__thumb-card skeleton-block"
+          ></div>
+        </div>
+      </div>
+
+      <div class="capability-overview__content capability-overview__content--refined">
+        <header class="capability-heading capability-heading--overview-refined" data-reveal-item>
+          <div class="skeleton-line skeleton-line--eyebrow"></div>
+          <div class="skeleton-line skeleton-line--title"></div>
+          <div class="skeleton-line skeleton-line--body"></div>
+          <div class="skeleton-line skeleton-line--body skeleton-line--body-short"></div>
+        </header>
+
+        <div class="overview-highlights overview-highlights--refined" data-reveal-item>
+          <article
+            v-for="index in 3"
+            :key="`capability-highlight-${index}`"
+            class="overview-highlight overview-highlight--refined"
+          >
+            <div class="overview-highlight__icon overview-highlight__icon--refined skeleton-circle"></div>
+            <div class="overview-highlight__body">
+              <div class="skeleton-line skeleton-line--sm"></div>
+              <div class="skeleton-line skeleton-line--md"></div>
+            </div>
+          </article>
+        </div>
+
+        <div class="output-grid output-grid--light output-grid--overview-refined" data-reveal-item>
+          <div
+            v-for="index in 2"
+            :key="`capability-stat-${index}`"
+            class="output-card output-card--light output-card--overview-refined"
+          >
+            <div class="output-card__icon-badge skeleton-circle"></div>
+            <div class="output-card__content">
+              <div class="skeleton-line skeleton-line--md"></div>
+              <div class="skeleton-line skeleton-line--sm"></div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div
+      v-else
+      class="stage capability-stage capability-stage--overview capability-stage--overview-refined home-reveal"
+      :class="{ 'is-visible': isVisible }"
+    >
       <div class="capability-overview__media-shell" data-reveal-item>
         <div class="capability-overview__media capability-overview__media--refined">
           <img
@@ -631,6 +690,61 @@ onMounted(loadData)
 .capability-overview__footer-map span {
   font-size: 10px;
   font-weight: 800;
+}
+
+.skeleton-block,
+.skeleton-line,
+.skeleton-circle {
+  background: linear-gradient(90deg, #f2f4f7 20%, #e7ecf3 50%, #f2f4f7 80%);
+  background-size: 220% 100%;
+  animation: capabilityShimmer 1.4s infinite;
+}
+
+.skeleton-line {
+  height: 12px;
+  border-radius: 999px;
+}
+
+.skeleton-circle {
+  border-radius: 999px;
+}
+
+.skeleton-line--eyebrow {
+  width: 22%;
+  margin-bottom: 8px;
+}
+
+.skeleton-line--title {
+  width: 68%;
+  height: 24px;
+  margin-bottom: 10px;
+}
+
+.skeleton-line--body {
+  width: 100%;
+  margin-top: 8px;
+}
+
+.skeleton-line--body-short {
+  width: 78%;
+}
+
+.skeleton-line--sm {
+  width: 34%;
+}
+
+.skeleton-line--md {
+  width: 68%;
+}
+
+@keyframes capabilityShimmer {
+  from {
+    background-position: 200% 0;
+  }
+
+  to {
+    background-position: -200% 0;
+  }
 }
 
 @media (max-width: 1199px) {
