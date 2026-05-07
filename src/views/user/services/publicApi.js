@@ -108,6 +108,14 @@ export function getBanners({ bannerType, ...query } = {}) {
 }
 
 export function getPageDetail(slug, query = {}) {
+  const normalizedSlug = String(slug || '').trim().toLowerCase()
+
+  if (normalizedSlug === 'about') {
+    return fetchJson(`/public/pages/${slug}`, {
+      query: withLanguage(query),
+    })
+  }
+
   return fetchWithLanguageFallback(
     `/public/pages/${slug}`,
     (languageCode) => ({

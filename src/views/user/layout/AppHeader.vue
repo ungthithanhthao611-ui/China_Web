@@ -946,7 +946,7 @@ onBeforeUnmount(() => {
 }
 
 .header-main__inner {
-  min-height: 40px;
+  min-height: 64px;
   display: flex;
   align-items: center;
   justify-content: space-between;
@@ -955,7 +955,7 @@ onBeforeUnmount(() => {
 }
 
 .header.is-top .header-main__inner {
-  min-height: 48px;
+  min-height: 70px;
 }
 
 .brand-block {
@@ -971,8 +971,8 @@ onBeforeUnmount(() => {
   text-decoration: none;
 
   img {
-    width: 30px;
-    height: 30px;
+    width: 58px;
+    height: 58px;
     object-fit: contain;
     flex-shrink: 0;
     transition: all 0.3s ease;
@@ -980,8 +980,8 @@ onBeforeUnmount(() => {
 }
 
 .header.is-top .logo-link img {
-  width: 36px;
-  height: 36px;
+  width: 64px;
+  height: 64px;
 }
 
 .brand-copy {
@@ -1327,13 +1327,13 @@ onBeforeUnmount(() => {
 .mobile-logo {
   display: inline-flex;
   align-items: center;
-  gap: 12px;
+  gap: 16px;
   color: var(--header-text);
   text-decoration: none;
 
   img {
-    width: 52px;
-    height: 52px;
+    width: 62px;
+    height: 62px;
     object-fit: contain;
     flex-shrink: 0;
   }
@@ -1658,7 +1658,7 @@ onBeforeUnmount(() => {
   }
 
   .header-main__inner {
-    min-height: 72px;
+    min-height: 76px;
     gap: 12px;
   }
 
@@ -1668,11 +1668,11 @@ onBeforeUnmount(() => {
   }
 
   .logo-link {
-    gap: 10px;
+    gap: 12px;
 
     img {
-      width: 56px;
-      height: 56px;
+      width: 62px;
+      height: 62px;
     }
   }
 
@@ -1725,7 +1725,7 @@ onBeforeUnmount(() => {
   }
 
   .header-main__inner {
-    min-height: 66px;
+    min-height: 72px;
   }
 
   .topbar-link {
@@ -1737,8 +1737,8 @@ onBeforeUnmount(() => {
   }
 
   .logo-link img {
-    width: 52px;
-    height: 52px;
+    width: 56px;
+    height: 56px;
   }
 
   .brand-copy strong {

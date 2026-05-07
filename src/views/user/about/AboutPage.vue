@@ -7,6 +7,7 @@ import "swiper/css";
 import { Autoplay } from "swiper/modules";
 import { useAboutPage } from "./composables/useAboutPage";
 import { useI18n } from "vue-i18n";
+import { applyImageFallback, resolveImageWithFallback } from "@/views/user/utils/imageFallback";
 
 const route = useRoute();
 const router = useRouter();
@@ -84,11 +85,18 @@ const speechTitle = computed(() => getValidText(aboutView.value?.speechSectionTi
 const orgChartTitle = computed(() => getValidText(aboutView.value?.organizationChartSectionTitle || aboutView.value?.organizationChart?.title, t('user.about.orgChartTitle')));
 const videoButtonLabel = computed(() => getValidText(aboutView.value?.companyIntroduction?.videoButtonLabel, t('user.about.videoLabel')));
 const cultureTitle = computed(() => getValidText(aboutView.value?.cultureSection?.title || aboutView.value?.cultureBlocks?.[0]?.title, t('user.about.cultureTitle')));
-const cultureImage = computed(
-  () =>
-    aboutView.value?.cultureSection?.coverImage ||
-    "https://en.sinodecor.com/portal-local/ngc202304190002/cms/image/3f9cf9fc-c3f2-4cd5-a6e7-6c1f19a596b0.jpg",
+const cultureImage = computed(() =>
+  resolveImageWithFallback(
+    aboutView.value?.cultureSection?.coverImage,
+    introImage.value,
+    heroBannerImage.value,
+  ),
 );
+const shouldPrioritizeCultureImage = computed(() => {
+  const path = String(route.path || '').toLowerCase();
+  const hash = String(route.hash || '').toLowerCase();
+  return path.includes('/about/corporate-culture') || hash === '#page5';
+});
 const timelineTitle = computed(() => getValidText(aboutView.value?.timelineSectionTitle, t('user.about.timelineTitle')));
 const leadershipTitle = computed(() => getValidText(aboutView.value?.leadershipSectionTitle, t('user.about.leadershipTitle')));
 
@@ -103,6 +111,7 @@ const leadershipSwiper = ref(null);
 const introScroller = ref(null);
 const speechScroller = ref(null);
 const syncingRouteFromSection = ref(false);
+const isTimelineMobile = ref(false);
 
 const readPreviewLocation = () => {
   if (typeof window === 'undefined') {
@@ -340,7 +349,47 @@ const timelineSlides = computed(() =>
   })
 );
 
+const timelineBreakpoints = {
+  0: {
+    slidesPerView: 1.08,
+    spaceBetween: 16,
+  },
+  480: {
+    slidesPerView: 1.18,
+    spaceBetween: 18,
+  },
+  768: {
+    slidesPerView: 2,
+    spaceBetween: 36,
+  },
+  1025: {
+    slidesPerView: timelineSlides.value.length <= 2 ? 2 : 5,
+    spaceBetween: 80,
+  },
+};
+
 const timelineModules = [Autoplay];
+
+const updateTimelineViewport = () => {
+  if (typeof window === 'undefined') {
+    isTimelineMobile.value = false;
+    return;
+  }
+
+  isTimelineMobile.value = window.innerWidth <= 640;
+};
+
+const timelineAutoplay = computed(() => {
+  if (isTimelineMobile.value) {
+    return false;
+  }
+
+  return {
+    delay: 3200,
+    disableOnInteraction: false,
+    pauseOnMouseEnter: true,
+  };
+});
 
 const updateTimelineSwiperState = (instance) => {
   if (!instance) {
@@ -351,9 +400,23 @@ const updateTimelineSwiperState = (instance) => {
   timelineAtEnd.value = instance.isEnd;
 };
 
+const resetTimelineToStart = ({ restartAutoplay = false } = {}) => {
+  const instance = timelineSwiper.value;
+  if (!instance) {
+    return;
+  }
+
+  instance.slideTo(0, 0, false);
+  if (restartAutoplay && instance.autoplay && !isTimelineMobile.value) {
+    instance.autoplay.stop();
+    instance.autoplay.start();
+  }
+  updateTimelineSwiperState(instance);
+};
+
 const bindTimelineSwiper = (instance) => {
   timelineSwiper.value = instance;
-  updateTimelineSwiperState(instance);
+  resetTimelineToStart();
 };
 
 const slideTimeline = (direction) => {
@@ -498,6 +561,13 @@ watch(activeSection, (id) => {
   if (!visibleSections.value.includes(id)) {
     visibleSections.value.push(id);
   }
+
+  if (id === 'page6') {
+    nextTick(() => {
+      resetTimelineToStart({ restartAutoplay: true });
+    });
+  }
+
   syncActiveSectionToRoute(id);
 });
 // Chỉ phản ứng khi path thực sự đổi (ví dụ: user navigate trực tiếp bằng URL)
@@ -535,6 +605,9 @@ watch(aboutView, async (val) => {
 // watch(locale, refresh) — KHÔNG CẦN vì useAboutPage composable đã tự watch locale
 
 onMounted(async () => {
+  updateTimelineViewport();
+  window.addEventListener('resize', updateTimelineViewport, { passive: true });
+
   await nextTick();
   if (scrollContainer.value) {
     scrollContainer.value.addEventListener('scroll', handleContainerScroll, { passive: true });
@@ -545,6 +618,8 @@ onMounted(async () => {
 });
 
 onBeforeUnmount(() => {
+  window.removeEventListener('resize', updateTimelineViewport);
+
   if (scrollContainer.value) {
     scrollContainer.value.removeEventListener('scroll', handleContainerScroll);
     scrollContainer.value.removeEventListener('wheel', handleWheel);
@@ -708,7 +783,14 @@ onBeforeUnmount(() => {
 
           <div class="culture-layout">
             <div class="culture-image visual" data-reveal-item>
-              <img :src="cultureImage" alt="Corporate culture" />
+              <img
+                :src="cultureImage"
+                alt="Corporate culture"
+                :loading="shouldPrioritizeCultureImage ? 'eager' : 'lazy'"
+                :fetchpriority="shouldPrioritizeCultureImage ? 'high' : 'auto'"
+                decoding="async"
+                @error="applyImageFallback($event, introImage || heroBannerImage)"
+              />
             </div>
 
             <div class="culture-panel content" data-reveal-item>
@@ -767,14 +849,12 @@ onBeforeUnmount(() => {
               <Swiper
                 class="timeline-swiper"
                 :modules="timelineModules"
+                :initial-slide="0"
                 :slides-per-view="1"
                 :speed="700"
                 :space-between="30"
-                :autoplay="{ delay: 3200, disableOnInteraction: false, pauseOnMouseEnter: true }"
-                :breakpoints="{ 
-                  768: { slidesPerView: 2, spaceBetween: 50 },
-                  1025: { slidesPerView: timelineSlides.length <= 2 ? 2 : 5, spaceBetween: 80 } 
-                }"
+                :autoplay="timelineAutoplay"
+                :breakpoints="timelineBreakpoints"
                 :grab-cursor="true"
                 @swiper="bindTimelineSwiper"
                 @slideChange="updateTimelineSwiperState"
@@ -2034,6 +2114,34 @@ onBeforeUnmount(() => {
   transform: translateY(0);
 }
 
+.timeline-section {
+  position: relative;
+  isolation: isolate;
+  overflow: hidden;
+}
+
+.timeline-section::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  z-index: 0;
+  background-image:
+    linear-gradient(180deg, rgba(255, 255, 255, 0.96), rgba(255, 255, 255, 0.9)),
+    url('/images/nen_LSPhattrien.jpg');
+  background-position: center center;
+  background-repeat: no-repeat;
+  background-size: cover;
+  opacity: 0.98;
+  pointer-events: none;
+}
+
+.timeline-shell,
+.timeline-heading,
+.timeline-stage {
+  position: relative;
+  z-index: 1;
+}
+
 .timeline-swiper {
   height: 100%;
   overflow: visible;
@@ -2997,6 +3105,10 @@ onBeforeUnmount(() => {
     padding: 18px 48px 28px;
   }
 
+  .timeline-swiper :deep(.swiper-wrapper) {
+    justify-content: flex-start;
+  }
+
   .timeline-title i {
     font-size: 42px;
   }
@@ -3263,12 +3375,20 @@ onBeforeUnmount(() => {
   }
 
   .timeline-shell {
+    width: 100%;
+    max-width: 100%;
     padding-left: 0;
     padding-right: 0;
   }
 
+  .timeline-heading {
+    margin-bottom: 18px;
+    padding: 0 16px;
+  }
+
   .timeline-title {
     gap: 12px;
+    justify-content: center;
   }
 
   .timeline-title i {
@@ -3280,17 +3400,34 @@ onBeforeUnmount(() => {
   }
 
   .timeline-stage {
-    min-height: 520px;
-    padding-top: 18px;
+    position: relative;
+    min-height: auto;
+    padding-top: 12px;
+    display: flex;
+    flex-direction: column;
+    gap: 18px;
+    align-items: stretch;
   }
 
   .timeline-track {
-    padding: 12px 22px 22px;
+    order: 1;
+    width: 100%;
+    padding: 0 58px 14px;
+    overflow: hidden;
+  }
+
+  .timeline-swiper {
+    width: 100%;
+    overflow: visible;
+  }
+
+  .timeline-swiper :deep(.swiper-wrapper) {
+    justify-content: flex-start;
   }
 
   .timeline-swiper :deep(.swiper-slide) {
-    width: 244px;
-    height: 360px;
+    width: min(82vw, 296px);
+    height: auto;
   }
 
   .timeline-slide-inner {
@@ -3343,16 +3480,31 @@ onBeforeUnmount(() => {
   }
 
   .timeline-nav {
-    top: 212px;
-    width: 48px;
-    height: 48px;
+    position: absolute;
+    top: 190px;
+    z-index: 5;
+    width: 52px;
+    height: 52px;
+    margin-top: 0;
+    flex: 0 0 auto;
+    transform: translateY(-50%);
+
+    &.is-prev,
+    &.is-next {
+      background: rgba(215, 0, 15, 0.9);
+      backdrop-filter: blur(8px);
+    }
 
     &.is-prev {
-      left: 2px;
+      left: 4px;
+      margin-left: 0;
     }
 
     &.is-next {
-      right: 2px;
+      right: 4px;
+      margin-left: 0;
+      margin-right: 0;
+      margin-top: 0;
     }
 
     svg {
