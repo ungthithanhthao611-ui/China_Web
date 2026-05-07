@@ -401,7 +401,7 @@ async function loadHonors() {
         const rawDesc = b.subtitle || b.description || ''
         
         return {
-          title: rawTitle.toUpperCase() === 'NĂNG LỰC' ? t('user.capability.heroTitle') : rawTitle,
+          title: (rawTitle.toUpperCase() === 'NĂNG LỰC' || rawTitle === t('user.capability.heroTitle')) ? '' : rawTitle,
           description: rawDesc.includes('Hình ảnh nhà máy') ? t('user.capability.heroSubtitle') : rawDesc,
           background: resolveImageUrl(b.background_image_url),
           mobile_background: resolveImageUrl(b.mobile_background_image_url || b.background_image_url)
@@ -541,9 +541,18 @@ onBeforeUnmount(() => {
     <section
       id="page2b"
       class="capability-section capability-section--light capability-section--overview"
+      :class="{ 'is-active': activeSection === 'page2b' }"
     >
       <div class="stage capability-stage capability-stage--overview capability-stage--overview-refined">
-        <div class="capability-overview__media-shell">
+        <!-- Decorative "Flying" Boxes like Sinodecor -->
+        <div class="box_t reveal-box" aria-hidden="true">
+          <img :src="hero.accent || resolveImageUrl(overviewDisplayImage)" alt="" />
+        </div>
+        <div class="box_b reveal-box" aria-hidden="true">
+          <img :src="resolveImageUrl(overviewDisplayImage)" alt="" />
+        </div>
+
+        <div class="capability-overview__media-shell reveal-item reveal-item--left">
           <div class="capability-overview__media capability-overview__media--refined">
             <img
               v-if="overviewDisplayImage"
@@ -578,26 +587,9 @@ onBeforeUnmount(() => {
               </a>
             </div>
           </div>
-
-          <div v-if="overviewGalleryImages.length" class="capability-overview__thumb-grid">
-            <button
-              v-for="(item, index) in overviewGalleryImages"
-              :id="'factory-overview-thumb-' + (index + 1)"
-              :key="item.id || ((item.title || 'img') + '-' + index)"
-              type="button"
-              class="capability-overview__thumb-card"
-              :class="{ 'capability-overview__thumb-card--active': item.image_url === overviewDisplayImage }"
-              @click="activeOverviewImage = item.image_url"
-            >
-              <img
-                :src="item._preview_url || resolveImageUrl(item.image_url)"
-                :alt="item.title || (t('user.capability.factoryGallery') + ' ' + (index + 1))"
-              />
-            </button>
-          </div>
         </div>
 
-        <div class="capability-overview__content capability-overview__content--refined">
+        <div class="capability-overview__content capability-overview__content--refined reveal-item reveal-item--right">
           <header class="capability-heading capability-heading--dark-text capability-heading--overview-refined">
             <span class="eyebrow">{{ t('user.capability.eyebrow') }}</span>
             <span class="capability-heading__accent"></span>
@@ -617,7 +609,7 @@ onBeforeUnmount(() => {
               class="overview-highlight overview-highlight--refined"
             >
               <div class="overview-highlight__icon overview-highlight__icon--refined">
-                <component :is="item.icon" :size="22" />
+                <component :is="item.icon" :size="20" />
               </div>
               <div class="overview-highlight__body">
                 <span class="overview-highlight__label">{{ item.label }}</span>
@@ -626,22 +618,17 @@ onBeforeUnmount(() => {
             </article>
           </div>
 
-          <div class="output-grid output-grid--light output-grid--overview-refined">
+          <div class="output-grid-minimal">
             <div
               v-for="(metric, index) in overviewMetricCards"
               :key="metric.label + '-' + index"
-              class="output-card output-card--light output-card--overview-refined"
+              class="metric-item"
             >
-              <div class="output-card__icon-badge">
-                <component :is="metric.icon" :size="22" />
-              </div>
-              <div class="output-card__content">
-                <strong>
-                  {{ metric.value }}
-                  <small v-if="metric.unit">{{ metric.unit }}</small>
-                </strong>
-                <span>{{ metric.label }}</span>
-              </div>
+              <span class="metric-value">
+                {{ metric.value }}
+                <small v-if="metric.unit">{{ metric.unit }}</small>
+              </span>
+              <span class="metric-label">{{ metric.label }}</span>
             </div>
           </div>
         </div>
@@ -649,14 +636,18 @@ onBeforeUnmount(() => {
     </section>
     
     <HonorsQualificationList
+      id="page2"
       :items="factoryGallery"
       :image-resolver="resolveImageUrl"
+      :class="{ 'is-active': activeSection === 'page2' }"
     />
 
     <HonorsAwardsTabs
+      id="page3"
       :corporate-items="corporateItems"
       :project-items="projectItems"
       :image-resolver="resolveImageUrl"
+      :class="{ 'is-active': activeSection === 'page3' }"
     />
 
 
@@ -917,8 +908,8 @@ onBeforeUnmount(() => {
 }
 
 .capability-overview__thumb-card:hover {
-  transform: translateY(-2px);
-  box-shadow: 0 20px 40px rgba(15, 23, 42, 0.14);
+  /* transform: translateY(-2px); */
+  /* box-shadow: 0 20px 40px rgba(15, 23, 42, 0.14); */
 }
 
 .capability-overview__thumb-card img {
@@ -1618,6 +1609,91 @@ onBeforeUnmount(() => {
     box-shadow 0.25s ease;
 }
 
+/* ── Reveal Animations (Sinodecor Style) ── */
+.reveal-item {
+  opacity: 0;
+  transition: transform 1.2s cubic-bezier(0.22, 1, 0.36, 1), opacity 1.2s cubic-bezier(0.22, 1, 0.36, 1);
+  will-change: transform, opacity;
+}
+
+.reveal-item--left {
+  transform: translateX(-60px);
+}
+
+.reveal-item--right {
+  transform: translateX(60px);
+}
+
+.is-active .reveal-item {
+  opacity: 1;
+  transform: translate(0, 0);
+}
+
+/* Flying Boxes */
+.reveal-box {
+  position: absolute;
+  z-index: -1;
+  width: 320px;
+  height: 240px;
+  overflow: hidden;
+  border-radius: 20px;
+  opacity: 0;
+  transition: all 1.8s cubic-bezier(0.19, 1, 0.22, 1);
+  box-shadow: 0 40px 100px rgba(0,0,0,0.15);
+  pointer-events: none;
+}
+
+.box_t {
+  top: -80px;
+  right: -40px;
+  transform: translate(120px, -120px) rotate(8deg);
+}
+
+.box_b {
+  bottom: -60px;
+  left: -80px;
+  transform: translate(-120px, 120px) rotate(-8deg);
+}
+
+.box_t img, .box_b img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  filter: grayscale(0.2) contrast(1.1);
+  opacity: 0.6;
+}
+
+.is-active .box_t {
+  opacity: 0.4;
+  transform: translate(0, 0) rotate(5deg);
+}
+
+.is-active .box_b {
+  opacity: 0.4;
+  transform: translate(0, 0) rotate(-5deg);
+}
+
+/* Staggered Heading Reveal */
+.capability-heading h2,
+.capability-heading p,
+.overview-highlight {
+  opacity: 0;
+  transform: translateY(30px);
+  transition: all 1s cubic-bezier(0.22, 1, 0.36, 1);
+}
+
+.is-active .capability-heading h2 { opacity: 1; transform: translateY(0); transition-delay: 0.2s; }
+.is-active .capability-heading p { opacity: 1; transform: translateY(0); transition-delay: 0.4s; }
+.is-active .overview-highlight:nth-child(1) { opacity: 1; transform: translateY(0); transition-delay: 0.6s; }
+.is-active .overview-highlight:nth-child(2) { opacity: 1; transform: translateY(0); transition-delay: 0.7s; }
+.is-active .overview-highlight:nth-child(3) { opacity: 1; transform: translateY(0); transition-delay: 0.8s; }
+
+@media (max-width: 1024px) {
+  .reveal-box {
+    display: none;
+  }
+}
+
 .capability-form__footer button:hover:not(:disabled) {
   transform: translateY(-2px);
   box-shadow: 0 20px 34px rgba(114, 32, 17, 0.24);
@@ -1794,6 +1870,60 @@ onBeforeUnmount(() => {
   .certificate-filters button,
   .capability-form__footer button {
     width: 100%;
+  }
+}
+.output-grid-minimal {
+  display: flex;
+  gap: 48px;
+  margin-top: 40px;
+  padding-top: 32px;
+  border-top: 1px solid rgba(0, 0, 0, 0.05);
+}
+
+.metric-item {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.metric-value {
+  font-size: 32px;
+  font-weight: 800;
+  color: #111827;
+  line-height: 1.1;
+  display: flex;
+  align-items: baseline;
+  gap: 4px;
+}
+
+.metric-value small {
+  font-size: 14px;
+  font-weight: 600;
+  color: #6b7280;
+}
+
+.metric-label {
+  font-size: 12px;
+  font-weight: 700;
+  color: #ee1324;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+}
+
+.capability-overview__content--refined p {
+  font-size: 15px;
+  color: #4b5563;
+  line-height: 1.7;
+  margin-top: 16px;
+}
+
+@media (max-width: 768px) {
+  .output-grid-minimal {
+    gap: 32px;
+    flex-wrap: wrap;
+  }
+  .metric-value {
+    font-size: 24px;
   }
 }
 </style>

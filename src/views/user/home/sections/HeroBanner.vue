@@ -319,18 +319,8 @@ defineExpose({ goToSlide })
 
     <div class="hero-copy-shell">
       <div v-if="slides.length && currentSlide.hasCopy" class="hero-copy">
-        <p v-if="currentSlide.eyebrow" class="hero-copy__eyebrow">{{ currentSlide.eyebrow }}</p>
-        <div v-if="currentSlide.eyebrow" class="hero-copy__crest">
-          <span class="hero-copy__crest-line"></span>
-          <span>THIÊN ĐỒNG VIỆT NAM</span>
-        </div>
-        <h1 v-if="currentSlide.title">{{ currentSlide.title }}</h1>
+        <h1 class="hero-copy__brand">THIÊN ĐỒNG</h1>
         <p v-if="currentSlide.subtitle" class="hero-copy__subtitle">{{ currentSlide.subtitle }}</p>
-        <div v-if="currentSlide.title || currentSlide.subtitle" class="hero-copy__divider">
-          <span></span>
-          <span></span>
-          <span></span>
-        </div>
         <p v-if="currentSlide.body" class="hero-copy__body">{{ currentSlide.body }}</p>
         <component
           :is="isExternalLink(currentSlide.link) ? 'a' : 'router-link'"
@@ -343,11 +333,6 @@ defineExpose({ goToSlide })
       </div>
     </div>
 
-    <button class="hero-scroll" type="button" aria-label="Scroll to next section" @click="goToNextSection">
-      <span class="hero-scroll__dot"></span>
-      <span class="hero-scroll__line"></span>
-      <span class="hero-scroll__arrow"></span>
-    </button>
   </section>
 </template>
 
@@ -429,8 +414,9 @@ defineExpose({ goToSlide })
   inset: 0;
   z-index: 3;
   display: flex;
-  align-items: center;
-  padding: clamp(96px, 12vh, 140px) clamp(32px, 5.6vw, 108px) clamp(72px, 10vh, 110px);
+  align-items: flex-end;
+  justify-content: flex-start;
+  padding: clamp(96px, 12vh, 140px) clamp(40px, 6vw, 120px) clamp(80px, 12vh, 140px);
   pointer-events: none;
 }
 
@@ -450,72 +436,50 @@ defineExpose({ goToSlide })
 }
 
 .hero-copy__eyebrow {
-  color: rgba(255, 219, 179, 0.84);
-  font-size: 12px;
-  font-weight: 700;
+  color: rgba(255, 219, 179, 0.75);
+  font-size: 11px;
+  font-weight: 500;
 }
 
 .hero-copy__crest {
   display: inline-flex;
   align-items: center;
   gap: 14px;
-  color: rgba(232, 89, 101, 0.92);
-  font-size: 11px;
-  font-weight: 700;
-}
-
-.hero-copy__crest-line {
-  width: 86px;
-  height: 1px;
-  background: linear-gradient(90deg, rgba(225, 0, 18, 0), rgba(225, 0, 18, 0.95));
+  color: rgba(232, 89, 101, 0.82);
+  font-size: 10px;
+  font-weight: 500;
 }
 
 .hero-copy h1,
+.hero-copy__brand {
+  margin: 0;
+  font-size: clamp(28px, 3.5vw, 48px);
+  font-weight: 600;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: #fff;
+  text-shadow: 0 4px 12px rgba(0, 0, 0, 0.2);
+}
+
 .hero-copy__subtitle,
 .hero-copy__body {
   margin: 0;
 }
 
-.hero-copy h1 {
-  max-width: 12ch;
-  font-size: clamp(40px, 5vw, 76px);
-  line-height: 0.98;
-  letter-spacing: 0;
-  text-shadow: 0 14px 35px rgba(0, 0, 0, 0.35);
-}
-
 .hero-copy__subtitle {
-  max-width: 32ch;
-  color: rgba(246, 248, 252, 0.88);
-  font-size: clamp(18px, 1.7vw, 24px);
-  line-height: 1.35;
-}
-
-.hero-copy__divider {
-  display: inline-flex;
-  align-items: center;
-  gap: 8px;
-}
-
-.hero-copy__divider span:nth-child(1) {
-  width: 92px;
-  height: 1px;
-  background: rgba(255, 255, 255, 0.3);
-}
-
-.hero-copy__divider span:nth-child(2),
-.hero-copy__divider span:nth-child(3) {
-  width: 14px;
-  height: 14px;
-  border-radius: 999px;
-  border: 2px solid #e10012;
+  max-width: 48ch;
+  color: rgba(246, 248, 252, 0.8);
+  font-size: clamp(14px, 1.1vw, 17px);
+  font-weight: 400;
+  line-height: 1.5;
 }
 
 .hero-copy__body {
-  max-width: 52ch;
-  color: rgba(231, 237, 245, 0.8);
-  font-size: 15px;
-  line-height: 1.8;
+  max-width: 62ch;
+  color: rgba(231, 237, 245, 0.65);
+  font-size: 13px;
+  font-weight: 400;
+  line-height: 1.6;
 }
 
 .hero-copy__cta {
@@ -523,17 +487,17 @@ defineExpose({ goToSlide })
   align-items: center;
   justify-content: center;
   width: fit-content;
-  min-height: 48px;
-  padding: 0 22px;
+  min-height: 40px;
+  padding: 0 18px;
   border-radius: 999px;
-  background: rgba(225, 0, 18, 0.92);
+  background: rgba(225, 0, 18, 0.9);
   color: #fff7f7;
   text-decoration: none;
-  font-size: 13px;
-  font-weight: 700;
-  letter-spacing: 0.08em;
+  font-size: 12px;
+  font-weight: 500;
+  letter-spacing: 0.05em;
   text-transform: uppercase;
-  box-shadow: 0 16px 34px rgba(225, 0, 18, 0.24);
+  box-shadow: 0 12px 24px rgba(225, 0, 18, 0.2);
   transition: transform 0.25s ease, background-color 0.25s ease, box-shadow 0.25s ease;
 }
 

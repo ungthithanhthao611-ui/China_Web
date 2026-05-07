@@ -49,30 +49,17 @@ const swiperModules = [Autoplay, Pagination, EffectFade]
           <div class="shade"></div>
           <div class="hero-noise"></div>
 
-          <div class="content">
-            <div class="content__copy">
+            <div class="content__copy reveal-item">
               <div class="title-row">
-                <h1>{{ slide.title }}</h1>
-              </div>
-
-              <div class="line"></div>
-              <p>{{ slide.description }}</p>
-
-              <div class="hero-actions">
-                <button type="button" class="hero-btn hero-btn--primary" @click="emit('go-section', 'page2')">
-                  {{ t('user.capability.exploreFactory') || 'Khám phá nhà máy' }}
-                </button>
-                <button type="button" class="hero-btn hero-btn--ghost" @click="emit('go-section', 'page3')">
-                  {{ t('user.capability.viewCertificates') || 'Xem chứng nhận' }}
-                </button>
+                <h1 v-if="slide.title">{{ slide.title }}</h1>
+                <div class="line"></div>
               </div>
             </div>
-          </div>
         </div>
       </SwiperSlide>
     </Swiper>
 
-    <div class="hero-tabs">
+    <div class="hero-tabs reveal-item">
       <button type="button" @click="emit('go-section', 'page2')">{{ t('user.capability.factoryGallery') }}</button>
       <button type="button" @click="emit('go-section', 'page3')">{{ t('user.capability.techTitle') }}</button>
       <button type="button" @click="emit('go-section', 'page3')">{{ t('user.capability.honorsAwards') }}</button>
@@ -547,6 +534,31 @@ p {
   :deep(.swiper-pagination) {
     bottom: 170px !important;
   }
+}
+
+/* ── Hero Reveal Animations ── */
+.reveal-item {
+  animation: heroReveal 1.2s cubic-bezier(0.22, 1, 0.36, 1) forwards;
+  opacity: 0;
+}
+
+@keyframes heroReveal {
+  from {
+    opacity: 0;
+    transform: translateY(40px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.hero-tabs.reveal-item {
+  animation-delay: 0.4s;
+}
+
+.content__copy.reveal-item {
+  animation-delay: 0.2s;
 }
 </style>
 

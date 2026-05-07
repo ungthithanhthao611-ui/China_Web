@@ -21,7 +21,10 @@ const timelineTitleIcon = repoImg("bd97f2ca-79a8-43ee-8efa-5b6056d5b1c1.png");
 const timelineHoverBefore = repoImg("e012bd80-11a1-4e5c-b5fa-2eda75b67d66.png");
 const timelineHoverAfter = repoImg("dfc20891-e902-474e-8c93-c374b583041d.png");
 
-// ── Computed data ────────────────────────────────────────────────────────
+const getValidText = (val, fallback) => {
+  return (typeof val === 'string' && val.trim() !== '' && val.trim() !== '-') ? val : fallback;
+};
+
 const rawSectionMeta = computed(() => aboutView.value?.sectionMeta ?? []);
 const sectionMeta = computed(() => {
   return rawSectionMeta.value.map((item) => {
@@ -35,7 +38,7 @@ const sectionMeta = computed(() => {
       'page7': 'user.about.tabLeadership'
     };
     const key = keyMap[item.id];
-    return { ...item, title: key ? t(key) : item.title }
+    return { ...item, title: getValidText(item.title, key ? t(key) : item.title) }
   })
 });
 const aboutTabs = computed(() => aboutView.value?.aboutTabs ?? []);
@@ -51,7 +54,7 @@ const translatedTabs = computed(() => {
       'page7': 'user.about.tabLeadership'
     };
     const key = keyMap[tab.id];
-    return { ...tab, title: key ? t(key) : tab.title }
+    return { ...tab, title: getValidText(tab.title, key ? t(key) : tab.title) }
   })
 })
 const companyIntroduction = computed(() => {
@@ -66,12 +69,8 @@ const heroBannerImage = computed(() => aboutView.value?.hero?.coverImage || "");
 const introImage = computed(() => aboutView.value?.companyIntroduction?.coverImage ?? "");
 const introVideoUrl = computed(() => aboutView.value?.companyIntroduction?.videoUrl ?? "");
 const orgChartImage = computed(() => aboutView.value?.organizationChart?.chartImage ?? "");
-const heroHeadline = computed(() => {
-  return t('user.about.heroHeadline') || aboutView.value?.hero?.headline
-});
-const heroDescription = computed(() => {
-  return t('user.about.heroDescription') || aboutView.value?.hero?.description
-});
+const heroHeadline = computed(() => getValidText(aboutView.value?.hero?.headline, t('user.about.heroHeadline')));
+const heroDescription = computed(() => getValidText(aboutView.value?.hero?.description, t('user.about.heroDescription')));
 const speechSignTitle = computed(() => aboutView.value?.chairmanSpeech?.signTitle ?? "");
 const speechSignName = computed(() => aboutView.value?.chairmanSpeech?.signName ?? "");
 const speechVision = computed(() => {
@@ -80,35 +79,21 @@ const speechVision = computed(() => {
 const speechMission = computed(() => {
   return chairmanSpeech.value?.mission ?? ""
 });
-const introTitle = computed(() => {
-  return t('user.about.introTitle') || aboutView.value?.companyIntroduction?.title
-});
-const speechTitle = computed(() => {
-  return t('user.about.visionTitle') || aboutView.value?.chairmanSpeech?.title
-});
-const orgChartTitle = computed(() => {
-  return t('user.about.orgChartTitle') || aboutView.value?.organizationChart?.title
-});
-const videoButtonLabel = computed(
-  () => t('user.about.videoLabel') || aboutView.value?.companyIntroduction?.videoButtonLabel,
-);
-const cultureTitle = computed(() => {
-  return t('user.about.cultureTitle') || aboutView.value?.cultureSection?.title || aboutView.value?.cultureBlocks?.[0]?.title
-});
+const introTitle = computed(() => getValidText(aboutView.value?.introSectionTitle || aboutView.value?.companyIntroduction?.title, t('user.about.introTitle')));
+const speechTitle = computed(() => getValidText(aboutView.value?.speechSectionTitle || aboutView.value?.chairmanSpeech?.title, t('user.about.visionTitle')));
+const orgChartTitle = computed(() => getValidText(aboutView.value?.organizationChartSectionTitle || aboutView.value?.organizationChart?.title, t('user.about.orgChartTitle')));
+const videoButtonLabel = computed(() => getValidText(aboutView.value?.companyIntroduction?.videoButtonLabel, t('user.about.videoLabel')));
+const cultureTitle = computed(() => getValidText(aboutView.value?.cultureSection?.title || aboutView.value?.cultureBlocks?.[0]?.title, t('user.about.cultureTitle')));
 const cultureImage = computed(
   () =>
     aboutView.value?.cultureSection?.coverImage ||
     "https://en.sinodecor.com/portal-local/ngc202304190002/cms/image/3f9cf9fc-c3f2-4cd5-a6e7-6c1f19a596b0.jpg",
 );
-const timelineTitle = computed(() => {
-  return t('user.about.timelineTitle') || aboutView.value?.timelineSectionTitle
-});
-const leadershipTitle = computed(() => {
-  return t('user.about.leadershipTitle') || aboutView.value?.leadershipSectionTitle
-});
+const timelineTitle = computed(() => getValidText(aboutView.value?.timelineSectionTitle, t('user.about.timelineTitle')));
+const leadershipTitle = computed(() => getValidText(aboutView.value?.leadershipSectionTitle, t('user.about.leadershipTitle')));
 
 const activeSection = ref("page1");
-const visibleSections = ref(new Set(["page1"]));
+const visibleSections = ref(["page1"]);
 const videoOpen = ref(false);
 const chartOpen = ref(false);
 const timelineSwiper = ref(null);
@@ -159,7 +144,50 @@ const filteredSectionMeta = computed(() => {
   return sectionMeta.value.filter((item) => item.id === previewSectionId.value)
 })
 
-let observer;
+let observer = null;
+
+const setupObserver = () => {
+  if (observer) {
+    observer.disconnect();
+  }
+
+  observer = new IntersectionObserver(
+    (entries) => {
+      entries.forEach((entry) => {
+        if (entry.isIntersecting) {
+          if (!visibleSections.value.includes(entry.target.id)) {
+            visibleSections.value.push(entry.target.id);
+          }
+        }
+      });
+    },
+    {
+      root: scrollContainer.value,
+      threshold: 0.15,
+    }
+  );
+
+  const activeObserver = new IntersectionObserver(
+    (entries) => {
+      entries.forEach((entry) => {
+        if (entry.isIntersecting) {
+          if (activeSection.value !== entry.target.id) {
+            activeSection.value = entry.target.id;
+          }
+        }
+      });
+    },
+    {
+      root: scrollContainer.value,
+      threshold: 0.51,
+    }
+  );
+
+  document.querySelectorAll(".about-section").forEach((section) => {
+    observer.observe(section);
+    activeObserver.observe(section);
+  });
+};
 
 const normalizeText = (value) => String(value || '')
   .toLowerCase()
@@ -377,7 +405,7 @@ const getTargetSectionId = () => {
 
 const shouldRenderSection = (id) => !previewSectionId.value || previewSectionId.value === id;
 
-const isSectionVisible = (id) => visibleSections.value.has(id);
+const isSectionVisible = (id) => visibleSections.value.includes(id);
 
 const isTabActive = (id) => {
   if (id === "page2") {
@@ -387,14 +415,58 @@ const isTabActive = (id) => {
   return activeSection.value === id;
 };
 
+const isScrolling = ref(false);
+const isSyncingByClick = ref(false);
+const scrollContainer = ref(null);
+let scrollRafId = null;
+
+const handleContainerScroll = () => {
+  // Không làm gì cả vì IntersectionObserver đã đảm nhận việc update activeSection!
+};
+
 const scrollToSection = (id, smooth = true) => {
+  const container = scrollContainer.value;
   const element = document.getElementById(id);
-  if (!element) {
-    return;
+
+  if (!container || !element) return;
+
+  isSyncingByClick.value = true;
+  const top = element.offsetTop;
+  activeSection.value = id;
+  container.scrollTo({ top, behavior: smooth ? "smooth" : "auto" });
+
+  setTimeout(() => {
+    isSyncingByClick.value = false;
+  }, 800);
+};
+
+const handleWheel = (e) => {
+  if (window.innerWidth <= 992 || isScrolling.value || isSyncingByClick.value) return;
+  
+  const delta = e.deltaY;
+  if (Math.abs(delta) < 30) return;
+
+  const currentIndex = filteredSectionMeta.value.findIndex(s => s.id === activeSection.value);
+  
+  if (delta > 0) {
+    if (currentIndex < filteredSectionMeta.value.length - 1) {
+      e.preventDefault();
+      isScrolling.value = true;
+      const nextId = filteredSectionMeta.value[currentIndex + 1].id;
+      scrollToSection(nextId);
+    }
+  } else {
+    if (currentIndex > 0) {
+      e.preventDefault();
+      isScrolling.value = true;
+      const prevId = filteredSectionMeta.value[currentIndex - 1].id;
+      scrollToSection(prevId);
+    }
   }
 
-  activeSection.value = id;
-  element.scrollIntoView({ behavior: smooth ? "smooth" : "auto", block: "start" });
+  setTimeout(() => {
+    isScrolling.value = false;
+  }, 800);
 };
 
 const resetInnerScrollers = (id) => {
@@ -423,15 +495,14 @@ const syncActiveSectionToRoute = (id) => {
 
   if (syncTimeout) clearTimeout(syncTimeout);
   
-  syncTimeout = setTimeout(async () => {
+  syncTimeout = setTimeout(() => {
     syncingRouteFromSection.value = true;
-    try {
-      await router.replace({ path: matched.route, hash: matched.hash });
-      await nextTick();
-    } finally {
-      syncingRouteFromSection.value = false;
-    }
-  }, 300); // Tăng debounce để mượt hơn khi lướt nhanh
+    router.replace({ path: matched.route, hash: matched.hash }).finally(() => {
+      setTimeout(() => {
+        syncingRouteFromSection.value = false;
+      }, 100);
+    });
+  }, 300);
 };
 
 const syncRouteToScroll = async () => {
@@ -441,50 +512,18 @@ const syncRouteToScroll = async () => {
   scrollToSection(targetId, false);
 };
 
-const updateVisibleSections = (entries) => {
-  const nextSet = new Set(visibleSections.value);
-
-  entries.forEach((entry) => {
-    const id = entry.target.id;
-    if (entry.isIntersecting) {
-      nextSet.add(id);
-    }
-    // Không xóa ID khi không giao thoa nữa để hiệu ứng giữ nguyên sau khi xuất hiện
-  });
-
-  visibleSections.value = nextSet;
-
-  const bestEntry = entries
-    .filter((entry) => entry.isIntersecting)
-    .sort((left, right) => right.intersectionRatio - left.intersectionRatio)[0];
-
-  if (bestEntry && bestEntry.target && bestEntry.target.id) {
-    activeSection.value = bestEntry.target.id;
-  }
-};
-
-const setupObserver = () => {
-  observer?.disconnect();
-  observer = new IntersectionObserver(updateVisibleSections, {
-    threshold: 0.01, // Kích hoạt ngay khi bắt đầu thấy 1%
-    rootMargin: "0px"
-  });
-
-  filteredSectionMeta.value.forEach((section) => {
-    const element = document.getElementById(section.id);
-    if (element) {
-      observer.observe(element);
-    }
-  });
-};
+// Navigation active section sync
 
 watch(activeSection, (id) => {
+  if (!visibleSections.value.includes(id)) {
+    visibleSections.value.push(id);
+  }
   syncActiveSectionToRoute(id);
 });
 watch(
   () => route.fullPath,
   () => {
-    if (syncingRouteFromSection.value) {
+    if (syncingRouteFromSection.value || isSyncingByClick.value || isScrolling.value) {
       return;
     }
 
@@ -506,18 +545,28 @@ watch(locale, refresh);
 
 onMounted(async () => {
   await nextTick();
-  if (aboutView.value) {
-    setupObserver();
+  if (scrollContainer.value) {
+    scrollContainer.value.addEventListener('scroll', handleContainerScroll, { passive: true });
+    scrollContainer.value.addEventListener('wheel', handleWheel, { passive: false });
   }
+  setupObserver();
+  syncRouteToScroll();
 });
 
 onBeforeUnmount(() => {
-  observer?.disconnect();
+  if (scrollContainer.value) {
+    scrollContainer.value.removeEventListener('scroll', handleContainerScroll);
+    scrollContainer.value.removeEventListener('wheel', handleWheel);
+  }
+  if (observer) {
+    observer.disconnect();
+  }
+  if (scrollRafId) cancelAnimationFrame(scrollRafId);
 });
 </script>
 
 <template>
-  <div class="about-page">
+  <div class="about-page full-page-wrapper">
     <!-- Loading state -->
     <div v-if="loading" class="about-loading">
       <div class="about-loading-spinner" />
@@ -536,329 +585,429 @@ onBeforeUnmount(() => {
     </div>
 
     <!-- Main content -->
-    <template v-else>
-    <div v-if="!isSingleSectionPreview" class="about-dots">
-      <button
-        v-for="dot in filteredSectionMeta"
-        :key="dot.id"
-        :class="['about-dot', { active: activeSection === dot.id }]"
-        :aria-label="dot.title"
-        type="button"
-        @click="navigateToSection(dot)"
-      />
-    </div>
-
-    <section v-if="shouldRenderSection('page1')" id="page1" class="about-hero">
-      <img class="hero-image hero-image-pc" :src="heroBannerImage || '/images/banner/banner3.jpg'" alt="About us banner" />
-      <img class="hero-image hero-image-mobile" :src="heroBannerImage || '/images/banner/banner3.jpg'" alt="About us mobile banner" />
-      <div class="hero-overlay" />
-
-      <div :class="['hero-content', { 'is-visible': isSectionVisible('page1') }]">
-        <div class="hero-title-row">
-          <h1>{{ heroHeadline }}</h1>
-        </div>
-        <div class="hero-line" />
-        <p class="hero-description">
-          {{ heroDescription }}
-        </p>
-      </div>
-
-      <div class="hero-tabbar">
+    <div v-else ref="scrollContainer" class="scroll-container">
+      <div v-if="!isSingleSectionPreview" class="about-dots">
         <button
-          v-for="tab in translatedTabs"
-          :key="tab.id"
-          :class="['hero-tab', { active: isTabActive(tab.id) }]"
+          v-for="dot in filteredSectionMeta"
+          :key="dot.id"
+          :class="['about-dot', { active: activeSection === dot.id }]"
+          :aria-label="dot.title"
           type="button"
-          @click="navigateToSection(tab)"
-        >
-          {{ tab.title }}
-        </button>
+          @click="navigateToSection(dot)"
+        />
       </div>
-    </section>
 
-    <section v-if="shouldRenderSection('page2')" id="page2" :class="['about-section intro-section', { 'is-visible': isSectionVisible('page2') }]">
-      <div class="section-shell">
-        <div class="section-heading intro-heading">
-          <h2>{{ introTitle }}</h2>
-        </div>
+      <section v-if="shouldRenderSection('page1')" id="page1" class="about-hero section-full home-reveal" :class="{ 'is-visible': isSectionVisible('page1') }">
+        <img class="hero-image hero-image-pc" :src="heroBannerImage || '/images/banner/banner3.jpg'" alt="About us banner" />
+        <img class="hero-image hero-image-mobile" :src="heroBannerImage || '/images/banner/banner3.jpg'" alt="About us mobile banner" />
+        <div class="hero-overlay" />
 
-        <div class="intro-layout">
-          <div class="intro-visual animate-item slide-right">
-            <img class="intro-main" :src="introImage" alt="Company introduction" loading="lazy" />
-            <div class="intro-watermark" />
-            <div class="intro-bottom">
-              <button
-                class="video-trigger"
-                type="button"
-                :disabled="!introVideoUrl"
-                @click="introVideoUrl && (videoOpen = true)"
-              >
-                <span class="video-icon">
-                  <Play :size="16" fill="currentColor" />
-                </span>
-                <span>{{ videoButtonLabel }}</span>
-              </button>
-            </div>
+        <div class="hero-content" data-reveal-item>
+          <div class="hero-title-row">
+            <h1>{{ heroHeadline }}</h1>
           </div>
-
-          <div ref="introScroller" class="intro-copy intro-scroller animate-item slide-left delay-1">
-            <p v-for="paragraph in companyIntroduction" :key="paragraph">
-              {{ paragraph }}
-            </p>
-          </div>
-        </div>
-      </div>
-    </section>
-
-    <section v-if="shouldRenderSection('page3')" id="page3" :class="['about-section speech-section', { 'is-visible': isSectionVisible('page3') }]">
-      <div class="section-shell speech-shell">
-        <div class="speech-heading">
-          <p class="speech-title">
-            <span>{{ speechTitle }}</span>
+          <div class="hero-line" />
+          <p class="hero-description">
+            {{ heroDescription }}
           </p>
         </div>
 
-        <div class="split-layout reverse speech-layout">
-          <div class="speech-copy-panel animate-item slide-up">
-            <div ref="speechScroller" class="split-copy speech-scroller">
-              <article v-if="speechVision" class="speech-block">
-                <h3>{{ t('user.about.visionLabel') }}</h3>
-                <p>{{ speechVision }}</p>
-              </article>
-              <article v-if="speechMission" class="speech-block">
-                <h3>{{ t('user.about.missionLabel') }}</h3>
-                <p>{{ speechMission }}</p>
-              </article>
-              <div class="speech-signoff">
-                <div class="signature-block">
-                  <span>{{ speechSignTitle }}</span>
-                  <strong>{{ speechSignName }}</strong>
+        <div class="hero-tabbar">
+          <button
+            v-for="tab in translatedTabs"
+            :key="tab.id"
+            :class="['hero-tab', { active: isTabActive(tab.id) }]"
+            type="button"
+            @click="navigateToSection(tab)"
+          >
+            {{ tab.title }}
+          </button>
+        </div>
+      </section>
+
+      <section v-if="shouldRenderSection('page2')" id="page2" class="about-section intro-section section-full home-reveal" :class="{ 'is-visible': isSectionVisible('page2') }">
+        <div class="section-shell">
+          <div class="section-heading intro-heading" data-reveal-item>
+            <h2>{{ introTitle }}</h2>
+          </div>
+
+          <div class="intro-layout">
+            <div class="intro-visual visual" data-reveal-item>
+              <img class="intro-main" :src="introImage" alt="Company introduction" loading="lazy" />
+              <div class="intro-watermark" />
+              <div class="intro-bottom">
+                <button
+                  class="video-trigger"
+                  type="button"
+                  :disabled="!introVideoUrl"
+                  @click="introVideoUrl && (videoOpen = true)"
+                >
+                  <span class="video-icon">
+                    <Play :size="16" fill="currentColor" />
+                  </span>
+                  <span>{{ videoButtonLabel }}</span>
+                </button>
+              </div>
+            </div>
+
+            <div ref="introScroller" class="intro-copy content" data-reveal-item>
+              <p v-for="paragraph in companyIntroduction" :key="paragraph">
+                {{ paragraph }}
+              </p>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <section v-if="shouldRenderSection('page3')" id="page3" class="about-section speech-section section-full home-reveal" :class="{ 'is-visible': isSectionVisible('page3') }">
+        <div class="section-shell speech-shell">
+          <div class="speech-heading" data-reveal-item>
+            <p class="speech-title">
+              <span>{{ speechTitle }}</span>
+            </p>
+          </div>
+
+          <div class="split-layout reverse speech-layout">
+            <div class="speech-copy-panel content" data-reveal-item>
+              <div ref="speechScroller" class="split-copy speech-scroller">
+                <article v-if="speechVision" class="speech-block">
+                  <h3>{{ t('user.about.visionLabel') }}</h3>
+                  <p>{{ speechVision }}</p>
+                </article>
+                <article v-if="speechMission" class="speech-block">
+                  <h3>{{ t('user.about.missionLabel') }}</h3>
+                  <p>{{ speechMission }}</p>
+                </article>
+                <div class="speech-signoff">
+                  <div class="signature-block">
+                    <span>{{ speechSignTitle }}</span>
+                    <strong>{{ speechSignName }}</strong>
+                  </div>
                 </div>
               </div>
             </div>
-          </div>
 
-          <div class="split-media animate-item slide-right delay-1">
-            <img :src="speechPortrait" alt="Chairman's speech" loading="lazy" />
-          </div>
-        </div>
-      </div>
-    </section>
-
-    <section v-if="shouldRenderSection('page4')" id="page4" :class="['about-section chart-section', { 'is-visible': isSectionVisible('page4') }]">
-      <div class="section-shell chart-shell">
-        <div class="section-heading chart-heading">
-          <p class="chart-title">
-            <span>{{ orgChartTitle }}</span>
-          </p>
-        </div>
-
-        <button class="chart-card animate-item slide-up" type="button" @click="chartOpen = true">
-          <img :src="orgChartImage" alt="Organization chart" loading="lazy" />
-        </button>
-      </div>
-    </section>
-
-    <section v-if="shouldRenderSection('page5')" id="page5" :class="['about-section culture-section', { 'is-visible': isSectionVisible('page5') }]">
-      <div class="section-shell">
-        <div class="section-heading">
-          <span class="eyebrow">{{ heroHeadline }}</span>
-          <h2>{{ cultureTitle }}</h2>
-        </div>
-
-        <div class="culture-layout">
-          <div class="culture-image animate-item slide-right">
-            <img :src="cultureImage" alt="Corporate culture" loading="lazy" />
-          </div>
-
-          <div class="culture-panel animate-item slide-left delay-1">
-            <article
-              v-for="(block, blockIndex) in cultureBlocksForRender"
-              :key="`${block.title}-${blockIndex}`"
-              class="culture-card active"
-            >
-              <h3>{{ block.title }}</h3>
-              <ul v-if="block.items.length">
-                <li
-                  v-for="(item, itemIndex) in block.items"
-                  :key="`${block.title}-${item.label}-${itemIndex}`"
-                >
-                  <strong v-if="item.displayLabel">{{ item.displayLabel }}:</strong>
-                  <span>{{ cultureItemText(item) }}</span>
-                </li>
-              </ul>
-              <p v-else class="culture-empty">{{ t('user.about.cultureEmpty') }}</p>
-            </article>
+            <div class="split-media visual" data-reveal-item>
+              <img :src="speechPortrait" alt="Chairman's speech" loading="lazy" />
+            </div>
           </div>
         </div>
-      </div>
-    </section>
+      </section>
 
-    <section v-if="shouldRenderSection('page6')" id="page6" :class="['about-section timeline-section', { 'is-visible': isSectionVisible('page6') }]">
-      <div class="section-shell timeline-shell">
-        <div class="timeline-heading">
-          <p class="timeline-title">
-            <i>{{ timelineTitle }}</i>
-          </p>
-          <span class="timeline-heading-rule" />
-        </div>
+      <section v-if="shouldRenderSection('page4')" id="page4" class="about-section chart-section section-full home-reveal" :class="{ 'is-visible': isSectionVisible('page4') }">
+        <div class="section-shell chart-shell">
+          <div class="section-heading chart-heading" data-reveal-item>
+            <p class="chart-title">
+              <span>{{ orgChartTitle }}</span>
+            </p>
+          </div>
 
-        <div class="timeline-stage page6-con">
-          <button
-            type="button"
-            :class="['timeline-nav is-prev', { disabled: timelineAtStart }]"
-            aria-label="Previous slide"
-            :disabled="timelineAtStart"
-            @click="slideTimeline(-1)"
-          >
-            <ChevronLeft :size="24" />
+          <button class="chart-card visual" data-reveal-item type="button" @click="chartOpen = true">
+            <img :src="orgChartImage" alt="Organization chart" loading="lazy" />
           </button>
-          <button
-            type="button"
-            :class="['timeline-nav is-next', { disabled: timelineAtEnd }]"
-            aria-label="Next slide"
-            :disabled="timelineAtEnd"
-            @click="slideTimeline(1)"
-          >
-            <ChevronRight :size="24" />
-          </button>
+        </div>
+      </section>
 
-          <div class="timeline-track">
-            <Swiper
-              class="timeline-swiper"
-              :modules="timelineModules"
-              :slides-per-view="1"
-              :speed="700"
-              :space-between="30"
-              :autoplay="{ delay: 3200, disableOnInteraction: false, pauseOnMouseEnter: true }"
-              :breakpoints="{ 
-                768: { slidesPerView: 2, spaceBetween: 50 },
-                1025: { slidesPerView: timelineSlides.length <= 2 ? 2 : 5, spaceBetween: 80 } 
-              }"
-              :grab-cursor="true"
-              @swiper="bindTimelineSwiper"
-              @slideChange="updateTimelineSwiperState"
-              @transitionEnd="updateTimelineSwiperState"
-            >
-              <SwiperSlide
-                v-for="item in timelineSlides"
-                :key="`${item.year}-${item.month}-${item.title}`"
-                :class="['timeline-slide', item.type]"
+      <section v-if="shouldRenderSection('page5')" id="page5" class="about-section culture-section section-full home-reveal" :class="{ 'is-visible': isSectionVisible('page5') }">
+        <div class="section-shell">
+          <div class="section-heading" data-reveal-item>
+            <span class="eyebrow">{{ heroHeadline }}</span>
+            <h2>{{ cultureTitle }}</h2>
+          </div>
+
+          <div class="culture-layout">
+            <div class="culture-image visual" data-reveal-item>
+              <img :src="cultureImage" alt="Corporate culture" />
+            </div>
+
+            <div class="culture-panel content" data-reveal-item>
+              <article
+                v-for="(block, blockIndex) in cultureBlocksForRender"
+                :key="`${block.title}-${blockIndex}`"
+                class="culture-card active"
               >
-                <div class="timeline-slide-inner">
-                  <div class="slide-bg" />
-                  <div class="sw-image">
-                    <div class="bg-img">
-                      <template v-if="item.image">
-                        <div class="img_con">
-                          <img :src="item.image" :alt="item.title" class="h_pics" loading="lazy" />
-                        </div>
-                        <img :src="timelineHoverBefore" alt="" class="hover_before" />
-                        <img :src="timelineHoverAfter" alt="" class="hover_after" />
-                      </template>
-                      <div v-else class="bg-img-bg" />
-                    </div>
-
-                    <div class="sw-f">
-                       <p class="year">{{ item.displayYearLabel || item.year }}</p>
-                       <p v-if="item.displayMonthLabel" class="month">{{ item.displayMonthLabel }}</p>
-                    </div>
-
-                    <div class="sw-i">
-                      <p class="tit">{{ item.title }}</p>
-                    </div>
-                  </div>
-                </div>
-              </SwiperSlide>
-            </Swiper>
+                <h3>{{ block.title }}</h3>
+                <ul v-if="block.items.length">
+                  <li
+                    v-for="(item, itemIndex) in block.items"
+                    :key="`${block.title}-${item.label}-${itemIndex}`"
+                  >
+                    <strong v-if="item.displayLabel">{{ item.displayLabel }}:</strong>
+                    <span>{{ cultureItemText(item) }}</span>
+                  </li>
+                </ul>
+                <p v-else class="culture-empty">{{ t('user.about.cultureEmpty') }}</p>
+              </article>
+            </div>
           </div>
         </div>
-      </div>
-    </section>
+      </section>
 
-    <section v-if="shouldRenderSection('page7')" id="page7" :class="['about-section leadership-section', { 'is-visible': isSectionVisible('page7') }]">
-      <div class="section-shell leadership-shell">
-        <div class="leadership-heading">
-          <h2 class="leadership-title">
-            <span>{{ leadershipTitle }}</span>
-          </h2>
-        </div>
-
-        <div class="leadership-stage">
-          <div v-if="leadershipItems.length > 1" class="leadership-nav">
-            <button type="button" class="is-prev" @click="slideLeadership(-1)">
-              <ChevronLeft :size="34" />
-            </button>
-            <button type="button" class="is-next" @click="slideLeadership(1)">
-              <ChevronRight :size="34" />
-            </button>
+      <section v-if="shouldRenderSection('page6')" id="page6" class="about-section timeline-section section-full home-reveal" :class="{ 'is-visible': isSectionVisible('page6') }">
+        <div class="section-shell timeline-shell">
+          <div class="timeline-heading" data-reveal-item>
+            <p class="timeline-title">
+              <i>{{ timelineTitle }}</i>
+            </p>
+            <span class="timeline-heading-rule" />
           </div>
 
-          <div class="leadership-fade" />
-
-          <div class="leadership-carousel">
-            <Swiper
-              class="leadership-swiper"
-              :slides-per-view="1"
-              :space-between="0"
-              :speed="700"
-              :breakpoints="{
-                768: { slidesPerView: 'auto', spaceBetween: 50 },
-                1600: { slidesPerView: 'auto', spaceBetween: 100 }
-              }"
-              @swiper="bindLeadershipSwiper"
+          <div class="timeline-stage page6-con visual" data-reveal-item>
+            <button
+              type="button"
+              :class="['timeline-nav is-prev', { disabled: timelineAtStart }]"
+              aria-label="Previous slide"
+              :disabled="timelineAtStart"
+              @click="slideTimeline(-1)"
             >
-              <SwiperSlide v-for="item in leadershipItems" :key="`${item.name}-${item.role}-${item.image}`">
-                <article class="leadership-card">
-                  <div class="leadership-card-frame">
-                    <div class="leadership-photo">
-                      <img
-                        :src="item.image"
-                        alt="Leadership care"
-                        loading="lazy"
-                        :style="{
-                          objectFit: item.avatarFit || 'cover',
-                          objectPosition: `${item.avatarFocusX ?? 50}% ${item.avatarFocusY ?? 50}%`,
-                        }"
-                      />
+              <ChevronLeft :size="24" />
+            </button>
+            <button
+              type="button"
+              :class="['timeline-nav is-next', { disabled: timelineAtEnd }]"
+              aria-label="Next slide"
+              :disabled="timelineAtEnd"
+              @click="slideTimeline(1)"
+            >
+              <ChevronRight :size="24" />
+            </button>
+
+            <div class="timeline-track">
+              <Swiper
+                class="timeline-swiper"
+                :modules="timelineModules"
+                :slides-per-view="1"
+                :speed="700"
+                :space-between="30"
+                :autoplay="{ delay: 3200, disableOnInteraction: false, pauseOnMouseEnter: true }"
+                :breakpoints="{ 
+                  768: { slidesPerView: 2, spaceBetween: 50 },
+                  1025: { slidesPerView: timelineSlides.length <= 2 ? 2 : 5, spaceBetween: 80 } 
+                }"
+                :grab-cursor="true"
+                @swiper="bindTimelineSwiper"
+                @slideChange="updateTimelineSwiperState"
+                @transitionEnd="updateTimelineSwiperState"
+              >
+                <SwiperSlide
+                  v-for="item in timelineSlides"
+                  :key="`${item.year}-${item.month}-${item.title}`"
+                  :class="['timeline-slide', item.type]"
+                >
+                  <div class="timeline-slide-inner">
+                    <div class="slide-bg" />
+                    <div class="sw-image">
+                      <div class="bg-img">
+                        <template v-if="item.image">
+                          <div class="img_con">
+                            <img :src="item.image" :alt="item.title" class="h_pics" loading="lazy" />
+                          </div>
+                          <img :src="timelineHoverBefore" alt="" class="hover_before" />
+                          <img :src="timelineHoverAfter" alt="" class="hover_after" />
+                        </template>
+                        <div v-else class="bg-img-bg" />
+                      </div>
+
+                      <div class="sw-f">
+                         <p class="year">{{ item.displayYearLabel || item.year }}</p>
+                         <p v-if="item.displayMonthLabel" class="month">{{ item.displayMonthLabel }}</p>
+                      </div>
+
+                      <div class="sw-i">
+                        <p class="tit">{{ item.title }}</p>
+                      </div>
                     </div>
-                    <strong class="leadership-year">{{ item.role }}</strong>
                   </div>
-                  <p class="leadership-copy">{{ item.name }}</p>
-                </article>
-              </SwiperSlide>
-            </Swiper>
+                </SwiperSlide>
+              </Swiper>
+            </div>
           </div>
         </div>
+      </section>
+
+      <section v-if="shouldRenderSection('page7')" id="page7" class="about-section leadership-section section-full home-reveal" :class="{ 'is-visible': isSectionVisible('page7') }">
+        <div class="section-shell leadership-shell">
+          <div class="leadership-heading" data-reveal-item>
+            <h2 class="leadership-title">
+              <span>{{ leadershipTitle }}</span>
+            </h2>
+          </div>
+
+          <div class="leadership-stage visual" data-reveal-item>
+            <div v-if="leadershipItems.length > 1" class="leadership-nav">
+              <button type="button" class="is-prev" @click="slideLeadership(-1)">
+                <ChevronLeft :size="34" />
+              </button>
+              <button type="button" class="is-next" @click="slideLeadership(1)">
+                <ChevronRight :size="34" />
+              </button>
+            </div>
+
+            <div class="leadership-fade" />
+
+            <div class="leadership-carousel">
+              <Swiper
+                class="leadership-swiper"
+                :slides-per-view="1"
+                :space-between="0"
+                :speed="700"
+                :breakpoints="{
+                  768: { slidesPerView: 'auto', spaceBetween: 50 },
+                  1600: { slidesPerView: 'auto', spaceBetween: 100 }
+                }"
+                @swiper="bindLeadershipSwiper"
+              >
+                <SwiperSlide v-for="item in leadershipItems" :key="`${item.name}-${item.role}-${item.image}`">
+                  <article class="leadership-card">
+                    <div class="leadership-card-frame">
+                      <div class="leadership-photo">
+                        <img
+                          :src="item.image"
+                          alt="Leadership care"
+                          loading="lazy"
+                          :style="{
+                            objectFit: item.avatarFit || 'cover',
+                            objectPosition: `${item.avatarFocusX ?? 50}% ${item.avatarFocusY ?? 50}%`,
+                          }"
+                        />
+                      </div>
+                      <strong class="leadership-year">{{ item.role }}</strong>
+                    </div>
+                    <p class="leadership-copy">{{ item.name }}</p>
+                  </article>
+                </SwiperSlide>
+              </Swiper>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <div v-if="videoOpen && introVideoUrl" class="about-modal" @click.self="videoOpen = false">
+        <button class="close-button" type="button" @click="videoOpen = false">
+          <X :size="22" />
+        </button>
+        <video controls autoplay playsinline :src="introVideoUrl" />
       </div>
-    </section>
 
-
-    <div v-if="videoOpen && introVideoUrl" class="about-modal" @click.self="videoOpen = false">
-      <button class="close-button" type="button" @click="videoOpen = false">
-        <X :size="22" />
-      </button>
-      <video controls autoplay playsinline :src="introVideoUrl" />
+      <div v-if="chartOpen" class="about-modal light" @click.self="chartOpen = false">
+        <button class="close-button" type="button" @click="chartOpen = false">
+          <X :size="22" />
+        </button>
+        <img class="chart-modal-image" :src="orgChartImage" alt="Organization chart large" />
+      </div>
     </div>
-
-    <div v-if="chartOpen" class="about-modal light" @click.self="chartOpen = false">
-      <button class="close-button" type="button" @click="chartOpen = false">
-        <X :size="22" />
-      </button>
-      <img class="chart-modal-image" :src="orgChartImage" alt="Organization chart large" />
-    </div>
-    </template>
   </div>
 </template>
 
 <style lang="scss" scoped>
+.full-page-wrapper {
+  position: relative;
+  width: 100%;
+  height: 100svh;
+  overflow: hidden;
+
+  @media (max-width: 992px) {
+    height: auto;
+    overflow: visible;
+  }
+}
+
+.scroll-container {
+  width: 100%;
+  height: 100%;
+  overflow-y: auto;
+  scrollbar-width: none;
+  -ms-overflow-style: none;
+
+  &::-webkit-scrollbar {
+    display: none;
+  }
+
+  scroll-snap-type: y mandatory;
+  scroll-behavior: smooth;
+  scroll-snap-stop: always;
+
+  @media (max-width: 992px) {
+    height: auto;
+    overflow-y: visible;
+    scroll-snap-type: none;
+  }
+}
+
+.section-full {
+  width: 100%;
+  height: 100vh;
+  min-height: 100vh;
+  display: flex;
+  flex-direction: column;
+  scroll-snap-align: start;
+  scroll-snap-stop: always;
+
+  @media (max-width: 992px) {
+    min-height: auto;
+  }
+}
+
+/* Home Reveal Logic Sync */
+.home-reveal {
+  opacity: 1; /* Section parent is visible */
+}
+
+.home-reveal .content[data-reveal-item],
+.home-reveal .hero-content[data-reveal-item] {
+  opacity: 0;
+  transform: translate(-80px, 60px) scale(0.98);
+  transition: all 2.2s cubic-bezier(0.1, 1, 0.2, 1);
+}
+
+.home-reveal.is-visible .content[data-reveal-item],
+.home-reveal.is-visible .hero-content[data-reveal-item] {
+  opacity: 1;
+  transform: translate(0, 0) scale(1);
+}
+
+.home-reveal .visual[data-reveal-item] {
+  opacity: 0;
+  transform: translate(80px, 60px) scale(0.98);
+  transition: all 2.2s cubic-bezier(0.1, 1, 0.2, 1);
+  transition-delay: 0.4s;
+}
+
+.home-reveal.is-visible .visual[data-reveal-item] {
+  opacity: 1;
+  transform: translate(0, 0) scale(1);
+}
+
+.home-reveal .section-heading[data-reveal-item] {
+  opacity: 0;
+  transform: translateY(40px);
+  transition: all 1.8s cubic-bezier(0.1, 1, 0.2, 1);
+}
+
+.home-reveal.is-visible .section-heading[data-reveal-item] {
+  opacity: 1;
+  transform: translateY(0);
+}
+
+/* Floating Animation */
+@keyframes floating {
+  0% { transform: translateY(0px) scale(1); }
+  50% { transform: translateY(-12px) scale(1.005); }
+  100% { transform: translateY(0px) scale(1); }
+}
+
+.home-reveal.is-visible .visual img,
+.home-reveal.is-visible .chart-card img {
+  animation: floating 14s ease-in-out infinite;
+  animation-delay: 2.2s;
+}
+
 .about-page {
   position: relative;
   background:
     radial-gradient(circle at top left, rgba(41, 63, 101, 0.14), transparent 34%),
     linear-gradient(180deg, #f4f0e8 0%, #f8f6f1 14%, #f4f1ea 100%);
   color: #1f2430;
-  overflow: clip;
 }
 
 .about-dots {
@@ -892,7 +1041,9 @@ onBeforeUnmount(() => {
 .about-hero,
 .about-section {
   position: relative;
-  scroll-margin-top: 96px;
+  scroll-margin-top: 0;
+  scroll-snap-align: start;
+  scroll-snap-stop: always;
 }
 
 .about-hero {
@@ -3034,6 +3185,14 @@ onBeforeUnmount(() => {
 @media (max-width: 640px) {
   .about-page {
     overflow-x: hidden;
+    scroll-snap-type: y mandatory;
+    scroll-behavior: smooth;
+  }
+
+  .about-hero,
+  .about-section {
+    scroll-snap-align: start;
+    scroll-snap-stop: always;
   }
 
   .about-hero {

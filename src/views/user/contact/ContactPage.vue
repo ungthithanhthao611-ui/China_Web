@@ -14,7 +14,7 @@ import { uiState } from '@/shared/utils/uiState'
 import { useI18n } from 'vue-i18n'
 import logoImage from '@/assets/logo-cty.png'
 
-const { locale, t } = useI18n({ useScope: 'global' })
+const { locale, t, tm } = useI18n({ useScope: 'global' })
 
 const route = useRoute()
 const bootstrapStore = useBootstrapStore()
@@ -44,7 +44,7 @@ const contactTabs = computed(() => [
   { name: t('user.contact.contactTabs'), path: '/contact#ctn2' },
 ])
 
-const fallbackMapEmbed = 'https://www.google.com/maps?q=Vietnam&hl=vi&z=6&output=embed'
+const fallbackMapEmbed = 'https://www.google.com/maps?q=11.198111,106.719444&hl=vi&z=16&output=embed'
 const defaultLogoUrl = logoImage
 
 const contactIcons = {
@@ -91,8 +91,8 @@ const companyNameLines = computed(() => {
 
   const viFullName = 'CÔNG TY TNHH THƯƠNG MẠI QUỐC TẾ THIÊN ĐỒNG VIỆT NAM'
   if (name === viFullName || name.includes('THIÊN ĐỒNG VIỆT NAM')) {
-    const raw = t('user.contact.companyNameLines')
-    return Array.isArray(raw) ? raw : [raw]
+    const raw = tm('user.contact.companyNameLines')
+    return Array.isArray(raw) ? raw : [t('user.footer.companyName')]
   }
 
   if (name.includes(',')) {
@@ -269,7 +269,7 @@ const scrollToSection = (id) => {
     behavior: 'smooth'
   })
 
-  window.history.replaceState(null, '', `/contact#${id}`)
+  window.history.replaceState(history.state, '', `/contact#${id}`)
 }
 
 const syncHashSection = async () => {
@@ -299,7 +299,7 @@ watch(
   (value) => {
     uiState.isHeaderHidden = value !== 'ctn1'
     uiState.isFooterHidden = false
-    window.history.replaceState(null, '', `/contact#${value}`)
+    window.history.replaceState(history.state, '', `/contact#${value}`)
   },
   { immediate: true }
 )
@@ -348,6 +348,7 @@ onUnmounted(() => {
           <img
             src="https://en.sinodecor.com/portal-local/ngc202304190002/cms/image/2d74b3e3-5b31-406a-a3a4-febd62eddcf0.jpg"
             alt="Contact Us"
+            loading="eager"
           />
         </picture>
 
@@ -382,6 +383,7 @@ onUnmounted(() => {
           src="https://en.sinodecor.com/repository/portal-local/ngc202304190002/cms/image/cc082e2f-9960-4952-9a40-348928fa1711.jpg"
           alt=""
           aria-hidden="true"
+          loading="lazy"
         />
         <img
           class="contact-info-section__bg contact-info-section__bg--ink"
@@ -420,8 +422,14 @@ onUnmounted(() => {
                 {{ t('user.home.loading') }}
               </div>
 
-              <div v-else-if="contactError && !hasContactData" class="contact-status-card contact-status-card--error">
-                {{ contactError }}
+              <div v-else-if="!hasContactData" class="contact-status-card contact-status-card--contact-info">
+                <div class="contact-status-card__title"><strong>{{ t('user.contact.heroTitle') }}</strong></div>
+                <div class="contact-status-card__row">
+                  <span>SĐT: 0948.929.744</span>
+                </div>
+                <div class="contact-status-card__row">
+                  <span>Email: thiendongintl@gmail.com</span>
+                </div>
               </div>
 
               <div v-else>
@@ -880,7 +888,7 @@ onUnmounted(() => {
   margin: 34px auto 0;
   width: min(1460px, calc(100% - 120px));
   display: grid;
-  grid-template-columns: minmax(0, 0.96fr) minmax(0, 1.15fr);
+  grid-template-columns: minmax(0, 0.8fr) minmax(0, 1.2fr);
   gap: 46px;
   align-items: stretch;
   padding: 26px 30px 22px;
@@ -978,6 +986,28 @@ onUnmounted(() => {
   background: rgba(255, 240, 240, 0.92);
   border-color: rgba(205, 81, 81, 0.26);
   color: #a12d2d;
+}
+
+.contact-status-card--contact-info {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  background: #f8f4f0;
+  border-color: #d7000f;
+  color: #333;
+}
+
+.contact-status-card__title {
+  font-size: 16px;
+  color: #d7000f;
+  margin-bottom: 4px;
+}
+
+.contact-status-card__row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-weight: 500;
 }
 
 .contact-inline-note {
@@ -1166,7 +1196,7 @@ onUnmounted(() => {
 .contact-map {
   position: relative;
   height: 100%;
-  min-height: 278px;
+  min-height: 420px;
   overflow: hidden;
   border: 1px solid #d2a66b;
   border-radius: 26px;

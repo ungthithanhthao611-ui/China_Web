@@ -19,10 +19,13 @@ const categoryTree = ref([])
 const loadingProducts = ref(false)
 const loadingCategories = ref(false)
 const activeCategorySlug = ref('')
+const hoveredCategorySlug = ref(null)
 const searchQuery = ref('')
 const currentPage = ref(1)
 const viewportWidth = ref(typeof window === 'undefined' ? 1200 : window.innerWidth)
 const categoryPanelOpen = ref(false)
+
+const displayedCategorySlug = computed(() => (hoveredCategorySlug.value !== null ? hoveredCategorySlug.value : activeCategorySlug.value))
 
 const cartStore = useCartStore()
 const authStore = useAuthStore()
@@ -86,8 +89,29 @@ const sidebarCategories = computed(() => allCategories.value.filter((category) =
   category.slug && category.id !== rootCategory.value?.id
 )))
 
+const getCategoryFamilyInfo = (slug) => {
+  if (!slug) return { ids: [], slugs: [] }
+  const found = allCategories.value.find((c) => c.slug === slug)
+  if (!found) return { ids: [], slugs: [slug] }
+
+  const ids = [found.id]
+  const slugs = [found.slug]
+  const traverse = (node) => {
+    if (node.children) {
+      node.children.forEach((child) => {
+        ids.push(child.id)
+        slugs.push(child.slug)
+        traverse(child)
+      })
+    }
+  }
+  traverse(found)
+  return { ids, slugs }
+}
+
 const activeSidebarCategory = computed(() => {
-  if (!activeCategorySlug.value) {
+  const targetSlug = displayedCategorySlug.value
+  if (!targetSlug) {
     return {
       slug: '',
       name: t('user.products.sidebarAll'),
@@ -96,7 +120,7 @@ const activeSidebarCategory = computed(() => {
     }
   }
 
-  const found = sidebarCategories.value.find((category) => category.slug === activeCategorySlug.value)
+  const found = sidebarCategories.value.find((category) => category.slug === targetSlug)
   if (found) return found
 
   return {
@@ -108,10 +132,21 @@ const activeSidebarCategory = computed(() => {
 })
 
 const filteredProducts = computed(() => {
-  if (!searchQuery.value.trim()) return products.value
+  let list = products.value
+
+  const targetSlug = displayedCategorySlug.value
+  if (targetSlug) {
+    const family = getCategoryFamilyInfo(targetSlug)
+    list = list.filter((p) => (
+      family.ids.some((id) => String(id) === String(p.category_id))
+      || family.slugs.includes(p.category_slug)
+    ))
+  }
+
+  if (!searchQuery.value.trim()) return list
 
   const query = String(searchQuery.value).toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '').replace(/đ/g, 'd')
-  return products.value.filter((product) => {
+  return list.filter((product) => {
     const searchableText = String([
       product?.name,
       product?.sku,
@@ -152,7 +187,7 @@ async function fetchProducts() {
   loadingProducts.value = true
   try {
     const res = await listProducts({
-      categorySlug: activeCategorySlug.value,
+      categorySlug: '', // Luôn lấy tất cả để lọc phía client cho mượt (hover)
       skip: 0,
       limit: 100,
     })
@@ -209,6 +244,10 @@ watch(totalPages, (pageCount) => {
   }
 })
 
+watch(displayedCategorySlug, () => {
+  currentPage.value = 1
+})
+
 watch(
   isMobileView,
   (mobile) => {
@@ -221,7 +260,10 @@ watch(
   () => route.query.category,
   async () => {
     syncActiveCategoryFromRoute()
-    await fetchProducts()
+    // Không cần fetch lại nếu đã có data, vì ta lọc phía client
+    if (products.value.length === 0) {
+      await fetchProducts()
+    }
   },
 )
 
@@ -306,23 +348,29 @@ onBeforeUnmount(() => {
           <ul class="prod-cat-tree">
             <li>
               <button
-                :class="['prod-cat-item', { active: !activeCategorySlug }]"
+                :class="['prod-cat-item', { active: !activeCategorySlug, hovered: hoveredCategorySlug === '' }]"
                 @click="selectCategory('')"
+                @mouseenter="hoveredCategorySlug = ''"
+                @mouseleave="hoveredCategorySlug = null"
               >
-                <span class="prod-cat-item__branch" aria-hidden="true" />
+                <span class="prod-cat-item__index">00</span>
                 <span class="prod-cat-item__label">{{ t('user.products.allProducts') }}</span>
                 <span class="prod-cat-count">{{ rootProductCount }}</span>
+                <div class="prod-cat-item__arrow"><ChevronRight :size="12" /></div>
               </button>
             </li>
-            <li v-for="cat in sidebarCategories" :key="cat.slug || cat.id">
+            <li v-for="(cat, idx) in sidebarCategories" :key="cat.slug || cat.id">
               <button
-                :class="['prod-cat-item', { active: activeCategorySlug === cat.slug }]"
-                :style="{ '--depth': cat.depth }"
+                :class="['prod-cat-item', { active: activeCategorySlug === cat.slug, hovered: hoveredCategorySlug === cat.slug }]"
+                :style="{ '--depth': cat.depth, '--i': idx }"
                 @click="selectCategory(cat.slug)"
+                @mouseenter="hoveredCategorySlug = cat.slug"
+                @mouseleave="hoveredCategorySlug = null"
               >
-                <span class="prod-cat-item__branch" aria-hidden="true" />
+                <span class="prod-cat-item__index">{{ String(idx + 1).padStart(2, '0') }}</span>
                 <span class="prod-cat-item__label">{{ cat.name }}</span>
                 <span class="prod-cat-count">{{ cat.product_count }}</span>
+                <div class="prod-cat-item__arrow"><ChevronRight :size="12" /></div>
               </button>
             </li>
           </ul>
@@ -369,80 +417,85 @@ onBeforeUnmount(() => {
         </div>
 
         <!-- Grid -->
-        <div v-else class="prod-grid">
-          <article
-            v-for="product in paginatedProducts"
-            :key="product.id"
-            class="prod-card"
-          >
-            <router-link :to="`/products/${product.slug}`" class="prod-card__img-wrap">
-              <img
-                :src="product.image_url || product.images?.[0]?.url || ''"
-                :alt="product.name"
-                loading="lazy"
-              />
-              <div class="prod-card__badge">{{ product.category_name }}</div>
-            </router-link>
-            <div class="prod-card__body">
-              <p class="prod-card__sku">{{ product.sku }}</p>
-              <router-link :to="`/products/${product.slug}`" class="prod-card__name">
-                {{ product.name }}
+        <div v-else class="prod-grid-container">
+          <transition-group name="grid-fade" tag="div" class="prod-grid">
+            <article
+              v-for="(product, index) in paginatedProducts"
+              :key="product.id"
+              class="prod-card"
+              :style="{ '--i': index }"
+            >
+              <router-link :to="`/products/${product.slug}`" class="prod-card__img-wrap">
+                <img
+                  :src="product.image_url || product.images?.[0]?.url || ''"
+                  :alt="product.name"
+                  loading="lazy"
+                />
+                <div class="prod-card__badge">{{ product.category_name }}</div>
               </router-link>
-              <p class="prod-card__desc">
-                {{ product.short_desc || t('user.home.productDescriptionFallback') }}
-              </p>
-              <div class="prod-card__specs" v-if="product.size || product.material">
-                <span v-if="product.material">
-                  <strong>{{ t('user.products.labelMaterial') }}:</strong> {{ product.material }}
-                </span>
-                <span v-if="product.size">
-                  <strong>{{ t('user.products.labelSize') }}:</strong> {{ product.size }}
-                </span>
-              </div>
-              <a
-                v-if="hasVideoUrl(product)"
-                :href="product.video_url"
-                class="prod-card__video"
-                target="_blank"
-                rel="noopener noreferrer"
-              >
-                <span class="prod-card__video-icon">
-                  <Play :size="14" fill="currentColor" />
-                </span>
-                <span class="prod-card__video-text">
-                  <strong>{{ t('user.products.videoDemo') }}</strong>
-                  <small>{{ t('user.products.videoDemoSub') }}</small>
-                </span>
-              </a>
-              <div class="prod-card__price-row">
-                <div class="prod-card__price-meta">
-                  <span class="prod-card__price-label">{{ t('user.products.priceLabel') }}</span>
-                  <div v-if="getDisplayPrice(product).hasSale" class="prod-card__price-badges">
-                    <span class="prod-card__price-badge prod-card__price-badge--sale">Giá khuyến mãi</span>
-                    <span class="prod-card__price-badge prod-card__price-badge--original">Giá gốc</span>
-                  </div>
+              <div class="prod-card__body">
+                <div class="prod-card__title-row">
+                  <router-link :to="`/products/${product.slug}`" class="prod-card__name">
+                    {{ product.name }}
+                  </router-link>
+                  <p class="prod-card__sku">{{ product.sku }}</p>
                 </div>
-                <template v-if="getDisplayPrice(product).hasSale">
-                  <span class="prod-card__price prod-card__price--sale">{{ formatPrice(getDisplayPrice(product).finalPrice) }}</span>
-                  <span class="prod-card__price-original">{{ formatPrice(getDisplayPrice(product).originalPrice) }}</span>
-                </template>
-                <span v-else class="prod-card__price">{{ formatPrice(getDisplayPrice(product).finalPrice) }}</span>
-              </div>
-              <div class="prod-card__footer">
-                <router-link :to="`/products/${product.slug}`" class="prod-card__detail-btn">
-                  {{ t('user.products.viewDetails') }}
-                </router-link>
-                <button 
-                  class="prod-card__cart-btn" 
-                  @click="handleAddToCart(product)"
-                  :disabled="addingProductId === product.id"
+                <p class="prod-card__desc">
+                  {{ product.short_desc || t('user.home.productDescriptionFallback') }}
+                </p>
+                <div class="prod-card__specs" v-if="product.size || product.material">
+                  <span v-if="product.material">
+                    <strong>{{ t('user.products.labelMaterial') }}:</strong> {{ product.material }}
+                  </span>
+                  <span v-if="product.size">
+                    <strong>{{ t('user.products.labelSize') }}:</strong> {{ product.size }}
+                  </span>
+                </div>
+                <a
+                  v-if="hasVideoUrl(product)"
+                  :href="product.video_url"
+                  class="prod-card__video"
+                  target="_blank"
+                  rel="noopener noreferrer"
                 >
-                  <Loader2 v-if="addingProductId === product.id" class="spinner" :size="16" />
-                  <ShoppingCart v-else :size="16" />
-                </button>
+                  <span class="prod-card__video-icon">
+                    <Play :size="14" fill="currentColor" />
+                  </span>
+                  <span class="prod-card__video-text">
+                    <strong>{{ t('user.products.videoDemo') }}</strong>
+                    <small>{{ t('user.products.videoDemoSub') }}</small>
+                  </span>
+                </a>
+                <div class="prod-card__price-row">
+                  <div class="prod-card__price-meta">
+                    <span class="prod-card__price-label">{{ t('user.products.priceLabel') }}</span>
+                    <div v-if="getDisplayPrice(product).hasSale" class="prod-card__price-badges">
+                      <span class="prod-card__price-badge prod-card__price-badge--sale">Giá khuyến mãi</span>
+                      <span class="prod-card__price-badge prod-card__price-badge--original">Giá gốc</span>
+                    </div>
+                  </div>
+                  <template v-if="getDisplayPrice(product).hasSale">
+                    <span class="prod-card__price prod-card__price--sale">{{ formatPrice(getDisplayPrice(product).finalPrice) }}</span>
+                    <span class="prod-card__price-original">{{ formatPrice(getDisplayPrice(product).originalPrice) }}</span>
+                  </template>
+                  <span v-else class="prod-card__price">{{ formatPrice(getDisplayPrice(product).finalPrice) }}</span>
+                </div>
+                <div class="prod-card__footer">
+                  <router-link :to="`/products/${product.slug}`" class="prod-card__detail-btn">
+                    {{ t('user.products.viewDetails') }}
+                  </router-link>
+                  <button 
+                    class="prod-card__cart-btn" 
+                    @click="handleAddToCart(product)"
+                    :disabled="addingProductId === product.id"
+                  >
+                    <Loader2 v-if="addingProductId === product.id" class="spinner" :size="16" />
+                    <ShoppingCart v-else :size="16" />
+                  </button>
+                </div>
               </div>
-            </div>
-          </article>
+            </article>
+          </transition-group>
         </div>
 
         <!-- Pagination -->
@@ -654,82 +707,72 @@ onBeforeUnmount(() => {
   margin: 0;
   padding: 0;
   display: grid;
-  gap: 6px;
+  gap: 2px;
 }
 
 .prod-cat-item {
   --depth: 0;
-  display: grid;
-  grid-template-columns: 18px minmax(0, 1fr) auto;
+  position: relative;
+  display: flex;
   align-items: center;
-  gap: 10px;
   width: 100%;
-  padding: 10px 12px;
-  padding-left: calc(12px + (var(--depth) * 18px));
-  border: 1px solid transparent;
-  border-radius: 14px;
+  padding: 14px 18px;
+  padding-left: calc(18px + (var(--depth) * 12px));
+  border: none;
   background: transparent;
-  color: #4a5568;
+  color: #555;
   font-size: 14px;
+  font-weight: 500;
   text-align: left;
   cursor: pointer;
-  transition:
-    transform 0.18s ease,
-    background 0.18s ease,
-    border-color 0.18s ease,
-    color 0.18s ease,
-    box-shadow 0.18s ease;
+  overflow: hidden;
+  transition: color 0.3s ease;
+  z-index: 1;
+
+  &::after {
+    content: '';
+    position: absolute;
+    left: 0;
+    bottom: 0;
+    width: 100%;
+    height: 0;
+    background: #f1f0e8;
+    transition: height 0.35s cubic-bezier(0.4, 0, 0.2, 1);
+    z-index: -1;
+  }
+
+  &:hover::after {
+    height: 100%;
+  }
+
+  &.active {
+    color: #fff;
+    &::after {
+      height: 100%;
+      background: #1a1a1a;
+    }
+  }
+
+  &.hovered:not(.active) {
+    color: #1a1a1a;
+  }
 }
 
-.prod-cat-item__branch {
-  position: relative;
-  width: 14px;
-  height: 14px;
-  opacity: 0.65;
-}
-
-.prod-cat-item__branch::before,
-.prod-cat-item__branch::after {
-  content: '';
-  position: absolute;
-  background: currentColor;
-  border-radius: 999px;
-}
-
-.prod-cat-item__branch::before {
-  left: 2px;
-  top: 0;
-  width: 1px;
-  height: 12px;
-}
-
-.prod-cat-item__branch::after {
-  left: 2px;
-  top: 11px;
-  width: 10px;
-  height: 1px;
+.prod-cat-item__index {
+  font-size: 10px;
+  font-weight: 300;
+  width: 28px;
+  opacity: 0.6;
+  margin-right: 4px;
+  font-family: monospace;
 }
 
 .prod-cat-item__label {
-  min-width: 0;
-}
-
-.prod-cat-item:hover {
-  transform: translateX(2px);
-  background: rgba(196, 0, 17, 0.06);
-  border-color: rgba(196, 0, 17, 0.1);
-  color: #1d283d;
-}
-
-.prod-cat-item.active {
-  background: linear-gradient(135deg, #c40011, #8f1120);
-  border-color: transparent;
-  color: #fff;
-  box-shadow: 0 16px 24px rgba(196, 0, 17, 0.2);
-}
-
-.prod-cat-item.active .prod-cat-item__branch {
-  opacity: 1;
+  flex: 1;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  letter-spacing: 0.02em;
 }
 
 .prod-cat-count {
@@ -744,11 +787,50 @@ onBeforeUnmount(() => {
   color: #7a6652;
   font-size: 11px;
   font-weight: 700;
+  transition: all 0.2s ease;
 }
 
-.prod-cat-item.active .prod-cat-count {
-  background: rgba(255, 255, 255, 0.16);
-  color: #fff;
+/* ── Grid Transition ── */
+.prod-grid-container {
+  position: relative;
+  min-height: 400px;
+}
+
+.grid-fade-enter-active {
+  transition: all 1.2s cubic-bezier(0.4, 0, 0.2, 1);
+  transition-delay: calc(var(--i) * 0.05s);
+}
+
+.grid-fade-leave-active {
+  transition: all 0.6s cubic-bezier(0.4, 0, 0.2, 1);
+  position: absolute;
+  width: calc(33.333% - 21.33px);
+  z-index: 0;
+}
+
+@media (max-width: 1024px) {
+  .grid-fade-leave-active {
+    width: calc(50% - 16px);
+  }
+}
+@media (max-width: 640px) {
+  .grid-fade-leave-active {
+    width: 100%;
+  }
+}
+
+.grid-fade-enter-from {
+  opacity: 0;
+  transform: translateY(40px) scale(0.92);
+}
+
+.grid-fade-leave-to {
+  opacity: 0;
+  transform: translateY(-30px) scale(0.92);
+}
+
+.grid-fade-move {
+  transition: transform 1.2s cubic-bezier(0.4, 0, 0.2, 1);
 }
 
 /* ── Main ── */
@@ -904,8 +986,12 @@ onBeforeUnmount(() => {
 }
 
 .prod-card:hover {
-  transform: translateY(-4px);
-  box-shadow: 0 8px 28px rgba(29,40,61,0.13);
+  /* transform: translateY(-4px); */
+  /* box-shadow: 0 8px 28px rgba(29,40,61,0.13); */
+}
+
+.prod-card:hover .prod-card__name {
+  color: #c40011;
 }
 
 .prod-card__img-wrap {
@@ -942,18 +1028,28 @@ onBeforeUnmount(() => {
 }
 
 .prod-card__body {
-  padding: 18px 18px 16px;
+  padding: 20px;
   display: flex;
   flex-direction: column;
   flex: 1;
 }
 
+.prod-card__title-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  gap: 12px;
+  margin-bottom: 10px;
+}
+
 .prod-card__sku {
-  margin: 0 0 4px;
   color: #9ca3af;
-  font-size: 11px;
-  letter-spacing: 1px;
+  font-size: 10px;
+  font-weight: 400;
+  letter-spacing: 0.05em;
   text-transform: uppercase;
+  flex: none;
+  margin-top: 4px;
 }
 
 .prod-card__name {
@@ -962,12 +1058,12 @@ onBeforeUnmount(() => {
   -webkit-box-orient: vertical;
   overflow: hidden;
   color: #1d283d;
-  font-size: 16px;
-  font-weight: 600;
+  font-size: 15px;
+  font-weight: 700;
   line-height: 1.4;
   text-decoration: none;
-  margin-bottom: 8px;
   transition: color 0.2s;
+  flex: 1;
 }
 .prod-card__name:hover { color: #c40011; }
 
@@ -1320,10 +1416,10 @@ onBeforeUnmount(() => {
 
 
 .prod-card__price-row {
-  margin: 12px 0;
+  margin: 8px 0 16px;
   display: flex;
-  align-items: baseline;
-  gap: 10px;
+  align-items: center;
+  gap: 12px;
   flex-wrap: wrap;
 }
 

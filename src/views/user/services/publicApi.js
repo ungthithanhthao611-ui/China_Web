@@ -179,7 +179,10 @@ export function getBranchDetail(slug, query = {}) {
 }
 
 export function getContacts(query = {}) {
-  return fetchJson('/public/contacts', { query: withLanguage(query) })
+  return fetchWithLanguageFallbackNonEmpty('/public/contacts', (languageCode) => ({
+    language_code: languageCode,
+    ...query,
+  }))
 }
 
 export function getVideos(query = {}) {

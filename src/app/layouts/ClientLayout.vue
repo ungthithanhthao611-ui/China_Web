@@ -126,6 +126,7 @@ watch(
 
 .main-content {
   flex: 1;
+  /* padding-top: var(--site-header-offset); */
 }
 
 .app-splash {

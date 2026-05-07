@@ -1,5 +1,6 @@
 <script setup>
 import { computed, nextTick, onBeforeUnmount, reactive, ref, watch } from 'vue'
+import { useI18n } from 'vue-i18n'
 
 import {
   autoTranslateAdminEntityPayload,
@@ -27,6 +28,8 @@ const props = defineProps({
 })
 
 const emit = defineEmits(['notify-success', 'notify-error', 'clear-notify'])
+
+const { t } = useI18n()
 
 const API_ORIGIN = env.apiBaseUrl.replace(/\/api\/v\d+\/?$/, '')
 const DEFAULT_CONFIRM_DIALOG = Object.freeze({
@@ -65,6 +68,18 @@ const avatarFitOptions = [
 ]
 
 const translatableAboutFields = ['title', 'subtitle', 'content']
+
+// Modal Editor State
+const isModalEditorOpen = ref(false)
+const modalTitle = ref('')
+const modalDraft = ref(null)
+const modalBlock = ref(null)
+const modalFields = ref([])
+const modalKey = ref('')
+const modalOptions = reactive({
+  type: 'edit', // 'edit' or 'new'
+  label: ''
+})
 
 const confirmDialog = reactive({
   visible: false,
@@ -123,7 +138,7 @@ function resolveMediaUrl(url) {
   return `${API_ORIGIN}${url.startsWith('/') ? url : `/${url}`}`
 }
 
-function resolvePreviewUrl(path) {
+function resolvePreviewUrl(path, ts = '') {
   const normalizedPath = normalizeText(path)
   if (!normalizedPath) return ''
 
@@ -135,6 +150,10 @@ function resolvePreviewUrl(path) {
     : new URL(rawPath.startsWith('/') ? rawPath : `/${rawPath}`, browserOrigin)
 
   absoluteUrl.searchParams.set('adminPreview', '1')
+  if (ts) {
+    absoluteUrl.searchParams.set('previewTs', String(ts))
+  }
+  
   if (hashSection) {
     absoluteUrl.searchParams.set('previewSection', hashSection)
     absoluteUrl.hash = hashSection
@@ -594,6 +613,52 @@ function cancelNewItemEditor(blockId) {
   delete highlightedNewItemEditors[key]
   delete newItemDrafts[key]
   resetUploadState(key)
+}
+
+async function openModalEditor(record, block, fields, options = {}) {
+  modalTitle.value = options.title || (record?.id ? 'Chỉnh sửa mục' : 'Thêm mục mới')
+  modalBlock.value = block
+  modalFields.value = fields
+  modalOptions.type = record?.id ? 'edit' : 'new'
+  modalOptions.label = options.label || ''
+  
+  if (record?.id) {
+    modalKey.value = draftKeyForRecord(record.id)
+    modalDraft.value = ensureRecordDraft(record, fields, block)
+  } else if (options.isFixed) {
+    modalKey.value = draftKeyForFixed(block.id, options.itemKey)
+    modalDraft.value = ensureFixedDraft(block, options, record)
+  } else {
+    // New dynamic item
+    modalKey.value = draftKeyForBlock(block.id)
+    const dynamicSchema = block.schema?.dynamicItems
+    const newItemKey = generateDynamicItemKey(dynamicSchema.keyPrefix, block.dynamicRecords || [])
+    const nextSortOrder = (block.dynamicRecords?.length || 0) * (dynamicSchema.sortOrderStep || 10) + 10
+    modalDraft.value = createBlankDraft(block, newItemKey, nextSortOrder, fields)
+    newItemDrafts[modalKey.value] = modalDraft.value
+  }
+
+  isModalEditorOpen.value = true
+}
+
+function closeModalEditor() {
+  isModalEditorOpen.value = false
+  modalDraft.value = null
+  modalBlock.value = null
+  modalFields.value = []
+  modalKey.value = ''
+}
+
+async function handleModalSave() {
+  const success = await saveDraft(modalDraft.value, modalBlock.value, modalFields.value, {
+    key: modalKey.value,
+    label: modalOptions.label,
+    blockId: modalBlock.value.id
+  })
+  
+  if (success) {
+    closeModalEditor()
+  }
 }
 
 const ABOUT_SECTION_FOLDER_SLUGS = Object.freeze({
@@ -1693,7 +1758,7 @@ watch(
                 v-if="canCreateInSection(section)"
                 type="button"
                 class="btn btn-primary btn-sm"
-                @click="openSectionCreateForm(section)"
+                @click="openModalEditor(null, sectionCreateBlock(section), dynamicFieldsForBlock(sectionCreateBlock(section)), { label: createLabelForBlock(sectionCreateBlock(section)) })"
               >
                 {{ $t('admin.about.section.add_content') }}
               </button>
@@ -1737,7 +1802,7 @@ watch(
             <iframe
               :key="`section-preview-${section.key}-${previewRefreshToken}`"
               class="section-live-preview__frame"
-              :src="`${resolvePreviewUrl(section.previewHref)}${resolvePreviewUrl(section.previewHref).includes('?') ? '&' : '?'}previewTs=${previewRefreshToken}`"
+              :src="resolvePreviewUrl(section.previewHref, previewRefreshToken)"
               :title="`Preview tổng ${section.label}`"
               loading="lazy"
             />
@@ -1761,17 +1826,13 @@ watch(
               </div>
 
               <div class="block-workspace__toolbar">
-                <button type="button" class="btn btn-secondary" @click="saveBlockChanges(block)">
-                  {{ $t('admin.about.block.save_fast') }}
-                </button>
                 <button
                   v-if="block.schema?.dynamicItems"
                   type="button"
-                  class="btn"
-                  :class="isNewItemEditorOpen(block.id) ? 'btn-secondary' : 'btn-primary'"
-                  @click="isNewItemEditorOpen(block.id) ? cancelNewItemEditor(block.id) : openNewItemEditor(block)"
+                  class="btn btn-primary"
+                  @click="openModalEditor(null, block, dynamicFieldsForBlock(block), { label: createLabelForBlock(block) })"
                 >
-                  {{ isNewItemEditorOpen(block.id) ? $t('admin.about.block.close_create') : $t('admin.about.block.create_new') }}
+                  {{ $t('admin.about.block.create_new') }}
                 </button>
               </div>
             </div>
@@ -1792,560 +1853,18 @@ watch(
                   <span class="status-chip">{{ fixedEntryStatus(block, entry) }}</span>
                 </div>
 
-                <div class="schema-form-grid">
-                  <template v-for="field in entry.fields" :key="`${entry.itemKey}-${field.key}`">
-                    <label
-                      class="schema-field"
-                      :class="timelineFieldClass(field)"
-                      :for="`fixed-${block.id}-${entry.itemKey}-${field.key}`"
-                    >
-                      <span v-if="!isTimelineRangeField(field)">{{ field.label }}</span>
-
-                      <textarea
-                        v-if="field.type === 'textarea'"
-                        :id="`fixed-${block.id}-${entry.itemKey}-${field.key}`"
-                        v-model="ensureFixedDraft(block, entry, entry.record)[field.key]"
-                        rows="4"
-                        :placeholder="field.placeholder || ''"
-                      />
-
-                      <div
-                        v-else-if="field.type === 'timeline_date_start' || field.type === 'timeline_date_end'"
-                        class="timeline-date-field"
-                      >
-                        <div class="timeline-date-field__header">
-                          <span v-if="!isTimelineRangeField(field)">{{ field.label }}</span>
-                        </div>
-                        <div class="timeline-date-field__row">
-                          <select
-                            :value="timelineDatePrecision(ensureFixedDraft(block, entry, entry.record)[field.key])"
-                            @change="onTimelinePrecisionChange(ensureFixedDraft(block, entry, entry.record), field.key, $event.target.value)"
-                          >
-                            <option value="year">Năm</option>
-                            <option value="month">Tháng</option>
-                            <option value="day">Ngày</option>
-                          </select>
-
-                          <input
-                            :id="`fixed-${block.id}-${entry.itemKey}-${field.key}`"
-                            :type="timelineDatePrecision(ensureFixedDraft(block, entry, entry.record)[field.key]) === 'day' ? 'date' : timelineDatePrecision(ensureFixedDraft(block, entry, entry.record)[field.key]) === 'month' ? 'month' : 'number'"
-                            :min="timelineDatePrecision(ensureFixedDraft(block, entry, entry.record)[field.key]) === 'year' ? '1900' : undefined"
-                            :max="timelineDatePrecision(ensureFixedDraft(block, entry, entry.record)[field.key]) === 'year' ? '2100' : undefined"
-                            :value="timelinePickerValue(ensureFixedDraft(block, entry, entry.record)[field.key], timelineDatePrecision(ensureFixedDraft(block, entry, entry.record)[field.key]))"
-                            @input="setTimelineDateByPrecision(ensureFixedDraft(block, entry, entry.record), field.key, timelineDatePrecision(ensureFixedDraft(block, entry, entry.record)[field.key]), $event.target.value)"
-                          />
-                        </div>
-                      </div>
-
-                      <div
-                        v-else-if="field.type === 'timeline_date'"
-                        class="timeline-date-field"
-                      >
-                        <div class="timeline-date-field__header">
-                          <span v-if="!isTimelineRangeField(field)">{{ field.label }}</span>
-                        </div>
-                        <div class="timeline-date-field__row">
-                          <select
-                            :value="timelineDatePrecision(ensureFixedDraft(block, entry, entry.record)[field.key])"
-                            @change="onTimelinePrecisionChange(ensureFixedDraft(block, entry, entry.record), field.key, $event.target.value)"
-                          >
-                            <option value="year">Năm</option>
-                            <option value="month">Tháng</option>
-                            <option value="day">Ngày</option>
-                          </select>
-
-                          <input
-                            :id="`fixed-${block.id}-${entry.itemKey}-${field.key}`"
-                            :type="timelineDatePrecision(ensureFixedDraft(block, entry, entry.record)[field.key]) === 'day' ? 'date' : timelineDatePrecision(ensureFixedDraft(block, entry, entry.record)[field.key]) === 'month' ? 'month' : 'number'"
-                            :min="timelineDatePrecision(ensureFixedDraft(block, entry, entry.record)[field.key]) === 'year' ? '1900' : undefined"
-                            :max="timelineDatePrecision(ensureFixedDraft(block, entry, entry.record)[field.key]) === 'year' ? '2100' : undefined"
-                            :value="timelinePickerValue(ensureFixedDraft(block, entry, entry.record)[field.key], timelineDatePrecision(ensureFixedDraft(block, entry, entry.record)[field.key]))"
-                            :placeholder="field.placeholder || ''"
-                            @input="setTimelineDateByPrecision(ensureFixedDraft(block, entry, entry.record), field.key, timelineDatePrecision(ensureFixedDraft(block, entry, entry.record)[field.key]), $event.target.value)"
-                          />
-                        </div>
-                      </div>
-
-                      <select
-                        v-else-if="field.type === 'image' && !isHeroCoverEntry(block, entry)"
-                        :id="`fixed-${block.id}-${entry.itemKey}-${field.key}`"
-                        v-model="ensureFixedDraft(block, entry, entry.record).image_id"
-                      >
-                        <option :value="null">Chưa chọn ảnh</option>
-                        <option v-for="media in mediaOptions" :key="media.value" :value="media.value">
-                          {{ media.label }}
-                        </option>
-                      </select>
-
-                      <div
-                        v-else-if="field.type === 'image' && isHeroCoverEntry(block, entry) && getDraftPreviewImageUrl(ensureFixedDraft(block, entry, entry.record))"
-                        class="field-image-preview field-image-preview--hero"
-                      >
-                        <img :src="getDraftPreviewImageUrl(ensureFixedDraft(block, entry, entry.record))" :alt="entry.label" />
-                        <span>{{ $t('admin.about.card.hero_cover_current') }}</span>
-                      </div>
-
-                      <div v-if="field.type === 'image' && !isHeroCoverEntry(block, entry) && getDraftPreviewImageUrl(ensureFixedDraft(block, entry, entry.record))" class="field-image-preview">
-                        <img :src="getDraftPreviewImageUrl(ensureFixedDraft(block, entry, entry.record))" :alt="entry.label" />
-                        <span>{{ $t('admin.about.card.image_preview_hint') }}</span>
-                      </div>
-
-                      <input
-                        v-else
-                        :id="`fixed-${block.id}-${entry.itemKey}-${field.key}`"
-                        v-model="ensureFixedDraft(block, entry, entry.record)[field.key]"
-                        :type="field.type === 'url' ? 'url' : 'text'"
-                        :placeholder="field.placeholder || ''"
-                      />
-
-                      <small v-if="field.helpText" class="field-help">{{ field.helpText }}</small>
-                    </label>
-                  </template>
-
-                  <div class="schema-field schema-field--full translation-panel">
-                    <div class="translation-panel__header">
-                      <span>Bản dịch EN/ZH</span>
-                      <button
-                        type="button"
-                        class="btn btn-secondary btn-translate"
-                        :disabled="translatingKeys.has(aboutTranslationKey(draftKeyForFixed(block.id, entry.itemKey)))"
-                        @click="translateAboutDraft(ensureFixedDraft(block, entry, entry.record), draftKeyForFixed(block.id, entry.itemKey))"
-                      >
-                      {{ translatingKeys.has(aboutTranslationKey(draftKeyForFixed(block.id, entry.itemKey))) ? $t('admin.about.translation.translating') : $t('admin.about.translation.auto_translate') }}
-                      </button>
-                    </div>
-                    <div class="translation-panel__grid">
-                      <label>
-                        <span>Title EN</span>
-                        <input v-model="ensureFixedDraft(block, entry, entry.record).title_en" type="text" />
-                      </label>
-                      <label>
-                        <span>Title ZH</span>
-                        <input v-model="ensureFixedDraft(block, entry, entry.record).title_zh" type="text" />
-                      </label>
-                      <label>
-                        <span>Subtitle EN</span>
-                        <input v-model="ensureFixedDraft(block, entry, entry.record).subtitle_en" type="text" />
-                      </label>
-                      <label>
-                        <span>Subtitle ZH</span>
-                        <input v-model="ensureFixedDraft(block, entry, entry.record).subtitle_zh" type="text" />
-                      </label>
-                      <label>
-                        <span>Content EN</span>
-                        <textarea v-model="ensureFixedDraft(block, entry, entry.record).content_en" rows="3" />
-                      </label>
-                      <label>
-                        <span>Content ZH</span>
-                        <textarea v-model="ensureFixedDraft(block, entry, entry.record).content_zh" rows="3" />
-                      </label>
-                    </div>
-                  </div>
-
-                  <div v-if="fixedEntrySupportsImage(entry)" class="schema-field schema-field--full upload-inline">
-                    <span>Upload ảnh mới</span>
-                    <div class="upload-mode-switch">
-                      <button
-                        type="button"
-                        class="btn btn-secondary btn-upload-mode"
-                        :class="{ 'is-active': getUploadState(draftKeyForFixed(block.id, entry.itemKey)).mode === 'file' }"
-                        @click="onChangeUploadMode(draftKeyForFixed(block.id, entry.itemKey), 'file')"
-                      >
-                        Chọn ảnh từ thư mục
-                      </button>
-                      <button
-                        type="button"
-                        class="btn btn-secondary btn-upload-mode"
-                        :class="{ 'is-active': getUploadState(draftKeyForFixed(block.id, entry.itemKey)).mode === 'url' }"
-                        @click="onChangeUploadMode(draftKeyForFixed(block.id, entry.itemKey), 'url')"
-                      >
-                        Nhập URL ảnh
-                      </button>
-                    </div>
-
-                    <input
-                      v-if="getUploadState(draftKeyForFixed(block.id, entry.itemKey)).mode === 'file'"
-                      :id="`fixed-upload-${block.id}-${entry.itemKey}`"
-                      type="file"
-                      accept="image/*"
-                      @change="onSelectUploadFile(draftKeyForFixed(block.id, entry.itemKey), $event)"
-                    />
-
-                    <input
-                      v-else
-                      :id="`fixed-upload-url-${block.id}-${entry.itemKey}`"
-                      :value="getUploadState(draftKeyForFixed(block.id, entry.itemKey)).sourceUrl"
-                      type="url"
-                      placeholder="https://example.com/image.jpg"
-                      @input="onChangeUploadUrl(draftKeyForFixed(block.id, entry.itemKey), $event.target.value)"
-                    />
-
-                    <div class="upload-target-preview">
-                      <span class="upload-target-preview__label">Lưu vào</span>
-                      <code>{{ resolveAboutStorageTarget(block, ensureFixedDraft(block, entry, entry.record)) }}</code>
-                    </div>
-
-                    <div
-                      v-if="getPendingPreviewUrl(draftKeyForFixed(block.id, entry.itemKey), ensureFixedDraft(block, entry, entry.record))"
-                      class="field-image-preview"
-                    >
-                      <img
-                        :src="getPendingPreviewUrl(draftKeyForFixed(block.id, entry.itemKey), ensureFixedDraft(block, entry, entry.record))"
-                        :alt="entry.label"
-                      />
-                      <span>Xem nhanh ảnh sẽ được gán cho mục này</span>
-                    </div>
-
-                    <button
-                      type="button"
-                      class="btn btn-secondary"
-                      :disabled="uploadingKeys.has(draftKeyForFixed(block.id, entry.itemKey))"
-                      @click="uploadImageForDraft(getDraftByKey(draftKeyForFixed(block.id, entry.itemKey)), draftKeyForFixed(block.id, entry.itemKey), { block })"
-                    >
-                      {{ uploadingKeys.has(draftKeyForFixed(block.id, entry.itemKey)) ? 'Đang upload...' : 'Tải ảnh & gán vào mục' }}
-                    </button>
-                  </div>
-                </div>
-
                 <div class="schema-card__footer">
-                  <div
-                    v-if="fixedEntrySupportsImage(entry) && getMediaPreview(ensureFixedDraft(block, entry, entry.record).image_id)"
-                    class="media-preview-chip"
-                  >
-                    <img
-                      :src="resolveMediaUrl(getMediaPreview(ensureFixedDraft(block, entry, entry.record).image_id)?.url)"
-                      :alt="entry.label"
-                    />
-                    <span>{{ mediaLabel(getMediaPreview(ensureFixedDraft(block, entry, entry.record).image_id)) }}</span>
-                  </div>
-
                   <div class="schema-card__actions">
                     <button
-                      v-if="entry.record"
                       type="button"
-                      class="btn btn-ghost"
-                      @click="resetDraftFromRecord(block, entry.record, entry.fields)"
+                      class="btn btn-primary btn-sm"
+                      @click="openModalEditor(entry.record, block, entry.fields, { isFixed: true, itemKey: entry.itemKey, label: entry.label })"
                     >
-                      Khôi phục
-                    </button>
-                    <button
-                      v-if="fixedEntrySupportsImage(entry) && ensureFixedDraft(block, entry, entry.record).image_id"
-                      type="button"
-                      class="btn btn-ghost"
-                      @click="clearDraftImageSelection(ensureFixedDraft(block, entry, entry.record), draftKeyForFixed(block.id, entry.itemKey))"
-                    >
-                      Xóa ảnh bìa hiện tại
-                    </button>
-                    <button
-                      type="button"
-                      class="btn btn-primary"
-                      :disabled="savingKeys.has(draftKeyForFixed(block.id, entry.itemKey))"
-                      @click="saveDraft(ensureFixedDraft(block, entry, entry.record), block, entry.fields, { key: draftKeyForFixed(block.id, entry.itemKey), label: entry.label })"
-                    >
-                      {{ savingKeys.has(draftKeyForFixed(block.id, entry.itemKey)) ? 'Đang lưu...' : entry.record ? 'Lưu thay đổi' : 'Tạo dữ liệu' }}
+                      Chỉnh sửa
                     </button>
                   </div>
                 </div>
               </article>
-            </div>
-
-            <div
-              v-if="block.schema?.dynamicItems && isNewItemEditorOpen(block.id) && getNewDraft(block.id)"
-              :id="`new-item-editor-${block.id}`"
-              class="new-item-panel"
-              :class="{ 'new-item-panel--highlight': isNewItemEditorHighlighted(block.id) }"
-            >
-              <div class="new-item-panel__header">
-                <div>
-                  <p class="schema-card__eyebrow">Tạo mục động mới</p>
-                  <h4>{{ block.schema?.dynamicItems?.label || 'Item mới' }}</h4>
-                  <p class="new-item-panel__description">
-                    Form tạo nhanh hiển thị tạm thời. Nếu chưa dùng tới, bạn có thể đóng lại ngay.
-                  </p>
-                </div>
-
-                <div class="new-item-panel__header-actions">
-                  <span class="status-chip status-chip--creating">
-                    {{ isNewItemEditorHighlighted(block.id) ? 'Đang tạo mới' : 'Form tạm thời' }}
-                  </span>
-                  <button
-                    type="button"
-                    class="btn btn-ghost new-item-panel__close"
-                    @click="cancelNewItemEditor(block.id)"
-                  >
-                    Tắt form
-                  </button>
-                </div>
-              </div>
-
-              <div class="new-item-panel__body">
-                <div class="schema-form-grid schema-form-grid--compact">
-                  <template v-for="field in dynamicFieldsForBlock(block)" :key="`${block.id}-new-${field.key}`">
-                    <label
-                      class="schema-field"
-                      :class="timelineFieldClass(field)"
-                      :for="`new-${block.id}-${field.key}`"
-                    >
-                      <span v-if="!isTimelineRangeField(field)">{{ field.label }}</span>
-
-                      <textarea
-                        v-if="field.type === 'textarea'"
-                        :id="`new-${block.id}-${field.key}`"
-                        v-model="getNewDraft(block.id)[field.key]"
-                        rows="4"
-                        :placeholder="field.placeholder || ''"
-                      />
-
-                      <div
-                        v-else-if="field.type === 'timeline_date_start' || field.type === 'timeline_date_end'"
-                        class="timeline-date-field"
-                      >
-                        <div class="timeline-date-field__header">
-                          <span v-if="!isTimelineRangeField(field)">{{ field.label }}</span>
-                        </div>
-                        <div class="timeline-date-field__row">
-                          <select
-                            :value="timelineDatePrecision(getNewDraft(block.id)[field.key])"
-                            @change="onTimelinePrecisionChange(getNewDraft(block.id), field.key, $event.target.value)"
-                          >
-                            <option value="year">Năm</option>
-                            <option value="month">Tháng</option>
-                            <option value="day">Ngày</option>
-                          </select>
-
-                          <input
-                            :id="`new-${block.id}-${field.key}`"
-                            :type="timelineDatePrecision(getNewDraft(block.id)[field.key]) === 'day' ? 'date' : timelineDatePrecision(getNewDraft(block.id)[field.key]) === 'month' ? 'month' : 'number'"
-                            :min="timelineDatePrecision(getNewDraft(block.id)[field.key]) === 'year' ? '1900' : undefined"
-                            :max="timelineDatePrecision(getNewDraft(block.id)[field.key]) === 'year' ? '2100' : undefined"
-                            :value="timelinePickerValue(getNewDraft(block.id)[field.key], timelineDatePrecision(getNewDraft(block.id)[field.key]))"
-                            @input="setTimelineDateByPrecision(getNewDraft(block.id), field.key, timelineDatePrecision(getNewDraft(block.id)[field.key]), $event.target.value)"
-                          />
-                        </div>
-                      </div>
-
-                      <div
-                        v-else-if="field.type === 'timeline_date'"
-                        class="timeline-date-field"
-                      >
-                        <div class="timeline-date-field__header">
-                          <span v-if="!isTimelineRangeField(field)">{{ field.label }}</span>
-                        </div>
-                        <div class="timeline-date-field__row">
-                          <select
-                            :value="timelineDatePrecision(getNewDraft(block.id)[field.key])"
-                            @change="onTimelinePrecisionChange(getNewDraft(block.id), field.key, $event.target.value)"
-                          >
-                            <option value="year">Năm</option>
-                            <option value="month">Tháng</option>
-                            <option value="day">Ngày</option>
-                          </select>
-
-                          <input
-                            :id="`new-${block.id}-${field.key}`"
-                            :type="timelineDatePrecision(getNewDraft(block.id)[field.key]) === 'day' ? 'date' : timelineDatePrecision(getNewDraft(block.id)[field.key]) === 'month' ? 'month' : 'number'"
-                            :min="timelineDatePrecision(getNewDraft(block.id)[field.key]) === 'year' ? '1900' : undefined"
-                            :max="timelineDatePrecision(getNewDraft(block.id)[field.key]) === 'year' ? '2100' : undefined"
-                            :value="timelinePickerValue(getNewDraft(block.id)[field.key], timelineDatePrecision(getNewDraft(block.id)[field.key]))"
-                            :placeholder="field.placeholder || ''"
-                            @input="setTimelineDateByPrecision(getNewDraft(block.id), field.key, timelineDatePrecision(getNewDraft(block.id)[field.key]), $event.target.value)"
-                          />
-                        </div>
-                      </div>
-
-                      <select
-                        v-else-if="field.type === 'image'"
-                        :id="`new-${block.id}-${field.key}`"
-                        v-model="getNewDraft(block.id).image_id"
-                      >
-                        <option :value="null">Chưa chọn ảnh</option>
-                        <option v-for="media in mediaOptions" :key="media.value" :value="media.value">
-                          {{ media.label }}
-                        </option>
-                      </select>
-
-                      <div v-if="field.type === 'image' && getDraftPreviewImageUrl(getNewDraft(block.id))" class="field-image-preview field-image-preview--avatar">
-                        <img :src="getDraftPreviewImageUrl(getNewDraft(block.id))" :alt="block.schema?.dynamicItems?.label || 'Preview ảnh mới'" :style="isLeadershipAvatarBlock(block) ? avatarPreviewImageStyle(getNewDraft(block.id)) : undefined" />
-                        <span>Xem nhanh ảnh đang gán cho mục mới</span>
-                      </div>
-
-                      <div v-if="field.type === 'image' && isLeadershipAvatarBlock(block)" class="avatar-focus-panel">
-                        <div class="avatar-focus-panel__header">
-                          <span>Chạm trực tiếp lên ảnh để căn avatar</span>
-                          <small>Click vào vùng bạn muốn ưu tiên hiển thị. Chấm tròn sẽ là tâm crop của ảnh.</small>
-                        </div>
-
-                        <button
-                          v-if="getDraftPreviewImageUrl(getNewDraft(block.id))"
-                          type="button"
-                          class="avatar-focus-stage"
-                          @click="onAvatarPreviewClick(getNewDraft(block.id), $event)"
-                        >
-                          <img
-                            :src="getDraftPreviewImageUrl(getNewDraft(block.id))"
-                            :alt="block.schema?.dynamicItems?.label || 'Preview ảnh mới'"
-                            :style="avatarPreviewImageStyle(getNewDraft(block.id))"
-                          />
-                          <span
-                            class="avatar-focus-stage__marker"
-                            :style="avatarFocusIndicatorStyle(getNewDraft(block.id))"
-                            @pointerdown="startAvatarMarkerDrag(getNewDraft(block.id), $event)"
-                          ></span>
-                        </button>
-
-                        <div class="avatar-focus-panel__meta">
-                          <span>X: {{ Math.round(resolveAvatarFocusPoint(getNewDraft(block.id)).x) }}%</span>
-                          <span>Y: {{ Math.round(resolveAvatarFocusPoint(getNewDraft(block.id)).y) }}%</span>
-                        </div>
-
-                        <div class="avatar-fit-toggle">
-                          <button
-                            v-for="mode in avatarFitOptions"
-                            :key="`${block.id}-${mode.value}`"
-                            type="button"
-                            class="avatar-fit-toggle__btn"
-                            :class="{ 'is-active': normalizeAvatarFitMode(getNewDraft(block.id).avatar_fit) === mode.value }"
-                            @click="setAvatarFitMode(getNewDraft(block.id), mode.value)"
-                          >
-                            {{ mode.label }}
-                          </button>
-                        </div>
-
-                        <button
-                          type="button"
-                          class="btn btn-primary avatar-focus-panel__save"
-                          :disabled="savingKeys.has(draftKeyForBlock(block.id))"
-                          @click="saveDraft(getNewDraft(block.id), block, dynamicFieldsForBlock(block), { key: draftKeyForBlock(block.id), blockId: block.id, label: block.schema?.dynamicItems?.label })"
-                        >
-                          {{ savingKeys.has(draftKeyForBlock(block.id)) ? 'Đang lưu...' : 'Lưu căn ảnh' }}
-                        </button>
-                      </div>
-
-                      <input
-                        v-else
-                        :id="`new-${block.id}-${field.key}`"
-                        v-model="getNewDraft(block.id)[field.key]"
-                        :type="field.type === 'url' ? 'url' : 'text'"
-                        :placeholder="field.placeholder || ''"
-                      />
-
-                      <small v-if="field.helpText" class="field-help">{{ field.helpText }}</small>
-                    </label>
-                  </template>
-
-                  <div class="schema-field schema-field--full translation-panel">
-                    <div class="translation-panel__header">
-                      <span>Bản dịch EN/ZH</span>
-                      <button
-                        type="button"
-                        class="btn btn-secondary btn-translate"
-                        :disabled="translatingKeys.has(aboutTranslationKey(draftKeyForBlock(block.id)))"
-                        @click="translateAboutDraft(getNewDraft(block.id), draftKeyForBlock(block.id))"
-                      >
-                        {{ translatingKeys.has(aboutTranslationKey(draftKeyForBlock(block.id))) ? 'Đang dịch...' : 'Dịch tự động' }}
-                      </button>
-                    </div>
-                    <div class="translation-panel__grid">
-                      <label>
-                        <span>Title EN</span>
-                        <input v-model="getNewDraft(block.id).title_en" type="text" />
-                      </label>
-                      <label>
-                        <span>Title ZH</span>
-                        <input v-model="getNewDraft(block.id).title_zh" type="text" />
-                      </label>
-                      <label>
-                        <span>Subtitle EN</span>
-                        <input v-model="getNewDraft(block.id).subtitle_en" type="text" />
-                      </label>
-                      <label>
-                        <span>Subtitle ZH</span>
-                        <input v-model="getNewDraft(block.id).subtitle_zh" type="text" />
-                      </label>
-                      <label>
-                        <span>Content EN</span>
-                        <textarea v-model="getNewDraft(block.id).content_en" rows="3" />
-                      </label>
-                      <label>
-                        <span>Content ZH</span>
-                        <textarea v-model="getNewDraft(block.id).content_zh" rows="3" />
-                      </label>
-                    </div>
-                  </div>
-
-                  <div v-if="dynamicBlockSupportsImage(block)" class="schema-field schema-field--full upload-inline new-item-panel__upload">
-                    <span>Upload ảnh mới</span>
-                    <div class="upload-mode-switch">
-                      <button
-                        type="button"
-                        class="btn btn-secondary btn-upload-mode"
-                        :class="{ 'is-active': getUploadState(draftKeyForBlock(block.id)).mode === 'file' }"
-                        @click="onChangeUploadMode(draftKeyForBlock(block.id), 'file')"
-                      >
-                        Chọn ảnh từ thư mục
-                      </button>
-                      <button
-                        type="button"
-                        class="btn btn-secondary btn-upload-mode"
-                        :class="{ 'is-active': getUploadState(draftKeyForBlock(block.id)).mode === 'url' }"
-                        @click="onChangeUploadMode(draftKeyForBlock(block.id), 'url')"
-                      >
-                        Nhập URL ảnh
-                      </button>
-                    </div>
-
-                    <input
-                      v-if="getUploadState(draftKeyForBlock(block.id)).mode === 'file'"
-                      :id="`new-upload-${block.id}`"
-                      type="file"
-                      accept="image/*"
-                      @change="onSelectUploadFile(draftKeyForBlock(block.id), $event)"
-                    />
-
-                    <input
-                      v-else
-                      :id="`new-upload-url-${block.id}`"
-                      :value="getUploadState(draftKeyForBlock(block.id)).sourceUrl"
-                      type="url"
-                      placeholder="https://example.com/image.jpg"
-                      @input="onChangeUploadUrl(draftKeyForBlock(block.id), $event.target.value)"
-                    />
-
-                    <div class="upload-target-preview">
-                      <span class="upload-target-preview__label">Lưu vào</span>
-                      <code>{{ resolveAboutStorageTarget(block, getNewDraft(block.id)) }}</code>
-                    </div>
-
-                    <div v-if="getPendingPreviewUrl(draftKeyForBlock(block.id), getNewDraft(block.id))" class="field-image-preview">
-                      <img :src="getPendingPreviewUrl(draftKeyForBlock(block.id), getNewDraft(block.id))" :alt="block.schema?.dynamicItems?.label || 'Preview ảnh mới'" />
-                      <span>Xem nhanh ảnh sẽ được gán cho mục mới</span>
-                    </div>
-
-                    <button
-                      type="button"
-                      class="btn btn-secondary"
-                      :disabled="uploadingKeys.has(draftKeyForBlock(block.id))"
-                      @click="uploadImageForDraft(getNewDraft(block.id), draftKeyForBlock(block.id), { block })"
-                    >
-                      {{ uploadingKeys.has(draftKeyForBlock(block.id)) ? 'Đang upload...' : 'Tải ảnh & gán vào mục' }}
-                    </button>
-                  </div>
-                </div>
-              </div>
-
-              <div class="new-item-panel__footer">
-                <button type="button" class="btn btn-secondary" @click="cancelNewItemEditor(block.id)">
-                  Hủy tạo mới
-                </button>
-                <button
-                  type="button"
-                  class="btn btn-primary"
-                  :disabled="savingKeys.has(draftKeyForBlock(block.id))"
-                  @click="saveDraft(getNewDraft(block.id), block, dynamicFieldsForBlock(block), { key: draftKeyForBlock(block.id), blockId: block.id, label: block.schema?.dynamicItems?.label })"
-                >
-                  {{ savingKeys.has(draftKeyForBlock(block.id)) ? 'Đang lưu...' : 'Tạo mục mới' }}
-                </button>
-              </div>
             </div>
 
             <div v-if="block.dynamicRecords.length" class="dynamic-entry-grid">
@@ -2363,300 +1882,21 @@ watch(
                   <span class="status-chip">{{ hasPrimaryContent(record) ? 'Có nội dung' : 'Thiếu nội dung' }}</span>
                 </div>
 
-                <div class="schema-form-grid">
-                  <template
-                    v-for="field in dynamicFieldsForBlock(block)"
-                    :key="`${record.id}-${field.key}`"
-                  >
-                    <label
-                      class="schema-field"
-                      :class="timelineFieldClass(field)"
-                      :for="`record-${record.id}-${field.key}`"
-                    >
-                      <span v-if="!isTimelineRangeField(field)">{{ field.label }}</span>
-
-                      <textarea
-                        v-if="field.type === 'textarea'"
-                        :id="`record-${record.id}-${field.key}`"
-                        v-model="ensureRecordDraft(record, dynamicFieldsForBlock(block))[field.key]"
-                        rows="4"
-                        :placeholder="field.placeholder || ''"
-                      />
-
-                      <div
-                        v-else-if="field.type === 'timeline_date_start' || field.type === 'timeline_date_end'"
-                        class="timeline-date-field"
-                      >
-                        <div class="timeline-date-field__header">
-                          <span v-if="!isTimelineRangeField(field)">{{ field.label }}</span>
-                        </div>
-                        <div class="timeline-date-field__row">
-                          <select
-                            :value="timelineDatePrecision(ensureRecordDraft(record, dynamicFieldsForBlock(block))[field.key])"
-                            @change="onTimelinePrecisionChange(ensureRecordDraft(record, dynamicFieldsForBlock(block)), field.key, $event.target.value)"
-                          >
-                            <option value="year">Năm</option>
-                            <option value="month">Tháng</option>
-                            <option value="day">Ngày</option>
-                          </select>
-
-                          <input
-                            :id="`record-${record.id}-${field.key}`"
-                            :type="timelineDatePrecision(ensureRecordDraft(record, dynamicFieldsForBlock(block))[field.key]) === 'day' ? 'date' : timelineDatePrecision(ensureRecordDraft(record, dynamicFieldsForBlock(block))[field.key]) === 'month' ? 'month' : 'number'"
-                            :min="timelineDatePrecision(ensureRecordDraft(record, dynamicFieldsForBlock(block))[field.key]) === 'year' ? '1900' : undefined"
-                            :max="timelineDatePrecision(ensureRecordDraft(record, dynamicFieldsForBlock(block))[field.key]) === 'year' ? '2100' : undefined"
-                            :value="timelinePickerValue(ensureRecordDraft(record, dynamicFieldsForBlock(block))[field.key], timelineDatePrecision(ensureRecordDraft(record, dynamicFieldsForBlock(block))[field.key]))"
-                            @input="setTimelineDateByPrecision(ensureRecordDraft(record, dynamicFieldsForBlock(block)), field.key, timelineDatePrecision(ensureRecordDraft(record, dynamicFieldsForBlock(block))[field.key]), $event.target.value)"
-                          />
-                        </div>
-                      </div>
-
-                      <div
-                        v-else-if="field.type === 'timeline_date'"
-                        class="timeline-date-field"
-                      >
-                        <div class="timeline-date-field__header">
-                          <span>{{ field.label }}</span>
-                        </div>
-                        <div class="timeline-date-field__row">
-                          <select
-                            :value="timelineDatePrecision(ensureRecordDraft(record, dynamicFieldsForBlock(block))[field.key])"
-                            @change="onTimelinePrecisionChange(ensureRecordDraft(record, dynamicFieldsForBlock(block)), field.key, $event.target.value)"
-                          >
-                            <option value="year">Năm</option>
-                            <option value="month">Tháng</option>
-                            <option value="day">Ngày</option>
-                          </select>
-
-                          <input
-                            :id="`record-${record.id}-${field.key}`"
-                            :type="timelineDatePrecision(ensureRecordDraft(record, dynamicFieldsForBlock(block))[field.key]) === 'day' ? 'date' : timelineDatePrecision(ensureRecordDraft(record, dynamicFieldsForBlock(block))[field.key]) === 'month' ? 'month' : 'number'"
-                            :min="timelineDatePrecision(ensureRecordDraft(record, dynamicFieldsForBlock(block))[field.key]) === 'year' ? '1900' : undefined"
-                            :max="timelineDatePrecision(ensureRecordDraft(record, dynamicFieldsForBlock(block))[field.key]) === 'year' ? '2100' : undefined"
-                            :value="timelinePickerValue(ensureRecordDraft(record, dynamicFieldsForBlock(block))[field.key], timelineDatePrecision(ensureRecordDraft(record, dynamicFieldsForBlock(block))[field.key]))"
-                            :placeholder="field.placeholder || ''"
-                            @input="setTimelineDateByPrecision(ensureRecordDraft(record, dynamicFieldsForBlock(block)), field.key, timelineDatePrecision(ensureRecordDraft(record, dynamicFieldsForBlock(block))[field.key]), $event.target.value)"
-                          />
-                        </div>
-                      </div>
-
-                      <select
-                        v-else-if="field.type === 'image'"
-                        :id="`record-${record.id}-${field.key}`"
-                        v-model="ensureRecordDraft(record, dynamicFieldsForBlock(block)).image_id"
-                      >
-                        <option :value="null">Chưa chọn ảnh</option>
-                        <option v-for="media in mediaOptions" :key="media.value" :value="media.value">
-                          {{ media.label }}
-                        </option>
-                      </select>
-
-                      <div v-if="field.type === 'image' && getDraftPreviewImageUrl(ensureRecordDraft(record, dynamicFieldsForBlock(block), block))" class="field-image-preview field-image-preview--avatar">
-                        <img :src="getDraftPreviewImageUrl(ensureRecordDraft(record, dynamicFieldsForBlock(block), block))" :alt="recordDisplayName(record, block)" :style="isLeadershipAvatarBlock(block) ? avatarPreviewImageStyle(ensureRecordDraft(record, dynamicFieldsForBlock(block), block)) : undefined" />
-                        <span>Xem nhanh ảnh đang gán cho mục này</span>
-                      </div>
-
-                      <div v-if="field.type === 'image' && isLeadershipAvatarBlock(block)" class="avatar-focus-panel">
-                        <div class="avatar-focus-panel__header">
-                          <span>Chạm trực tiếp lên ảnh để căn avatar</span>
-                          <small>Click vào đúng vị trí gương mặt/chủ thể, sau đó bấm lưu căn ảnh.</small>
-                        </div>
-
-                        <button
-                          v-if="getDraftPreviewImageUrl(ensureRecordDraft(record, dynamicFieldsForBlock(block), block))"
-                          type="button"
-                          class="avatar-focus-stage"
-                          @click="onAvatarPreviewClick(ensureRecordDraft(record, dynamicFieldsForBlock(block), block), $event)"
-                        >
-                          <img
-                            :src="getDraftPreviewImageUrl(ensureRecordDraft(record, dynamicFieldsForBlock(block), block))"
-                            :alt="recordDisplayName(record, block)"
-                            :style="avatarPreviewImageStyle(ensureRecordDraft(record, dynamicFieldsForBlock(block), block))"
-                          />
-                          <span
-                            class="avatar-focus-stage__marker"
-                            :style="avatarFocusIndicatorStyle(ensureRecordDraft(record, dynamicFieldsForBlock(block), block))"
-                            @pointerdown="startAvatarMarkerDrag(ensureRecordDraft(record, dynamicFieldsForBlock(block), block), $event)"
-                          ></span>
-                        </button>
-
-                        <div class="avatar-focus-panel__meta">
-                          <span>X: {{ Math.round(resolveAvatarFocusPoint(ensureRecordDraft(record, dynamicFieldsForBlock(block), block)).x) }}%</span>
-                          <span>Y: {{ Math.round(resolveAvatarFocusPoint(ensureRecordDraft(record, dynamicFieldsForBlock(block), block)).y) }}%</span>
-                        </div>
-
-                        <div class="avatar-fit-toggle">
-                          <button
-                            v-for="mode in avatarFitOptions"
-                            :key="`${record.id}-${mode.value}`"
-                            type="button"
-                            class="avatar-fit-toggle__btn"
-                            :class="{ 'is-active': normalizeAvatarFitMode(ensureRecordDraft(record, dynamicFieldsForBlock(block), block).avatar_fit) === mode.value }"
-                            @click="setAvatarFitMode(ensureRecordDraft(record, dynamicFieldsForBlock(block), block), mode.value)"
-                          >
-                            {{ mode.label }}
-                          </button>
-                        </div>
-
-                        <button
-                          type="button"
-                          class="btn btn-primary avatar-focus-panel__save"
-                          :disabled="savingKeys.has(draftKeyForRecord(record.id))"
-                          @click="saveDraft(ensureRecordDraft(record, dynamicFieldsForBlock(block), block), block, dynamicFieldsForBlock(block), { key: draftKeyForRecord(record.id), label: recordDisplayName(record, block) })"
-                        >
-                          {{ savingKeys.has(draftKeyForRecord(record.id)) ? 'Đang lưu...' : 'Lưu căn ảnh' }}
-                        </button>
-                      </div>
-
-                      <input
-                        v-else
-                        :id="`record-${record.id}-${field.key}`"
-                        v-model="ensureRecordDraft(record, dynamicFieldsForBlock(block))[field.key]"
-                        :type="field.type === 'url' ? 'url' : 'text'"
-                        :placeholder="field.placeholder || ''"
-                      />
-
-                      <small v-if="field.helpText" class="field-help">{{ field.helpText }}</small>
-                    </label>
-                  </template>
-
-                  <div class="schema-field schema-field--full translation-panel">
-                    <div class="translation-panel__header">
-                      <span>Bản dịch EN/ZH</span>
-                      <button
-                        type="button"
-                        class="btn btn-secondary btn-translate"
-                        :disabled="translatingKeys.has(aboutTranslationKey(draftKeyForRecord(record.id)))"
-                        @click="translateAboutDraft(ensureRecordDraft(record, dynamicFieldsForBlock(block), block), draftKeyForRecord(record.id))"
-                      >
-                        {{ translatingKeys.has(aboutTranslationKey(draftKeyForRecord(record.id))) ? 'Đang dịch...' : 'Dịch tự động' }}
-                      </button>
-                    </div>
-                    <div class="translation-panel__grid">
-                      <label>
-                        <span>Title EN</span>
-                        <input v-model="ensureRecordDraft(record, dynamicFieldsForBlock(block), block).title_en" type="text" />
-                      </label>
-                      <label>
-                        <span>Title ZH</span>
-                        <input v-model="ensureRecordDraft(record, dynamicFieldsForBlock(block), block).title_zh" type="text" />
-                      </label>
-                      <label>
-                        <span>Subtitle EN</span>
-                        <input v-model="ensureRecordDraft(record, dynamicFieldsForBlock(block), block).subtitle_en" type="text" />
-                      </label>
-                      <label>
-                        <span>Subtitle ZH</span>
-                        <input v-model="ensureRecordDraft(record, dynamicFieldsForBlock(block), block).subtitle_zh" type="text" />
-                      </label>
-                      <label>
-                        <span>Content EN</span>
-                        <textarea v-model="ensureRecordDraft(record, dynamicFieldsForBlock(block), block).content_en" rows="3" />
-                      </label>
-                      <label>
-                        <span>Content ZH</span>
-                        <textarea v-model="ensureRecordDraft(record, dynamicFieldsForBlock(block), block).content_zh" rows="3" />
-                      </label>
-                    </div>
-                  </div>
-
-                  <div v-if="dynamicBlockSupportsImage(block)" class="schema-field schema-field--full upload-inline">
-                    <span>Upload ảnh mới</span>
-                    <div class="upload-mode-switch">
-                      <button
-                        type="button"
-                        class="btn btn-secondary btn-upload-mode"
-                        :class="{ 'is-active': getUploadState(draftKeyForRecord(record.id)).mode === 'file' }"
-                        @click="onChangeUploadMode(draftKeyForRecord(record.id), 'file')"
-                      >
-                        Chọn ảnh từ thư mục
-                      </button>
-                      <button
-                        type="button"
-                        class="btn btn-secondary btn-upload-mode"
-                        :class="{ 'is-active': getUploadState(draftKeyForRecord(record.id)).mode === 'url' }"
-                        @click="onChangeUploadMode(draftKeyForRecord(record.id), 'url')"
-                      >
-                        Nhập URL ảnh
-                      </button>
-                    </div>
-
-                    <input
-                      v-if="getUploadState(draftKeyForRecord(record.id)).mode === 'file'"
-                      :id="`record-upload-${record.id}`"
-                      type="file"
-                      accept="image/*"
-                      @change="onSelectUploadFile(draftKeyForRecord(record.id), $event)"
-                    />
-
-                    <input
-                      v-else
-                      :id="`record-upload-url-${record.id}`"
-                      :value="getUploadState(draftKeyForRecord(record.id)).sourceUrl"
-                      type="url"
-                      placeholder="https://example.com/image.jpg"
-                      @input="onChangeUploadUrl(draftKeyForRecord(record.id), $event.target.value)"
-                    />
-
-                    <div class="upload-target-preview">
-                      <span class="upload-target-preview__label">Lưu vào</span>
-                      <code>{{ resolveAboutStorageTarget(block, ensureRecordDraft(record, dynamicFieldsForBlock(block))) }}</code>
-                    </div>
-
-                    <div
-                      v-if="getPendingPreviewUrl(draftKeyForRecord(record.id), ensureRecordDraft(record, dynamicFieldsForBlock(block)))"
-                      class="field-image-preview"
-                    >
-                      <img
-                        :src="getPendingPreviewUrl(draftKeyForRecord(record.id), ensureRecordDraft(record, dynamicFieldsForBlock(block)))"
-                        :alt="recordDisplayName(record, block)"
-                      />
-                      <span>Xem nhanh ảnh sẽ được gán cho mục này</span>
-                    </div>
-
-                    <button
-                      type="button"
-                      class="btn btn-secondary"
-                      :disabled="uploadingKeys.has(draftKeyForRecord(record.id))"
-                      @click="uploadImageForDraft(getDraftByKey(draftKeyForRecord(record.id)), draftKeyForRecord(record.id), { block })"
-                    >
-                      {{ uploadingKeys.has(draftKeyForRecord(record.id)) ? 'Đang upload...' : 'Tải ảnh & gán vào mục' }}
-                    </button>
-                  </div>
-                </div>
-
                 <div class="schema-card__footer">
-                  <div v-if="dynamicBlockSupportsImage(block) && getMediaPreview(ensureRecordDraft(record, dynamicFieldsForBlock(block)).image_id)" class="media-preview-chip">
-                    <img
-                      :src="resolveMediaUrl(getMediaPreview(ensureRecordDraft(record, dynamicFieldsForBlock(block)).image_id)?.url)"
-                      :alt="recordDisplayName(record, block)"
-                    />
-                    <span>{{ mediaLabel(getMediaPreview(ensureRecordDraft(record, dynamicFieldsForBlock(block)).image_id)) }}</span>
-                  </div>
-
                   <div class="schema-card__actions">
                     <button
                       type="button"
-                      class="btn btn-ghost"
-                      @click="resetDraftFromRecord(block, record, dynamicFieldsForBlock(block))"
-                    >
-                      Khôi phục
-                    </button>
-                    <button
-                      type="button"
-                      class="btn btn-danger"
-                      :disabled="deletingKeys.has(draftKeyForRecord(record.id))"
+                      class="btn btn-ghost btn-sm"
                       @click="deleteItem(record, block)"
                     >
-                      {{ deletingKeys.has(draftKeyForRecord(record.id)) ? 'Đang xóa...' : 'Xóa mục' }}
+                      Xóa
                     </button>
                     <button
                       type="button"
-                      class="btn btn-primary"
-                      :disabled="savingKeys.has(draftKeyForRecord(record.id))"
-                      @click="saveDraft(getDraftByKey(draftKeyForRecord(record.id)), block, dynamicFieldsForBlock(block), { key: draftKeyForRecord(record.id), label: recordDisplayName(record, block) })"
+                      class="btn btn-primary btn-sm"
+                      @click="openModalEditor(record, block, dynamicFieldsForBlock(block), { label: recordDisplayName(record, block) })"
                     >
-                      {{ savingKeys.has(draftKeyForRecord(record.id)) ? 'Đang lưu...' : 'Lưu thay đổi' }}
+                      Chỉnh sửa
                     </button>
                   </div>
                 </div>
@@ -2682,6 +1922,145 @@ watch(
       @cancel="cancelConfirmDialog"
       @accept="acceptConfirmDialog"
     />
+
+    <Teleport to="body">
+      <div v-if="isModalEditorOpen" class="about-modal-overlay" @mousedown.self="closeModalEditor">
+        <div class="about-editor-modal">
+          <header class="modal-header">
+            <div class="modal-header__copy">
+              <h2>{{ modalTitle }}</h2>
+              <p v-if="modalOptions.label" class="modal-header__subtitle">{{ modalOptions.label }}</p>
+            </div>
+            <button class="btn btn-ghost" @click="closeModalEditor">Đóng</button>
+          </header>
+
+          <div class="modal-body">
+            <div class="schema-form-grid">
+              <template v-for="field in modalFields" :key="field.key">
+                
+                <!-- Title, Subtitle -->
+                <label v-if="field.type === 'text'" class="schema-field" :class="{ 'schema-field--full': field.key === 'title' }">
+                  <span>{{ field.label }} <strong v-if="field.required" class="text-danger">*</strong></span>
+                  <input v-model="modalDraft[field.key]" type="text" :placeholder="field.placeholder" class="form-input" />
+                </label>
+
+                <!-- Content -->
+                <label v-if="field.type === 'textarea'" class="schema-field schema-field--full">
+                  <span>{{ field.label }} <strong v-if="field.required" class="text-danger">*</strong></span>
+                  <textarea v-model="modalDraft[field.key]" :placeholder="field.placeholder" rows="4" class="form-input"></textarea>
+                </label>
+
+                <!-- Link / URL -->
+                <label v-if="field.type === 'url'" class="schema-field schema-field--full">
+                  <span>{{ field.label }} <strong v-if="field.required" class="text-danger">*</strong></span>
+                  <input v-model="modalDraft[field.key]" type="text" :placeholder="field.placeholder" class="form-input" />
+                </label>
+
+                <!-- Timeline dates -->
+                <label v-if="['timeline_date', 'timeline_date_start', 'timeline_date_end'].includes(field.type)" class="schema-field schema-field--timeline">
+                  <span>{{ field.label }} <strong v-if="field.required" class="text-danger">*</strong></span>
+                  <input v-model="modalDraft[field.key]" type="text" :placeholder="field.placeholder || 'YYYY hoặc YYYY-MM'" class="form-input" />
+                </label>
+
+              </template>
+              
+              <!-- Image Field -->
+              <div v-if="modalFields.some(f => f.type === 'image')" class="schema-field schema-field--full upload-section">
+                <div class="upload-section__header">
+                  <span>Hình ảnh <strong v-if="modalFields.find(f => f.type === 'image')?.required" class="text-danger">*</strong></span>
+                  <button v-if="modalDraft.image_id" class="btn btn-ghost btn-sm text-danger" @click="clearDraftImageSelection(modalDraft, modalKey)">Xóa ảnh</button>
+                </div>
+                
+                <div class="upload-mode-switch">
+                  <button class="btn-upload-mode" :class="{ 'is-active': getUploadState(modalKey).mode === 'file' }" @click="onChangeUploadMode(modalKey, 'file')">Upload File</button>
+                  <button class="btn-upload-mode" :class="{ 'is-active': getUploadState(modalKey).mode === 'url' }" @click="onChangeUploadMode(modalKey, 'url')">Từ URL</button>
+                  <button class="btn-upload-mode" :class="{ 'is-active': getUploadState(modalKey).mode === 'media' }" @click="onChangeUploadMode(modalKey, 'media')">Thư viện Media</button>
+                </div>
+
+                <div v-if="getUploadState(modalKey).mode === 'file'" class="upload-inline mt-2">
+                  <input type="file" accept="image/*" @change="onSelectUploadFile(modalKey, $event)" />
+                  <span v-if="!getUploadState(modalKey).file">Click để chọn ảnh tải lên</span>
+                  <span v-else>{{ getUploadState(modalKey).file.name }}</span>
+                </div>
+                
+                <div v-if="getUploadState(modalKey).mode === 'url'" class="mt-2">
+                  <input type="text" :value="getUploadState(modalKey).sourceUrl" @input="onChangeUploadUrl(modalKey, $event.target.value)" class="form-input" placeholder="Nhập đường dẫn hình ảnh (https://...)" />
+                </div>
+
+                <div v-if="getUploadState(modalKey).mode === 'media'" class="mt-2">
+                  <select v-model="modalDraft.image_id" class="form-input">
+                    <option :value="null">-- Chọn ảnh từ thư viện --</option>
+                    <option v-for="media in mediaOptions" :key="media.value" :value="media.value">{{ media.label }}</option>
+                  </select>
+                </div>
+
+                <div v-if="getPendingPreviewUrl(modalKey, modalDraft) || getDraftPreviewImageUrl(modalDraft)" class="modal-image-preview mt-2">
+                  <img :src="getPendingPreviewUrl(modalKey, modalDraft) || getDraftPreviewImageUrl(modalDraft)" />
+                </div>
+
+                <div v-if="isLeadershipAvatarBlock(modalBlock) && (getPendingPreviewUrl(modalKey, modalDraft) || modalDraft.image_id)" class="avatar-focus-panel mt-3">
+                  <div class="avatar-focus-panel__header">
+                    <span>Căn chỉnh ảnh đại diện</span>
+                    <small>Kéo chấm xanh để chọn điểm Focus chính của chân dung.</small>
+                  </div>
+                  <div class="avatar-focus-stage" @pointerdown="startAvatarMarkerDrag(modalDraft, $event)">
+                    <img :src="getPendingPreviewUrl(modalKey, modalDraft) || getDraftPreviewImageUrl(modalDraft)" :style="avatarPreviewImageStyle(modalDraft)" />
+                    <div class="avatar-focus-stage__marker" :style="avatarFocusIndicatorStyle(modalDraft)"></div>
+                  </div>
+                  <div class="avatar-fit-toggle mt-2">
+                    <button class="avatar-fit-toggle__btn" :class="{ 'is-active': modalDraft.avatar_fit === 'cover' }" @click="setAvatarFitMode(modalDraft, 'cover')">Crop đầy khung</button>
+                    <button class="avatar-fit-toggle__btn" :class="{ 'is-active': modalDraft.avatar_fit === 'contain' }" @click="setAvatarFitMode(modalDraft, 'contain')">Hiển thị trọn ảnh</button>
+                  </div>
+                </div>
+              </div>
+              
+            </div>
+            
+            <div class="translation-panel" v-if="hasAboutTranslatableContent(modalDraft)">
+              <div class="translation-panel__header">
+                <h4>Bản dịch (Anh / Trung)</h4>
+                <button class="btn btn-secondary btn-sm" :disabled="translatingKeys.has(aboutTranslationKey(modalKey))" @click="translateAboutDraft(modalDraft, modalKey)">
+                  {{ translatingKeys.has(aboutTranslationKey(modalKey)) ? 'Đang dịch...' : 'Dịch tự động' }}
+                </button>
+              </div>
+              <div class="translation-panel__grid">
+                <label v-if="modalDraft.title !== undefined" class="schema-field">
+                  <span>Tiêu đề (EN)</span>
+                  <input v-model="modalDraft.title_en" type="text" class="form-input" />
+                </label>
+                <label v-if="modalDraft.title !== undefined" class="schema-field">
+                  <span>Tiêu đề (ZH)</span>
+                  <input v-model="modalDraft.title_zh" type="text" class="form-input" />
+                </label>
+                <label v-if="modalDraft.subtitle !== undefined" class="schema-field">
+                  <span>Phụ đề (EN)</span>
+                  <input v-model="modalDraft.subtitle_en" type="text" class="form-input" />
+                </label>
+                <label v-if="modalDraft.subtitle !== undefined" class="schema-field">
+                  <span>Phụ đề (ZH)</span>
+                  <input v-model="modalDraft.subtitle_zh" type="text" class="form-input" />
+                </label>
+                <label v-if="modalDraft.content !== undefined" class="schema-field schema-field--full">
+                  <span>Nội dung (EN)</span>
+                  <textarea v-model="modalDraft.content_en" rows="3" class="form-input"></textarea>
+                </label>
+                <label v-if="modalDraft.content !== undefined" class="schema-field schema-field--full">
+                  <span>Nội dung (ZH)</span>
+                  <textarea v-model="modalDraft.content_zh" rows="3" class="form-input"></textarea>
+                </label>
+              </div>
+            </div>
+          </div>
+
+          <footer class="modal-footer">
+            <button class="btn btn-secondary" @click="closeModalEditor">Hủy</button>
+            <button class="btn btn-primary" :disabled="loading || uploadingKeys.has(modalKey)" @click="handleModalSave">
+              {{ loading || uploadingKeys.has(modalKey) ? 'Đang lưu...' : 'Lưu thay đổi' }}
+            </button>
+          </footer>
+        </div>
+      </div>
+    </Teleport>
   </section>
 </template>
 
@@ -3724,5 +3103,118 @@ watch(
     width: 100%;
     justify-content: center;
   }
+}
+
+/* About Modal Editor Styles */
+.about-modal-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 9999;
+  background: rgba(10, 25, 47, 0.45);
+  backdrop-filter: blur(8px);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 24px;
+}
+
+.about-editor-modal {
+  background: #ffffff;
+  width: min(100%, 820px);
+  max-height: 90vh;
+  border-radius: 20px;
+  box-shadow: 0 20px 60px rgba(0, 0, 0, 0.2);
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  border: 1px solid rgba(255, 255, 255, 0.1);
+}
+
+.modal-header {
+  padding: 24px 32px;
+  border-bottom: 1px solid #f1f5f9;
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  background: linear-gradient(180deg, #ffffff 0%, #f8fafc 100%);
+}
+
+.modal-header__copy h2 {
+  margin: 0;
+  font-size: 20px;
+  color: #1e293b;
+  font-weight: 600;
+}
+
+.modal-body {
+  padding: 32px;
+  overflow-y: auto;
+  flex: 1;
+}
+
+.modal-footer {
+  padding: 20px 32px;
+  background: #f8fafc;
+  border-top: 1px solid #f1f5f9;
+  display: flex;
+  justify-content: flex-end;
+  gap: 12px;
+}
+
+.translation-panel {
+  margin-top: 24px;
+  padding: 20px;
+  background: #fdfdfd;
+  border: 1px dashed #cbd5e1;
+  border-radius: 12px;
+}
+
+.translation-panel__header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 16px;
+}
+
+.translation-panel__grid {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 16px;
+
+  label {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+    span { font-size: 11px; color: #64748b; }
+  }
+}
+
+.modal-image-preview {
+  margin-top: 12px;
+  width: 100%;
+  height: 200px;
+  border-radius: 8px;
+  overflow: hidden;
+  border: 1px solid #e2e8f0;
+}
+
+.modal-image-preview img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.upload-section {
+  margin-top: 24px;
+  padding: 20px;
+  border: 1px solid #e2e8f0;
+  border-radius: 12px;
+}
+
+.upload-section__header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 12px;
 }
 </style>

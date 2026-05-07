@@ -193,6 +193,7 @@ onMounted(() => {
   align-items: center;
   justify-content: center;
   padding: 20px;
+  padding-top: calc(var(--site-header-offset) + 20px);
   font-family: 'Inter', sans-serif;
 }
 

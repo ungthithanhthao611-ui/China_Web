@@ -52,7 +52,7 @@ watch(
   <section id="page2" class="section section-certificate">
     <div class="section-bg"></div>
     <div class="stage">
-      <header class="heading">
+      <header class="heading reveal-item">
         <div class="heading-copy">
           <span class="eyebrow">{{ t('user.capability.eyebrow') }}</span>
           <h2>{{ t('user.capability.factoryGallery') }}</h2>
@@ -101,11 +101,13 @@ watch(
 
         <div class="grid">
           <HonorCard
-            v-for="item in pagedItems"
+            v-for="(item, index) in pagedItems"
             :key="`qualification-${item.id}`"
             :item="item"
             :image-src="imageResolver(item.image_url || item.image)"
             variant="gallery"
+            class="reveal-item"
+            :style="{ '--i': index }"
           />
         </div>
       </template>
@@ -332,5 +334,25 @@ watch(
   font-size: 13px;
   font-weight: 700;
   letter-spacing: 0.08em;
+}
+
+/* ── Reveal Animations ── */
+.reveal-item {
+  opacity: 0;
+  transform: translateY(40px);
+  transition: all 1s cubic-bezier(0.22, 1, 0.36, 1);
+}
+
+.is-active .reveal-item {
+  opacity: 1;
+  transform: translateY(0);
+}
+
+.is-active .grid .reveal-item {
+  transition-delay: calc(var(--i, 0) * 0.1s + 0.3s);
+}
+
+.is-active .heading.reveal-item {
+  transition-delay: 0.1s;
 }
 </style>

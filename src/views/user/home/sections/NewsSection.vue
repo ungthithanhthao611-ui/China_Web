@@ -5,6 +5,7 @@ import { ArrowRight } from 'lucide-vue-next'
 import { useI18n } from 'vue-i18n'
 
 import { getNewsList } from '@/views/user/services/publicApi'
+import { useSectionReveal } from '@/views/user/home/composables/useSectionReveal'
 
 const props = defineProps({
   active: {
@@ -15,10 +16,10 @@ const props = defineProps({
 
 const router = useRouter()
 const { locale, t } = useI18n({ useScope: 'global' })
+const { rootRef, isVisible } = useSectionReveal({ threshold: 0.1 })
 const loading = ref(true)
 const newsList = ref([])
 const currentPage = ref(1)
-
 const ITEMS_PER_PAGE = 4
 const MAX_NEWS_ITEMS = 8
 
@@ -129,54 +130,51 @@ onMounted(fetchNews)
 </script>
 
 <template>
-  <section class="news-section" :class="{ 'is-active': props.active }">
-    <div class="news-shell container">
-      <header class="news-header" :class="{ 'is-active': props.active }">
-        <div class="news-title-wrap">
-          <p class="eyebrow">{{ t('user.home.newsEyebrow') }}</p>
-          <h2>{{ t('user.home.newsTitle') }}</h2>
-          <p class="subtitle">{{ t('user.home.newsSubtitle') }}</p>
+  <section class="news-section" :id="props.id" ref="rootRef">
+    <div class="news-shell home-reveal" :class="{ 'is-visible': isVisible }">
+      <header class="news-header content" data-reveal-item>
+        <div class="header-content">
+          <h2 class="section-title">{{ t('user.home.newsTitle') }}</h2>
+          <router-link to="/news" class="title-arrow" :aria-label="t('user.home.viewAllNews')">
+            <ArrowRight :size="32" />
+          </router-link>
         </div>
-
-        <button class="view-all" type="button" @click="goTo('/news')">
-          <span>{{ t('user.home.viewAllNews') }}</span>
-          <span class="view-all-icon">→</span>
-        </button>
       </header>
 
       <div v-if="loading" class="news-grid news-grid--loading">
-        <article v-for="index in ITEMS_PER_PAGE" :key="`loading-${index}`" class="news-card news-card--skeleton">
+        <div v-for="index in 4" :key="`loading-${index}`" class="news-skeleton">
           <div class="skeleton-media"></div>
           <div class="skeleton-body">
             <div class="skeleton-line skeleton-line--sm"></div>
             <div class="skeleton-line"></div>
             <div class="skeleton-line"></div>
           </div>
-        </article>
+        </div>
       </div>
 
-      <div v-else-if="pagedNews.length" class="news-grid" :class="{ 'is-active': props.active }">
-        <article v-for="item in pagedNews" :key="item.id" class="news-card" @click="goTo(item.link)">
-          <div class="news-media">
+      <div v-else-if="newsList.length" class="news-grid visual" data-reveal-item>
+        <article
+          v-for="item in newsList.slice(0, 4)"
+          :key="item.id"
+          class="news-item"
+          @click="goTo(item.link)"
+        >
+          <div class="item-media">
             <img v-if="item.image" :src="item.image" :alt="item.title" loading="lazy" />
-            <div v-else class="news-media-fallback">{{ t('user.home.newsFallbackTitle') }}</div>
-
-            <div class="date-badge" aria-label="Ngày đăng">
-              <span class="day">{{ item.day }}</span>
-              <span class="month">{{ item.month }}</span>
-              <span class="year">{{ item.year }}</span>
-            </div>
+            <div v-else class="item-media-fallback">{{ t('user.home.newsFallbackTitle') }}</div>
           </div>
 
-          <div class="news-body">
-            <p class="category">• {{ item.category }}</p>
-            <h3 class="news-title">{{ item.title }}</h3>
-            <p class="news-summary">{{ item.summary }}</p>
-
-            <div class="news-action">
-              <span>{{ t('user.home.viewMore') }}</span>
-              <span class="line"></span>
-              <ArrowRight :size="16" />
+          <div class="item-content">
+            <div class="item-top">
+              <span class="item-tag">{{ item.category }}</span>
+            </div>
+            <h3 class="item-title">{{ item.title }}</h3>
+            <p v-if="item.summary" class="item-summary">{{ item.summary }}</p>
+            <div class="item-footer">
+              <span class="read-more">
+                {{ t('user.home.viewMore') }}
+                <ArrowRight :size="16" />
+              </span>
             </div>
           </div>
         </article>
@@ -186,483 +184,246 @@ onMounted(fetchNews)
         <p>{{ t('user.home.newsEmpty') }}</p>
       </div>
 
-      <div v-if="totalPages > 1 && !loading" class="news-pagination" :aria-label="t('user.home.newsPagination')">
-        <button
-          class="page-btn page-btn--nav"
-          type="button"
-          :disabled="currentPage === 1"
-          :aria-label="t('user.home.prevPage')"
-          @click="goPrevPage"
-        >
-          &lt;
-        </button>
-
-        <button
-          v-for="page in pageNumbers"
-          :key="`page-${page}`"
-          class="page-btn page-btn--number"
-          :class="{ 'is-active': currentPage === page }"
-          type="button"
-          @click="goToPage(page)"
-        >
-          {{ page }}
-        </button>
-
-        <button
-          class="page-btn page-btn--nav"
-          type="button"
-          :disabled="currentPage === totalPages"
-          :aria-label="t('user.home.nextPage')"
-          @click="goNextPage"
-        >
-          &gt;
-        </button>
-      </div>
     </div>
   </section>
 </template>
 
 <style scoped>
 .news-section {
+  background: transparent;
+  color: #1a1a1a;
+  padding: 120px 0;
   position: relative;
-  width: 100%;
-  min-height: 100%;
-  padding: clamp(34px, 4.6vw, 66px) 0;
-  background:
-    radial-gradient(circle at 14% 4%, rgba(205, 0, 0, 0.05), transparent 25%),
-    radial-gradient(circle at 90% 92%, rgba(16, 36, 60, 0.05), transparent 24%),
-    linear-gradient(180deg, #ffffff 0%, #f8f9fc 100%);
-}
-
-.news-section::before,
-.news-section::after {
-  content: '';
-  position: absolute;
-  width: 130px;
-  height: 130px;
-  opacity: 0.45;
-  background-image: radial-gradient(circle, rgba(205, 0, 0, 0.28) 2px, transparent 2px);
-  background-size: 14px 14px;
-  pointer-events: none;
-}
-
-.news-section::before {
-  top: 20px;
-  right: max(2vw, 20px);
-}
-
-.news-section::after {
-  left: max(1vw, 8px);
-  bottom: 20px;
+  z-index: 1;
 }
 
 .news-shell {
-  position: relative;
-  z-index: 1;
-  width: min(var(--home-content-max, 1260px), calc(100% - 40px));
+  max-width: 1600px;
   margin: 0 auto;
+  padding: 0 40px;
 }
 
 .news-header {
+  margin-bottom: 56px;
+}
+
+.header-content {
   display: flex;
-  align-items: flex-start;
+  align-items: center;
   justify-content: space-between;
   gap: 24px;
-  margin-bottom: clamp(20px, 2.4vw, 34px);
-  opacity: 0;
-  transform: translateY(16px);
-  transition: opacity 0.45s ease, transform 0.45s ease;
 }
 
-.news-header.is-active {
-  opacity: 1;
-  transform: translateY(0);
-}
-
-.eyebrow {
-  margin: 0;
-  color: #cd0000;
-  font-size: 12px;
-  text-transform: uppercase;
-  letter-spacing: 0.22em;
-  font-weight: 700;
-}
-
-.news-title-wrap h2 {
-  margin: 10px 0 10px;
-  color: #0b1528;
-  font-size: clamp(1.9rem, 2.8vw, 3.4rem);
-  line-height: 1.08;
-  font-weight: 800;
-}
-
-.subtitle {
-  margin: 0;
-  max-width: 60ch;
-  color: #5f6675;
-  font-size: clamp(13px, 0.92vw, 17px);
-  line-height: 1.5;
-}
-
-.view-all {
-  margin-top: 10px;
-  flex-shrink: 0;
-  border: 0;
-  background: #f3f4f6;
-  color: #4b5563;
-  min-height: 52px;
-  padding: 0 8px 0 22px;
-  border-radius: 999px;
-  display: inline-flex;
-  align-items: center;
-  gap: 14px;
-  font-size: 17px;
-  font-weight: 700;
-  cursor: pointer;
-  transition: all 0.25s ease;
-}
-
-.view-all-icon {
-  width: 36px;
-  height: 36px;
-  border-radius: 50%;
-  background: #cd0000;
-  color: #fff;
-  display: inline-flex;
+.title-arrow {
+  display: flex;
   align-items: center;
   justify-content: center;
+  width: 54px;
+  height: 54px;
+  border-radius: 50%;
+  border: 1px solid rgba(0, 0, 0, 0.1);
+  color: #1a1a1a;
+  transition: all 0.3s ease;
 }
 
-.view-all:hover {
-  color: #cd0000;
-  transform: translateY(-1px);
+.title-arrow:hover {
+  background: #1a1a1a;
+  color: #fff;
+  border-color: #1a1a1a;
+  transform: translateX(8px);
+}
+
+.section-title {
+  font-size: clamp(24px, 4vw, 48px);
+  font-weight: 300;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: #1a1a1a;
+  margin: 0;
+  line-height: 1.1;
 }
 
 .news-grid {
   display: grid;
-  grid-template-columns: repeat(2, minmax(0, 1fr));
-  gap: clamp(10px, 1vw, 14px);
+  grid-template-columns: repeat(2, 1fr);
+  gap: 60px 80px;
 }
 
-.news-card {
-  background: #fff;
-  border: 1px solid rgba(12, 22, 40, 0.08);
-  border-radius: 16px;
-  overflow: hidden;
-  box-shadow: 0 12px 28px rgba(12, 22, 40, 0.07);
+.news-item {
+  display: grid;
+  grid-template-columns: 200px 1fr;
+  gap: 32px;
+  padding-bottom: 40px;
+  border-bottom: 1px solid rgba(0, 0, 0, 0.08);
   cursor: pointer;
-  transition: transform 0.25s ease, box-shadow 0.25s ease;
+  transition: all 0.4s ease;
 }
 
-.news-card:hover {
-  transform: translateY(-4px);
-  box-shadow: 0 18px 34px rgba(12, 22, 40, 0.1);
+.news-item:hover .item-media img {
+  transform: scale(1.05);
 }
 
-.news-media {
-  position: relative;
-  width: 100%;
-  aspect-ratio: 16 / 10;
+.news-item:hover .item-title {
+  color: #ee1324;
+}
+
+.item-media {
+  aspect-ratio: 1;
   overflow: hidden;
+  border-radius: 4px;
+  background: #eee;
 }
 
-.news-media img {
+.item-media img {
   width: 100%;
   height: 100%;
   object-fit: cover;
-  display: block;
+  transition: transform 0.8s cubic-bezier(0.2, 1, 0.2, 1);
 }
 
-.news-media-fallback {
+.item-media-fallback {
   width: 100%;
   height: 100%;
   display: grid;
   place-items: center;
-  color: #6b7280;
-  background: linear-gradient(145deg, #eef2f7, #e4e9f1);
-  font-weight: 700;
-  letter-spacing: 0.12em;
+  font-size: 10px;
+  color: #999;
+  text-transform: uppercase;
+  letter-spacing: 0.1em;
 }
 
-.date-badge {
-  position: absolute;
-  top: 14px;
-  left: 14px;
-  width: 64px;
-  border-radius: 12px;
+.item-content {
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  min-width: 0;
+}
+
+.item-tag {
+  display: inline-block;
+  font-size: 10px;
+  font-weight: 700;
+  color: #ee1324;
+  text-transform: uppercase;
+  letter-spacing: 0.2em;
+  margin-bottom: 12px;
+}
+
+.item-title {
+  font-size: 20px;
+  font-weight: 600;
+  line-height: 1.4;
+  margin: 0 0 12px 0;
+  color: #1a1a1a;
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
   overflow: hidden;
-  background: #fff;
-  box-shadow: 0 8px 20px rgba(0, 0, 0, 0.15);
-  text-align: center;
+  transition: color 0.3s ease;
 }
 
-.day {
-  display: block;
-  background: #cd0000;
-  color: #fff;
-  font-size: 29px;
-  line-height: 1;
-  font-weight: 800;
-  padding: 9px 0 7px;
+.item-summary {
+  font-size: 14px;
+  line-height: 1.6;
+  color: rgba(0, 0, 0, 0.6);
+  margin-bottom: 20px;
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
 }
 
-.month {
-  display: block;
-  color: #4b5563;
-  font-size: 9px;
-  font-weight: 700;
-  letter-spacing: 0.08em;
-  padding-top: 7px;
-}
-
-.year {
-  display: block;
-  color: #4b5563;
-  font-size: 18px;
-  font-weight: 700;
-  line-height: 1.1;
-  padding: 2px 0 8px;
-}
-
-.news-body {
-  padding: clamp(12px, 1vw, 16px);
-  display: grid;
+.read-more {
+  display: inline-flex;
+  align-items: center;
   gap: 8px;
-}
-
-.category {
-  margin: 0;
-  color: #cd0000;
   font-size: 12px;
   font-weight: 700;
   text-transform: uppercase;
-  letter-spacing: 0.06em;
+  letter-spacing: 0.1em;
+  color: rgba(0, 0, 0, 0.7);
 }
 
-.news-title {
-  margin: 0;
-  color: #111827;
-  font-size: clamp(17px, 1.35vw, 26px);
-  line-height: 1.32;
-  font-weight: 800;
-  display: -webkit-box;
-  -webkit-line-clamp: 2;
-  -webkit-box-orient: vertical;
-  overflow: hidden;
-}
-
-.news-summary {
-  margin: 0;
-  color: #4b5563;
-  font-size: 15px;
-  line-height: 1.55;
-  display: -webkit-box;
-  -webkit-line-clamp: 2;
-  -webkit-box-orient: vertical;
-  overflow: hidden;
-}
-
-.news-action {
-  margin-top: 4px;
-  display: inline-flex;
-  align-items: center;
-  gap: 10px;
-  color: #cd0000;
-  font-size: 15px;
-  font-weight: 700;
-}
-
-.news-action .line {
-  width: 32px;
-  height: 1px;
-  background: #cd0000;
-}
-
-.news-empty {
-  min-height: 220px;
-  display: grid;
-  place-items: center;
+.news-footer-action {
+  margin-top: 80px;
   text-align: center;
-  color: #6b7280;
-  font-size: 16px;
 }
 
-.news-pagination {
-  margin-top: clamp(16px, 2vw, 24px);
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  gap: 8px;
-}
-
-.page-btn {
-  min-width: 38px;
-  height: 38px;
-  border-radius: 999px;
-  border: 1px solid rgba(17, 24, 39, 0.15);
-  background: #fff;
-  color: #344054;
-  font-size: 15px;
-  font-weight: 700;
+.btn-all {
+  background: transparent;
+  color: #1a1a1a;
+  border: 1px solid rgba(0, 0, 0, 0.2);
+  padding: 16px 48px;
+  border-radius: 100px;
+  font-size: 13px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.1em;
   cursor: pointer;
-  transition: all 0.2s ease;
+  transition: all 0.3s ease;
 }
 
-.page-btn--number.is-active {
-  border-color: #cd0000;
-  background: #cd0000;
+.btn-all:hover {
+  background: #1a1a1a;
   color: #fff;
+  border-color: #1a1a1a;
+  transform: translateY(-3px);
 }
 
-.page-btn:not(:disabled):hover {
-  border-color: #cd0000;
-  color: #cd0000;
-}
-
-.page-btn:disabled {
-  opacity: 0.5;
-  cursor: not-allowed;
-}
-
-.news-grid--loading .news-card--skeleton {
-  pointer-events: none;
+/* Skeletons */
+.news-skeleton {
+  display: grid;
+  grid-template-columns: 200px 1fr;
+  gap: 32px;
 }
 
 .skeleton-media {
-  width: 100%;
-  aspect-ratio: 16 / 10;
-  background: linear-gradient(90deg, #f2f4f7 20%, #e9edf3 50%, #f2f4f7 80%);
-  background-size: 220% 100%;
-  animation: newsShimmer 1.4s infinite;
-}
-
-.skeleton-body {
-  padding: 14px;
-  display: grid;
-  gap: 10px;
+  aspect-ratio: 1;
+  background: rgba(0, 0, 0, 0.05);
+  border-radius: 4px;
 }
 
 .skeleton-line {
-  height: 10px;
-  border-radius: 999px;
-  background: linear-gradient(90deg, #f2f4f7 20%, #e9edf3 50%, #f2f4f7 80%);
-  background-size: 220% 100%;
-  animation: newsShimmer 1.4s infinite;
+  height: 12px;
+  background: rgba(0, 0, 0, 0.05);
+  margin-bottom: 12px;
+  border-radius: 2px;
 }
 
-.skeleton-line--sm {
-  width: 36%;
-}
+.skeleton-line--sm { width: 30%; }
 
-@keyframes newsShimmer {
-  from {
-    background-position: 200% 0;
-  }
-
-  to {
-    background-position: -200% 0;
+@media (max-width: 1200px) {
+  .news-grid {
+    gap: 40px 60px;
   }
 }
 
-@media (max-width: 1100px) {
-  .news-header {
-    flex-direction: column;
-    gap: 14px;
-  }
-
-  .view-all {
-    margin-top: 0;
-  }
-}
-
-@media (max-width: 767px) {
-  .news-section {
-    padding: 40px 0;
-  }
-
-  .news-shell {
-    width: calc(100% - 20px);
-  }
-
+@media (max-width: 992px) {
   .news-grid {
     grid-template-columns: 1fr;
-    gap: 10px;
+    gap: 40px;
   }
-
-  .news-title-wrap h2 {
-    font-size: clamp(28px, 7.2vw, 36px);
+  .news-shell {
+    padding: 0 24px;
   }
+}
 
-  .subtitle {
-    font-size: 12px;
+@media (max-width: 768px) {
+  .news-section {
+    padding: 80px 0;
   }
-
-  .view-all {
-    min-height: 42px;
-    padding: 0 6px 0 14px;
-    font-size: 13px;
-    gap: 10px;
+  .section-title {
+    font-size: 48px;
   }
-
-  .view-all-icon {
-    width: 30px;
-    height: 30px;
+  .news-item {
+    grid-template-columns: 1fr;
+    gap: 20px;
   }
-
-  .day {
-    font-size: 22px;
-    padding: 6px 0 5px;
+  .item-media {
+    aspect-ratio: 16/9;
   }
-
-  .month {
-    font-size: 7px;
-    padding-top: 5px;
-  }
-
-  .year {
-    font-size: 14px;
-    padding-bottom: 6px;
-  }
-
-  .date-badge {
-    width: 50px;
-    top: 8px;
-    left: 8px;
-  }
-
-  .news-body {
-    padding: 10px;
-    gap: 6px;
-  }
-
-  .category {
-    font-size: 9px;
-  }
-
-  .news-title {
-    font-size: clamp(12px, 3.2vw, 15px);
-    -webkit-line-clamp: 3;
-  }
-
-  .news-summary {
-    font-size: 11px;
-    line-height: 1.45;
-    -webkit-line-clamp: 3;
-  }
-
-  .news-action {
-    font-size: 12px;
-    gap: 6px;
-  }
-
-  .news-action .line {
-    width: 18px;
-  }
-
-  .page-btn {
-    min-width: 34px;
-    height: 34px;
-    font-size: 13px;
+  .item-title {
+    font-size: 18px;
   }
 }
 </style>

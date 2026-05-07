@@ -93,7 +93,7 @@ watch(activeTab, () => {
   <section id="page3" class="section section-awards">
     <div class="section-bg"></div>
     <div class="stage">
-      <header class="section-top">
+      <header class="section-top reveal-item">
         <div class="section-top__copy">
           <span class="eyebrow">{{ t('user.capability.techTitle') }}</span>
           <h2>{{ t('user.capability.honorsAwards') }}</h2>
@@ -160,11 +160,13 @@ watch(activeTab, () => {
 
           <div class="grid">
             <HonorCard
-              v-for="item in pagedCorporateItems"
+              v-for="(item, index) in pagedCorporateItems"
               :key="`corporate-${item.id}`"
               :item="item"
               :image-src="imageResolver(item.image_url || item.image)"
               variant="frame"
+              class="reveal-item"
+              :style="{ '--i': index }"
             />
           </div>
         </template>
@@ -204,11 +206,13 @@ watch(activeTab, () => {
 
           <div class="grid">
             <HonorCard
-              v-for="item in pagedProjectItems"
+              v-for="(item, index) in pagedProjectItems"
               :key="`project-${item.id}`"
               :item="item"
               :image-src="imageResolver(item.image_url || item.image)"
               variant="frame"
+              class="reveal-item"
+              :style="{ '--i': index }"
             />
           </div>
         </template>
@@ -433,5 +437,25 @@ watch(activeTab, () => {
   font-size: 13px;
   font-weight: 700;
   letter-spacing: 0.08em;
+}
+
+/* ── Reveal Animations ── */
+.reveal-item {
+  opacity: 0;
+  transform: translateY(40px);
+  transition: all 1s cubic-bezier(0.22, 1, 0.36, 1);
+}
+
+.is-active .reveal-item {
+  opacity: 1;
+  transform: translateY(0);
+}
+
+.is-active .grid .reveal-item {
+  transition-delay: calc(var(--i, 0) * 0.1s + 0.3s);
+}
+
+.is-active .section-top.reveal-item {
+  transition-delay: 0.1s;
 }
 </style>

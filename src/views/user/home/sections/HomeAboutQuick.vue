@@ -43,12 +43,12 @@ const imageUrl = computed(() => String(intro.value?.coverImage || '').trim())
         </div>
 
         <div class="stats">
-          <div class="stat">
+          <div class="stat" data-reveal-item>
             <strong>20+</strong>
             <span>{{ t('user.home.productSamples') }}</span>
           </div>
 
-          <div class="stat">
+          <div class="stat" data-reveal-item>
             <strong>2024</strong>
             <span>{{ t('user.home.foundedYear') }}</span>
           </div>
@@ -68,7 +68,7 @@ const imageUrl = computed(() => String(intro.value?.coverImage || '').trim())
   min-height: 100vh;
   padding-top: 132px;
   padding-bottom: 72px;
-  background: #f3f3f5;
+  background: transparent;
 }
 
 .shell {

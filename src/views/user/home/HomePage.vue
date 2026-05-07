@@ -25,7 +25,6 @@ const { t } = useI18n({ useScope: 'global' })
 const sections = computed(() => [
   { label: t('user.home.home'), id: 'ctn1' },
   { label: t('user.home.about'), id: 'ctn2' },
-  { label: t('user.home.capability'), id: 'ctn3' },
   { label: t('user.home.products'), id: 'ctn4' },
   { label: t('user.home.projects'), id: 'ctn5' },
   { label: t('user.home.news'), id: 'ctn6' },
@@ -110,6 +109,33 @@ const handleHashChange = () => {
   if (index !== -1) scrollToSection(index)
 }
 
+const isScrolling = ref(false)
+
+const handleWheel = (e) => {
+  if (window.innerWidth <= 992 || isScrolling.value || isSyncingByClick.value) return
+  
+  const delta = e.deltaY
+  if (Math.abs(delta) < 30) return // Ignore small scrolls
+
+  if (delta > 0) {
+    if (activeSection.value < sections.value.length - 1) {
+      e.preventDefault()
+      isScrolling.value = true
+      scrollToSection(activeSection.value + 1)
+    }
+  } else {
+    if (activeSection.value > 0) {
+      e.preventDefault()
+      isScrolling.value = true
+      scrollToSection(activeSection.value - 1)
+    }
+  }
+
+  setTimeout(() => {
+    isScrolling.value = false
+  }, 800)
+}
+
 onMounted(() => {
   uiState.isHeaderHidden = false
   uiState.isNavHidden = false
@@ -117,6 +143,7 @@ onMounted(() => {
 
   if (scrollContainer.value) {
     scrollContainer.value.addEventListener('scroll', handleContainerScroll, { passive: true })
+    scrollContainer.value.addEventListener('wheel', handleWheel, { passive: false })
     setTimeout(() => {
       handleHashChange()
       updateActiveSectionFromScroll()
@@ -129,6 +156,7 @@ onMounted(() => {
 onUnmounted(() => {
   if (scrollContainer.value) {
     scrollContainer.value.removeEventListener('scroll', handleContainerScroll)
+    scrollContainer.value.removeEventListener('wheel', handleWheel)
   }
 
   if (scrollRafId) cancelAnimationFrame(scrollRafId)
@@ -165,9 +193,6 @@ onUnmounted(() => {
         <HomeAboutQuick />
       </section>
 
-      <section id="ctn3" class="section-full">
-        <HomeCapabilityPreview />
-      </section>
 
       <section id="ctn4" class="section-full">
         <HomeProductsPreview />
@@ -183,7 +208,7 @@ onUnmounted(() => {
         </div>
       </section>
 
-      <section id="ctn7" class="last-section">
+      <section id="ctn7" class="last-section section-full">
         <div class="section-inner partner-section">
           <AppFooter :force-visible="true" />
         </div>
@@ -227,32 +252,48 @@ onUnmounted(() => {
   }
 }
 
+
 .scroll-container {
   width: 100%;
   height: 100%;
   overflow-y: auto;
   scrollbar-width: none;
+  -ms-overflow-style: none;
 
   &::-webkit-scrollbar {
     display: none;
   }
 
+  scroll-snap-type: y mandatory;
+  scroll-behavior: smooth;
+  scroll-snap-stop: always;
+
   @media (max-width: 992px) {
     height: auto;
     overflow-y: visible;
+    scroll-snap-type: none;
   }
 }
 
 .section-full {
   width: 100%;
-  min-height: auto;
+  height: 100vh;
+  min-height: 100vh;
   display: flex;
   flex-direction: column;
+  scroll-snap-align: start;
+  scroll-snap-stop: always;
 
   @media (max-width: 992px) {
     min-height: auto;
   }
 }
+
+#ctn1 { background: #000; }
+#ctn2 { background: #f0f7ff; } /* Light Blue */
+#ctn4 { background: #fdfaf6; } /* Light Cream */
+#ctn5 { background: #f0fff4; } /* Light Green */
+#ctn6 { background: #fdfdfb; } /* Match Project section Ivory */
 
 .section-inner {
   padding: 0;
@@ -279,35 +320,64 @@ onUnmounted(() => {
 
 :deep(.home-reveal) {
   opacity: 0;
-  transform: translateY(20px);
-  transition: opacity 0.48s ease, transform 0.48s ease;
+  transition: opacity 0.8s ease;
 }
 
 :deep(.home-reveal.is-visible) {
   opacity: 1;
-  transform: translateY(0);
 }
 
-:deep(.home-reveal [data-reveal-item]) {
+/* Flying Entrance - Left (for text/content) */
+:deep(.home-reveal .content[data-reveal-item]),
+:deep(.home-reveal .explorer-list[data-reveal-item]) {
   opacity: 0;
-  transform: translateY(14px);
-  transition: opacity 0.44s ease, transform 0.44s ease;
+  transform: translate(-80px, 60px) scale(0.98);
+  transition: all 2.2s cubic-bezier(0.1, 1, 0.2, 1);
 }
 
-:deep(.home-reveal.is-visible [data-reveal-item]) {
+:deep(.home-reveal.is-visible .content[data-reveal-item]),
+:deep(.home-reveal.is-visible .explorer-list[data-reveal-item]) {
   opacity: 1;
-  transform: translateY(0);
+  transform: translate(0, 0) scale(1);
 }
 
-:deep(.home-reveal.is-visible [data-reveal-item]:nth-child(2)) {
-  transition-delay: 0.08s;
+/* Flying Entrance - Right (for visual/media) */
+:deep(.home-reveal .visual[data-reveal-item]),
+:deep(.home-reveal .projects-slider-wrapper[data-reveal-item]),
+:deep(.home-reveal .section-inner[data-reveal-item]),
+:deep(.home-reveal .explorer-visual[data-reveal-item]),
+:deep(.home-reveal .visual[data-reveal-item]) {
+  opacity: 0;
+  transform: translate(80px, 60px) scale(0.98);
+  transition: all 2.2s cubic-bezier(0.1, 1, 0.2, 1);
+  transition-delay: 0.4s;
 }
 
-:deep(.home-reveal.is-visible [data-reveal-item]:nth-child(3)) {
-  transition-delay: 0.14s;
+:deep(.home-reveal.is-visible .visual[data-reveal-item]),
+:deep(.home-reveal.is-visible .projects-slider-wrapper[data-reveal-item]),
+:deep(.home-reveal.is-visible .section-inner[data-reveal-item]),
+:deep(.home-reveal.is-visible .explorer-visual[data-reveal-item]) {
+  opacity: 1;
+  transform: translate(0, 0) scale(1);
 }
 
-:deep(.home-reveal.is-visible [data-reveal-item]:nth-child(4)) {
-  transition-delay: 0.2s;
+/* Floating Animation - More subtle for high-end feel */
+@keyframes floating {
+  0% { transform: translateY(0px) scale(1); }
+  50% { transform: translateY(-10px) scale(1.01); }
+  100% { transform: translateY(0px) scale(1); }
+}
+
+:deep(.home-reveal.is-visible .visual img),
+:deep(.home-reveal.is-visible .project-card),
+:deep(.home-reveal.is-visible .explorer-visual img),
+:deep(.home-reveal.is-visible .news-item img) {
+  animation: floating 12s ease-in-out infinite;
+}
+
+:deep(.home-reveal.is-visible .visual img),
+:deep(.home-reveal.is-visible .explorer-visual img),
+:deep(.home-reveal.is-visible .news-item img) {
+  animation-delay: 2.2s;
 }
 </style>

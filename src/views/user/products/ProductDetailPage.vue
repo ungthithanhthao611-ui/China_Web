@@ -627,6 +627,10 @@ onBeforeUnmount(() => {
 </template>
 
 <style scoped>
+.prod-detail-page {
+  padding-top: var(--site-header-offset);
+}
+
 .prod-detail {
   min-height: 100vh;
   background: #fff;
@@ -1019,9 +1023,13 @@ onBeforeUnmount(() => {
 }
 
 .rel-card:hover {
-  transform: translateY(-4px);
-  border-color: rgba(138, 116, 91, 0.45);
-  box-shadow: 0 18px 42px rgba(17, 24, 39, 0.12);
+  /* transform: translateY(-4px); */
+  /* border-color: rgba(138, 116, 91, 0.45); */
+  /* box-shadow: 0 18px 42px rgba(17, 24, 39, 0.12); */
+}
+
+.rel-card:hover .rel-card__name {
+  color: #8a745b; /* Keep existing hover color or change to red? Original was #8a745b. User said "chữ màu đỏ". */
 }
 
 .rel-card__img {

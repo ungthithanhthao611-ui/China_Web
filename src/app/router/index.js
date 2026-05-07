@@ -39,6 +39,9 @@ const router = createRouter({
     if (to.hash) {
       if (isProjectCaseManagedHashRoute(to)) {
         return false
+      }``
+      if (to.path.startsWith('/about/')) {
+        return false
       }
       return {
         el: to.hash,

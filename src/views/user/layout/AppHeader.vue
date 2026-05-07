@@ -167,12 +167,12 @@ const fallbackNavItems = computed(() => [
     path: '/du-an',
   },
   {
-    name: t('user.home.news'),
-    path: '/news',
-  },
-  {
     name: t('user.home.capability'),
     path: '/honors',
+  },
+  {
+    name: t('user.home.news'),
+    path: '/news',
   },
   { name: t('user.home.contactTitle'), path: '/contact' },
 ])
@@ -218,6 +218,14 @@ const navItems = computed(() => {
   return sourceItems.map((item) => {
     const normalizedPath = normalizeNavPath(item.path)
     
+    if (normalizedPath === '/news') {
+      return { 
+        ...item, 
+        name: translateName(item.name),
+        children: []
+      }
+    }
+
     if (normalizedPath !== '/products') {
       return { 
         ...item, 
@@ -303,7 +311,7 @@ const isLinkActive = (path) => {
 
   const normalizedPath = path.split('#')[0].split('?')[0]
 
-  if (path === '/') {
+  if (normalizedPath === '/') {
     return route.path === '/'
   }
 
@@ -428,6 +436,7 @@ watch(
     closeMobileMenu()
     closeSearch()
     isLanguageOpen.value = false
+    uiState.isHeaderHovered = false
   },
 )
 
@@ -442,24 +451,40 @@ watch(isMobileMenuOpen, (isOpen) => {
   }
 })
 
-const handleScroll = () => {
-  uiState.isHeaderHidden = true
+const isAtTop = ref(true)
+let lastScrollTop = 0
+const SCROLL_THRESHOLD = 80
+
+const handleScroll = (event) => {
+  // Handle both window scroll and container scroll
+  const target = event.target === document ? (document.documentElement || document.body) : event.target
+  const st = target.scrollTop || window.pageYOffset || 0
+  const delta = 5
+  
+  // Update atTop status
+  isAtTop.value = st <= SCROLL_THRESHOLD
+
+  // Keep header always visible
+  uiState.isHeaderHidden = false
+  
+  lastScrollTop = st <= 0 ? 0 : st
 }
 
 onMounted(() => {
   window.addEventListener('keydown', handleKeydown)
   window.addEventListener('click', handleClickOutside)
-  window.addEventListener('scroll', handleScroll)
+  // Use capture phase to catch scroll events from any nested container
+  document.addEventListener('scroll', handleScroll, { capture: true, passive: true })
   window.addEventListener('resize', syncHeaderOffset)
   loadProductCategories()
   syncHeaderOffset()
-  uiState.isHeaderHidden = true
+  uiState.isHeaderHidden = false
 })
 
 onBeforeUnmount(() => {
   window.removeEventListener('keydown', handleKeydown)
   window.removeEventListener('click', handleClickOutside)
-  window.removeEventListener('scroll', handleScroll)
+  document.removeEventListener('scroll', handleScroll, { capture: true })
   window.removeEventListener('resize', syncHeaderOffset)
   setBodyLock(false)
 })
@@ -471,37 +496,18 @@ onBeforeUnmount(() => {
       'header',
       {
         'is-hidden': uiState.isHeaderHidden,
-        'is-hovered': uiState.isHeaderHovered,
+        'is-top': isAtTop,
       },
     ]"
-    @mouseenter="uiState.isHeaderHovered = true"
-    @mouseleave="uiState.isHeaderHovered = false"
   >
-    <div
-      v-if="!uiState.isHeaderHovered"
-      class="header-trigger"
-      @mouseenter="uiState.isHeaderHovered = true"
-    />
-
     <div class="header-stack">
       <div class="header-topbar">
         <div class="header-topbar__inner">
           <div class="header-topbar__group header-topbar__group--left">
             <a v-if="phoneHref" :href="phoneHref" class="topbar-link">
-              <Phone :size="15" />
+              <Phone :size="14" />
               <span>{{ headerPhone }}</span>
             </a>
-            <a v-if="emailHref" :href="emailHref" class="topbar-link">
-              <Mail :size="15" />
-              <span>{{ headerEmail }}</span>
-            </a>
-          </div>
-
-          <div v-if="headerLocation" class="header-topbar__group header-topbar__group--right">
-            <span class="topbar-link topbar-link--static">
-              <MapPin :size="15" />
-              <span>{{ headerLocation }}</span>
-            </span>
           </div>
         </div>
       </div>
@@ -811,19 +817,27 @@ onBeforeUnmount(() => {
   left: 0;
   width: 100%;
   z-index: 2200;
-  opacity: 0;
+  opacity: 1;
   transition:
     transform 0.22s cubic-bezier(0.22, 1, 0.36, 1),
     opacity 0.16s ease;
 
   &.is-hidden {
-    transform: translateY(calc(-100% - 12px));
+    transform: translateY(-100%);
     opacity: 0;
   }
 
-  &.is-hovered {
-    transform: translateY(0) !important;
-    opacity: 1 !important;
+  &.is-top {
+    background: transparent !important;
+    box-shadow: none !important;
+    border-bottom-color: transparent !important;
+
+    .header-stack {
+      background: linear-gradient(180deg, rgba(12, 24, 49, 0.45) 0%, rgba(12, 24, 49, 0) 100%) !important;
+      border-bottom-color: transparent !important;
+      box-shadow: none !important;
+      backdrop-filter: none !important;
+    }
   }
 }
 
@@ -838,7 +852,7 @@ onBeforeUnmount(() => {
 
 .header-stack {
   background: linear-gradient(90deg, var(--header-bg-top), var(--header-bg-bottom));
-  border-bottom: 1px solid var(--header-border);
+  border-bottom: none;
   box-shadow: var(--header-shadow);
   backdrop-filter: blur(14px);
 }
@@ -846,6 +860,16 @@ onBeforeUnmount(() => {
 .header-topbar {
   background: transparent;
   color: var(--header-text);
+  transition: all 0.3s ease;
+  overflow: hidden;
+  opacity: 1;
+  max-height: 36px;
+}
+
+.header.is-top .header-topbar {
+  max-height: 0;
+  padding: 0;
+  opacity: 0;
 }
 
 .header-topbar__inner,
@@ -855,12 +879,12 @@ onBeforeUnmount(() => {
 }
 
 .header-topbar__inner {
-  min-height: 40px;
+  min-height: 32px;
   display: flex;
   align-items: center;
-  justify-content: space-between;
+  justify-content: flex-end;
   gap: 12px 24px;
-  padding: 6px 0;
+  padding: 4px 0;
 }
 
 .header-topbar__group {
@@ -903,15 +927,20 @@ onBeforeUnmount(() => {
 
 .header-main {
   background: transparent;
-  border-top: 1px solid rgba(255, 255, 255, 0.04);
+  border-top: none;
 }
 
 .header-main__inner {
-  min-height: 86px;
+  min-height: 40px;
   display: flex;
   align-items: center;
   justify-content: space-between;
-  gap: 24px;
+  gap: 20px;
+  transition: min-height 0.3s ease;
+}
+
+.header.is-top .header-main__inner {
+  min-height: 48px;
 }
 
 .brand-block {
@@ -927,11 +956,17 @@ onBeforeUnmount(() => {
   text-decoration: none;
 
   img {
-    width: 68px;
-    height: 68px;
+    width: 30px;
+    height: 30px;
     object-fit: contain;
     flex-shrink: 0;
+    transition: all 0.3s ease;
   }
+}
+
+.header.is-top .logo-link img {
+  width: 36px;
+  height: 36px;
 }
 
 .brand-copy {
@@ -941,14 +976,14 @@ onBeforeUnmount(() => {
   text-transform: uppercase;
 
   strong {
-    font-size: 20px;
+    font-size: 13px;
     line-height: 1;
-    letter-spacing: 0.08em;
+    letter-spacing: 0.1em;
     color: var(--header-text);
   }
 
   small {
-    font-size: 13px;
+    font-size: 7px;
     line-height: 1.1;
     letter-spacing: 0.22em;
     color: var(--header-accent);
@@ -966,7 +1001,7 @@ onBeforeUnmount(() => {
 
 .nav-group {
   position: relative;
-  padding: 28px 0;
+  padding: 12px 0;
 
   &:hover .colum2 {
     opacity: 1;
@@ -983,9 +1018,9 @@ onBeforeUnmount(() => {
 .nav-link {
   a {
     color: var(--header-text);
-    font-size: 16px;
+    font-size: 14px;
     line-height: 1.2;
-    font-weight: 600;
+    font-weight: 500;
     white-space: nowrap;
     transition: color 0.2s ease;
   }
@@ -1010,7 +1045,7 @@ onBeforeUnmount(() => {
   box-shadow: 0 20px 34px rgba(5, 12, 24, 0.34);
   opacity: 0;
   visibility: hidden;
-  transform: translateY(8px);
+  /* transform: translateY(8px); */
   transition: opacity 0.22s ease, transform 0.22s ease;
   backdrop-filter: blur(16px);
 
@@ -1089,7 +1124,7 @@ onBeforeUnmount(() => {
   box-shadow: 0 20px 34px rgba(5, 12, 24, 0.34);
   opacity: 0;
   visibility: hidden;
-  transform: translateX(8px);
+  /* transform: translateX(8px); */
   transition: opacity 0.2s ease, transform 0.2s ease;
 }
 
@@ -1314,6 +1349,7 @@ onBeforeUnmount(() => {
   color: var(--header-accent-strong);
   cursor: pointer;
 }
+
 
 .mobile-nav-content {
   flex: 1;

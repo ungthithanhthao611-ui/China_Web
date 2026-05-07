@@ -19,6 +19,7 @@ import viAdminAbout from './locales/vi/admin/about'
 import viAdminCapability from './locales/vi/admin/capability'
 import viAdminMedia from './locales/vi/admin/media'
 import viAdminNews from './locales/vi/admin/news'
+import viFooter from './locales/vi/user/footer'
 
 import enHome from './locales/en/user/home'
 import enAbout from './locales/en/user/about'
@@ -39,6 +40,7 @@ import enAdminAbout from './locales/en/admin/about'
 import enAdminCapability from './locales/en/admin/capability'
 import enAdminMedia from './locales/en/admin/media'
 import enAdminNews from './locales/en/admin/news'
+import enFooter from './locales/en/user/footer'
 
 import zhHome from './locales/zh/user/home'
 import zhAbout from './locales/zh/user/about'
@@ -59,6 +61,7 @@ import zhAdminAbout from './locales/zh/admin/about'
 import zhAdminCapability from './locales/zh/admin/capability'
 import zhAdminMedia from './locales/zh/admin/media'
 import zhAdminNews from './locales/zh/admin/news'
+import zhFooter from './locales/zh/user/footer'
 
 export const SUPPORTED_LOCALES = ['vi', 'en', 'zh']
 export const DEFAULT_LOCALE = 'vi'
@@ -77,6 +80,7 @@ const messages = {
       news: viNews,
       capability: viCapability,
       profile: viProfile,
+      footer: viFooter,
     },
     admin: {
       sidebar: viAdminSidebar,
@@ -102,6 +106,7 @@ const messages = {
       news: enNews,
       capability: enCapability,
       profile: enProfile,
+      footer: enFooter,
     },
     admin: {
       sidebar: enAdminSidebar,
@@ -127,6 +132,7 @@ const messages = {
       news: zhNews,
       capability: zhCapability,
       profile: zhProfile,
+      footer: zhFooter,
     },
     admin: {
       sidebar: zhAdminSidebar,

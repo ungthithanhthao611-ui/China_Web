@@ -193,19 +193,23 @@ onMounted(() => {
 
     <!-- Article -->
     <template v-else-if="article">
-      <section
-        class="detail-hero"
-        :style="{ backgroundImage: `url(${imageUrl(article)})` }"
-      >
-        <div class="detail-overlay"></div>
+      <section class="detail-hero">
+        <div class="hero-media">
+          <img :src="imageUrl(article)" :alt="article.title" class="hero-img" />
+          <div class="hero-overlay"></div>
+        </div>
         <div class="container detail-hero-inner">
-          <router-link :to="defaultNewsRoute" class="back-link">
-            <ArrowLeft :size="16" />
-            {{ t('user.projects.backHome') }}
-          </router-link>
-          <span class="detail-category">{{ t('user.home.news') }}</span>
-          <h1>{{ article.title }}</h1>
-          <p>{{ formatDate(article.published_at || article.created_at) }}</p>
+          <div class="hero-copy" data-aos="fade-up">
+            <router-link :to="defaultNewsRoute" class="back-link">
+              <ArrowLeft :size="16" />
+              <span>{{ t('user.projects.backHome') }}</span>
+            </router-link>
+            <div class="detail-meta">
+              <span class="detail-category">{{ t('user.home.news') }}</span>
+              <span class="detail-date">{{ formatDate(article.published_at || article.created_at) }}</span>
+            </div>
+            <h1>{{ article.title }}</h1>
+          </div>
         </div>
       </section>
 
@@ -235,31 +239,25 @@ onMounted(() => {
             </div>
           </article>
 
-          <aside class="related-card">
-            <h2>{{ t('user.news.relatedTitle') }}</h2>
-            <div v-if="relatedNews.length" class="related-list">
+          <aside class="related-section" data-aos="fade-left">
+            <h3 class="related-title">{{ t('user.news.relatedTitle') || 'Tin liên quan' }}</h3>
+            <div class="related-list">
               <router-link
                 v-for="item in relatedNews"
                 :key="item.slug"
                 :to="`/news/${item.slug}`"
-                class="related-item"
+                class="related-card-small"
               >
-                <div class="related-thumb" :class="{ 'related-thumb--empty': !imageUrl(item) }">
-                  <img
-                    v-if="imageUrl(item)"
-                    :src="imageUrl(item)"
-                    :alt="item.title"
-                  />
+                <div class="related-thumb">
+                  <img v-if="imageUrl(item)" :src="imageUrl(item)" :alt="item.title" />
+                  <div v-else class="thumb-placeholder"></div>
                 </div>
-                <div class="related-copy">
-                  <span>{{ formatDate(item.published_at || item.created_at) }}</span>
-                  <strong>{{ item.title }}</strong>
+                <div class="related-info">
+                  <span class="related-date">{{ formatDate(item.published_at || item.created_at) }}</span>
+                  <strong class="related-name">{{ item.title }}</strong>
                 </div>
               </router-link>
             </div>
-            <p v-else style="color: #9a7d69; font-size: 0.9rem">
-              {{ t('user.news.empty') }}
-            </p>
           </aside>
         </div>
       </section>
@@ -279,405 +277,254 @@ onMounted(() => {
 </template>
 
 <style lang="scss" scoped>
-@use "@/assets/scss/variables" as *;
-
 .news-detail-page {
-  background: linear-gradient(180deg, #eff1f5 0%, #ffffff 22%, #f6f7f9 100%);
+  background: #fdfdfd;
+  color: #1a1a1a;
 }
 
 .detail-hero {
   position: relative;
-  min-height: 560px;
-  background-position: center;
-  background-size: cover;
-  color: $white;
-}
-
-.detail-overlay {
-  position: absolute;
-  inset: 0;
-  background:
-    linear-gradient(
-      180deg,
-      rgba(5, 15, 36, 0.68) 0%,
-      rgba(5, 15, 36, 0.42) 40%,
-      rgba(5, 15, 36, 0.82) 100%
-    ),
-    linear-gradient(90deg, rgba(5, 15, 36, 0.48) 0%, rgba(5, 15, 36, 0.12) 55%);
-}
-
-.detail-hero-inner {
-  position: relative;
-  z-index: 1;
-  min-height: 620px;
+  height: 540px;
+  background: #0f172a;
   display: flex;
-  flex-direction: column;
-  justify-content: flex-end;
-  padding-top: 240px;
-  padding-bottom: 82px;
-}
-
-.back-link {
-  display: inline-flex;
   align-items: center;
-  gap: 8px;
-  margin-bottom: 20px;
-  color: rgba(255, 255, 255, 0.84);
-  width: fit-content;
-  padding: 8px 12px;
-  border-radius: 999px;
-  border: 1px solid rgba(255, 255, 255, 0.16);
-  backdrop-filter: blur(8px);
-}
+  overflow: hidden;
 
-.detail-category {
-  display: inline-flex;
-  width: fit-content;
-  padding: 8px 14px;
-  border: 1px solid rgba(255, 255, 255, 0.22);
-  border-radius: 999px;
-  backdrop-filter: blur(10px);
-  letter-spacing: 0.04em;
-}
+  .hero-media {
+    position: absolute;
+    inset: 0;
+    .hero-img {
+      width: 100%;
+      height: 100%;
+      object-fit: cover;
+      opacity: 0.45;
+    }
+    .hero-overlay {
+      position: absolute;
+      inset: 0;
+      background: linear-gradient(180deg, rgba(15, 23, 42, 0.4) 0%, rgba(15, 23, 42, 0.9) 100%);
+    }
+  }
 
-.detail-hero h1 {
-  margin-top: 16px;
-  max-width: min(980px, 22ch);
-  font-size: clamp(2rem, 4.6vw, 4.35rem);
-  line-height: 1.08;
-  font-family: "Noto Serif", "Times New Roman", serif;
-  text-shadow: 0 8px 24px rgba(2, 6, 23, 0.42);
-  overflow-wrap: anywhere;
-  text-wrap: balance;
-}
+  .detail-hero-inner {
+    position: relative;
+    z-index: 1;
+    width: 100%;
+  }
 
-.detail-hero p {
-  margin-top: 14px;
-  color: rgba(255, 255, 255, 0.88);
-  font-size: 1.02rem;
-  letter-spacing: 0.02em;
+  .back-link {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    margin-bottom: 32px;
+    color: #fff;
+    text-decoration: none;
+    font-size: 14px;
+    font-weight: 600;
+    opacity: 0.8;
+    transition: opacity 0.3s ease, transform 0.3s ease;
+
+    &:hover {
+      opacity: 1;
+      transform: translateX(-4px);
+    }
+  }
+
+  .detail-meta {
+    display: flex;
+    align-items: center;
+    gap: 16px;
+    margin-bottom: 24px;
+  }
+
+  .detail-category {
+    background: #df0019;
+    color: #fff;
+    padding: 6px 14px;
+    border-radius: 999px;
+    font-size: 12px;
+    font-weight: 800;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+  }
+
+  .detail-date {
+    color: rgba(255, 255, 255, 0.7);
+    font-size: 15px;
+    font-weight: 500;
+  }
+
+  h1 {
+    margin: 0;
+    color: #fff;
+    font-size: clamp(2rem, 5vw, 4rem);
+    font-weight: 800;
+    line-height: 1.15;
+    max-width: 900px;
+    font-family: 'Outfit', sans-serif;
+  }
 }
 
 .detail-body-section {
-  padding: 56px 0 96px;
+  padding: 80px 0 120px;
 }
 
 .detail-grid {
   display: grid;
-  grid-template-columns: minmax(0, 1.45fr) minmax(280px, 0.55fr);
-  gap: 32px;
+  grid-template-columns: 1fr 380px;
+  gap: 60px;
   align-items: start;
 }
 
-.article-card,
-.related-card {
-  background: rgba(255, 255, 255, 0.96);
-  border-radius: 8px;
-  box-shadow: 0 22px 52px rgba(10, 24, 54, 0.08);
-}
-
 .article-card {
-  padding: 28px;
+  background: #fff;
+  border-radius: 24px;
+  padding: 48px;
+  border: 1px solid rgba(0,0,0,0.05);
+  box-shadow: 0 20px 50px rgba(0,0,0,0.03);
 }
 
 .article-image {
+  margin-bottom: 40px;
+  border-radius: 16px;
   overflow: hidden;
-  border-radius: 4px;
-  margin-bottom: 28px;
+  box-shadow: 0 15px 35px rgba(0,0,0,0.1);
 
   img {
     width: 100%;
     height: auto;
-    object-fit: cover;
+    display: block;
   }
 }
 
 .article-content {
-  color: #444f63;
-  font-family: "Be Vietnam Pro", "Segoe UI", "Noto Sans", sans-serif;
-
   .article-meta {
-    margin-bottom: 18px;
-    padding-bottom: 14px;
-    border-bottom: 1px solid rgba(29, 39, 58, 0.08);
-  }
+    margin-bottom: 32px;
+    padding-bottom: 24px;
+    border-bottom: 1px solid #f1f5f9;
 
-  .article-main-title {
-    margin: 0;
-    color: #1c2535;
-    font-size: clamp(1.5rem, 2.2vw, 2.1rem);
-    line-height: 1.35;
-    font-family: "Noto Serif", "Times New Roman", serif;
-    text-wrap: balance;
-  }
+    .article-main-title {
+      font-size: 32px;
+      font-weight: 800;
+      color: #0f172a;
+      line-height: 1.3;
+      margin-bottom: 12px;
+      font-family: 'Outfit', sans-serif;
+    }
 
-  .article-publish-date {
-    margin: 8px 0 0;
-    color: #8b6d5b;
-    font-size: 0.94rem;
+    .article-publish-date {
+      color: #df0019;
+      font-weight: 700;
+      font-size: 15px;
+    }
   }
 
   .lead {
-    font-size: 1.12rem;
-    line-height: 1.88;
-    color: #202738;
+    font-size: 18px;
+    line-height: 1.8;
+    color: #475569;
+    font-weight: 500;
+    margin-bottom: 32px;
   }
 
   .article-body {
-    margin-top: 20px;
-    font-size: 1.08rem;
-    line-height: 1.95;
-    color: #2b3446;
-    letter-spacing: 0.002em;
-  }
+    font-size: 17px;
+    line-height: 1.85;
+    color: #1e293b;
 
-  .article-body :deep(h1),
-  .article-body :deep(h2),
-  .article-body :deep(h3),
-  .article-body :deep(h4) {
-    margin: 1.15em 0 0.45em;
-    color: #182033;
-    line-height: 1.35;
-  }
-
-  .article-body :deep(p),
-  .article-body :deep(ul),
-  .article-body :deep(ol) {
-    margin: 0.8em 0;
-  }
-
-  .article-body :deep(figure) {
-    margin: 1.25em 0;
-  }
-
-  .article-body :deep(img) {
-    display: block;
-    max-width: 100%;
-    height: auto;
-    border-radius: 6px;
-  }
-
-  .article-body :deep(figcaption) {
-    margin-top: 8px;
-    font-size: 0.92rem;
-    color: #69758a;
-    text-align: center;
-  }
-
-  .article-body :deep(.news-block-gallery) {
-    display: grid;
-    grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
-    gap: 14px;
-  }
-
-  p + p {
-    margin-top: 18px;
+    :deep(p) { margin-bottom: 24px; }
+    :deep(h2) { 
+      font-size: 24px; 
+      font-weight: 800; 
+      margin: 48px 0 24px; 
+      color: #0f172a;
+    }
+    :deep(img) {
+      max-width: 100%;
+      border-radius: 12px;
+      margin: 32px 0;
+    }
   }
 }
 
-.source-link {
-  display: inline-flex;
-  align-items: center;
-  gap: 10px;
-  margin-top: 28px;
-  color: #cc0000;
-  font-weight: 600;
-}
-
-.related-card {
-  padding: 20px 18px;
+/* Related Section */
+.related-section {
   position: sticky;
-  top: 98px;
-  border: 1px solid rgba(226, 232, 240, 0.75);
-  background: rgba(255, 255, 255, 0.92);
-  backdrop-filter: blur(8px);
-}
+  top: 120px;
 
-.related-card h2 {
-  font-size: 1.95rem;
-  font-family: "Noto Serif", "Times New Roman", serif;
-  color: #1d273a;
-  margin-bottom: 14px;
+  .related-title {
+    font-size: 20px;
+    font-weight: 800;
+    color: #0f172a;
+    margin-bottom: 24px;
+    padding-bottom: 16px;
+    border-bottom: 2px solid #df0019;
+    display: inline-block;
+  }
 }
 
 .related-list {
   display: grid;
-  gap: 12px;
+  gap: 20px;
 }
 
-.related-item {
-  display: grid;
-  grid-template-columns: 112px minmax(0, 1fr);
-  gap: 12px;
-  align-items: center;
-  padding: 12px 0;
-  border-top: 1px solid rgba(29, 39, 58, 0.08);
-
-  &:first-child {
-    border-top: 0;
-    padding-top: 0;
-  }
-
-  .related-copy span {
-    display: block;
-    color: #9a7d69;
-    font-size: 0.86rem;
-    margin-bottom: 6px;
-  }
-
-  .related-copy strong {
-    display: block;
-    color: #293246;
-    font-weight: 600;
-    line-height: 1.42;
-    font-size: 1.08rem;
-  }
-
-  &:hover .related-copy strong {
-    color: #cc0000;
-  }
-}
-
-.related-thumb {
-  width: 112px;
-  aspect-ratio: 4 / 3;
-  border-radius: 8px;
-  overflow: hidden;
-  background: #f1f5f9;
-  box-shadow: inset 0 0 0 1px rgba(148, 163, 184, 0.22);
-
-  img {
-    width: 100%;
-    height: 100%;
-    object-fit: cover;
-    display: block;
-  }
-}
-
-.related-thumb--empty::before {
-  content: "";
-  display: block;
-  width: 100%;
-  height: 100%;
-  background:
-    linear-gradient(130deg, rgba(203, 213, 225, 0.6) 0%, rgba(226, 232, 240, 0.18) 100%),
-    repeating-linear-gradient(
-      -45deg,
-      rgba(148, 163, 184, 0.2) 0 8px,
-      rgba(203, 213, 225, 0.2) 8px 16px
-    );
-}
-
-.detail-empty {
-  min-height: 60vh;
+.related-card-small {
   display: flex;
-  align-items: center;
-  text-align: center;
-
-  h1 {
-    font-size: 2rem;
-    margin-bottom: 12px;
-  }
-
-  p {
-    color: #667085;
-  }
-}
-
-.empty-link {
-  display: inline-flex;
-  margin-top: 20px;
-  color: #cc0000;
-  font-weight: 600;
-}
-
-@media (max-width: 960px) {
-  .detail-grid {
-    grid-template-columns: 1fr;
-    gap: 18px;
-  }
-
-  .related-card {
-    order: -1;
-    top: 84px;
-    z-index: 6;
-    max-height: calc(100vh - 102px);
-    overflow: auto;
-    padding: 14px;
-  }
-
-  .related-card h2 {
-    font-size: 1.5rem;
-    margin-bottom: 10px;
-  }
-
-  .related-item {
-    grid-template-columns: 94px minmax(0, 1fr);
-    gap: 10px;
-    padding: 10px 0;
-  }
+  gap: 16px;
+  text-decoration: none;
+  group: hover;
 
   .related-thumb {
-    width: 94px;
-    border-radius: 6px;
+    flex: 0 0 100px;
+    height: 75px;
+    border-radius: 12px;
+    overflow: hidden;
+    background: #f1f5f9;
+
+    img {
+      width: 100%;
+      height: 100%;
+      object-fit: cover;
+      transition: transform 0.4s ease;
+    }
   }
 
-  .related-item .related-copy strong {
-    font-size: 0.98rem;
+  .related-info {
+    flex: 1;
+
+    .related-date {
+      display: block;
+      font-size: 12px;
+      color: #94a3b8;
+      margin-bottom: 4px;
+    }
+
+    .related-name {
+      display: -webkit-box;
+      -webkit-line-clamp: 2;
+      -webkit-box-orient: vertical;
+      overflow: hidden;
+      font-size: 15px;
+      line-height: 1.4;
+      color: #1e293b;
+      transition: color 0.3s ease;
+    }
   }
+
+  &:hover {
+    .related-thumb img { transform: scale(1.1); }
+    .related-name { color: #df0019; }
+  }
+}
+
+@media (max-width: 1024px) {
+  .detail-grid { grid-template-columns: 1fr; }
+  .related-section { position: static; margin-top: 60px; }
 }
 
 @media (max-width: 768px) {
-  .detail-hero-inner {
-    min-height: 520px;
-    padding-top: 180px;
-    padding-bottom: 44px;
-  }
-
-  .back-link {
-    margin-bottom: 14px;
-    padding: 7px 10px;
-  }
-
-  .detail-category {
-    padding: 6px 12px;
-    font-size: 0.78rem;
-  }
-
-  .detail-hero h1 {
-    margin-top: 12px;
-    font-size: clamp(1.7rem, 8.2vw, 2.55rem);
-    line-height: 1.14;
-  }
-
-  .detail-hero p {
-    margin-top: 10px;
-    font-size: 0.92rem;
-  }
-
-  .detail-body-section {
-    padding: 40px 0 72px;
-  }
-
-  .article-card {
-    padding: 18px;
-  }
-
-  .article-content {
-    .article-main-title {
-      font-size: 1.75rem;
-      line-height: 1.25;
-    }
-
-    .lead {
-      font-size: 1.03rem;
-      line-height: 1.82;
-    }
-
-    .article-body {
-      font-size: 1rem;
-      line-height: 1.84;
-    }
-  }
+  .detail-hero { height: 400px; }
+  .article-card { padding: 24px; }
 }
+
 </style>
