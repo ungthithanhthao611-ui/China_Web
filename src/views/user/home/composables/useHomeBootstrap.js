@@ -3,23 +3,14 @@ import { computed, ref, watch } from 'vue'
 import i18n from '@/i18n'
 import { getHomeBootstrap } from '@/views/user/services/publicApi'
 
+const HOME_BOOTSTRAP_CACHE_TTL = 5 * 60 * 1000
+
 const createEmptyPayload = () => ({
   products: { items: [], pagination: { skip: 0, limit: 4, total: 0 } },
   projects: { items: [], pagination: { skip: 0, limit: 4, total: 0 } },
   news: { items: [], total: 0, skip: 0, limit: 8 },
   honors: {
-    hero_banner: null,
     factory_overview: null,
-    production_capabilities: [],
-    factory_gallery: [],
-    certificates: [],
-    contact_info: null,
-    hero: null,
-    sections: {
-      qualification_certificates: [],
-      corporate_honors: [],
-      project_honors: [],
-    },
   },
 })
 
@@ -33,7 +24,18 @@ const CACHE_KEY_PREFIX = 'home_bootstrap_'
 function getStoredCache(lang) {
   try {
     const data = localStorage.getItem(CACHE_KEY_PREFIX + lang)
-    return data ? JSON.parse(data) : null
+    if (!data) return null
+
+    const parsed = JSON.parse(data)
+    if (!parsed || typeof parsed !== 'object') return null
+
+    const timestamp = Number(parsed.timestamp || 0)
+    if (!timestamp || Date.now() - timestamp > HOME_BOOTSTRAP_CACHE_TTL) {
+      localStorage.removeItem(CACHE_KEY_PREFIX + lang)
+      return null
+    }
+
+    return parsed.payload || null
   } catch (e) {
     return null
   }
@@ -41,7 +43,13 @@ function getStoredCache(lang) {
 
 function setStoredCache(lang, data) {
   try {
-    localStorage.setItem(CACHE_KEY_PREFIX + lang, JSON.stringify(data))
+    localStorage.setItem(
+      CACHE_KEY_PREFIX + lang,
+      JSON.stringify({
+        timestamp: Date.now(),
+        payload: data,
+      }),
+    )
   } catch (e) {}
 }
 
@@ -63,10 +71,6 @@ function normalizePayload(payload) {
     honors: {
       ...fallback.honors,
       ...(payload?.honors || {}),
-      sections: {
-        ...fallback.honors.sections,
-        ...(payload?.honors?.sections || {}),
-      },
     },
   }
 }
@@ -74,24 +78,20 @@ function normalizePayload(payload) {
 async function loadHomeBootstrap(force = false) {
   const languageCode = getCurrentLanguageCode()
 
-  // 1. In-memory cache hit
   if (!force && payloadCache.has(languageCode)) {
     sharedData.value = payloadCache.get(languageCode)
     return sharedData.value
   }
 
-  // 2. LocalStorage hydration (Instant-load strategy)
   if (!force && !sharedLoading.value && sharedData.value.products.items.length === 0) {
     const cached = getStoredCache(languageCode)
     if (cached) {
       const normalized = normalizePayload(cached)
       sharedData.value = normalized
       payloadCache.set(languageCode, normalized)
-      // Continue to fetch fresh data in background
     }
   }
 
-  // 3. Prevent duplicate requests
   if (!force && inflightCache.has(languageCode)) {
     return inflightCache.get(languageCode)
   }
@@ -109,7 +109,6 @@ async function loadHomeBootstrap(force = false) {
     })
     .catch((error) => {
       sharedError.value = error
-      // Keep existing data if fetch fails
       if (sharedData.value.products.items.length === 0) {
         sharedData.value = createEmptyPayload()
       }
@@ -128,7 +127,7 @@ watch(
   () => getCurrentLanguageCode(),
   () => {
     loadHomeBootstrap(true).catch(() => {})
-  }
+  },
 )
 
 export function useHomeBootstrap() {

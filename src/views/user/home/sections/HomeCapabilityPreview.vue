@@ -41,7 +41,7 @@
 
 <script setup>
 import { ArrowRight } from 'lucide-vue-next'
-import { computed, ref, watch } from 'vue'
+import { computed } from 'vue'
 import { useI18n } from 'vue-i18n'
 
 import { env } from '@/shared/config/env'
@@ -50,8 +50,8 @@ import { useSectionReveal } from '@/views/user/home/composables/useSectionReveal
 
 const API_ORIGIN = env.apiBaseUrl.replace(/\/api\/v\d+\/?$/, '')
 const { rootRef, isVisible } = useSectionReveal({ threshold: 0.22 })
-const { locale, t } = useI18n({ useScope: 'global' })
-const { data: homeBootstrap, loading, ensureLoaded } = useHomeBootstrap()
+const { t } = useI18n({ useScope: 'global' })
+const { data: homeBootstrap } = useHomeBootstrap()
 
 const payload = computed(() => homeBootstrap.value?.honors || null)
 
@@ -66,7 +66,7 @@ const factoryOverview = computed(() => {
   const raw = payload.value?.factory_overview || {}
   return {
     title: t('user.home.factoryOverviewTitle') || raw.title,
-    description: t('user.home.factoryOverviewDescription') || raw.description,
+    description: raw.description || t('user.home.factoryOverviewDescription'),
     main_image_url: String(raw.main_image_url || '').trim(),
   }
 })
@@ -83,8 +83,6 @@ const menuLinks = computed(() => [
   { label: t('user.home.products'), path: '/products' },
   { label: t('user.home.projects'), path: '/du-an' },
 ])
-
-ensureLoaded().catch(() => {})
 </script>
 
 <style scoped>

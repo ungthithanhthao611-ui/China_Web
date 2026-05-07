@@ -3,14 +3,16 @@
  *
  * Composable cho About page:
  * - Gọi API getPageDetail('about')
+ * - Reuse hero banners từ bootstrap store
  * - Normalize response thành view model
  * - Quản lý loading / error / aboutView
  * - Cập nhật SEO tags
  */
 
-import { onMounted, readonly, ref, watch } from 'vue'
+import { computed, onMounted, readonly, ref, watch } from 'vue'
 import { useI18n } from 'vue-i18n'
-import { getPageDetail, getBanners } from '@/views/user/services/publicApi'
+import { getPageDetail } from '@/views/user/services/publicApi'
+import { useBootstrapStore } from '@/views/user/stores/bootstrap'
 import { normalizeAboutPage } from '../adapters/aboutPageNormalizer'
 
 function applySeo(view) {
@@ -31,20 +33,19 @@ function applySeo(view) {
  */
 export function useAboutPage() {
   const { locale } = useI18n()
+  const bootstrapStore = useBootstrapStore()
   const loading = ref(true)
   const error = ref(null)
   const aboutView = ref(null)
+  const heroBanners = computed(() => bootstrapStore.heroBanners || [])
 
   async function fetchAbout() {
     loading.value = true
     error.value = null
 
     try {
-      const [raw, banners] = await Promise.all([
-        getPageDetail('about'),
-        getBanners({ bannerType: 'hero' })
-      ])
-      aboutView.value = normalizeAboutPage(raw, banners)
+      const raw = await getPageDetail('about')
+      aboutView.value = normalizeAboutPage(raw, heroBanners.value)
 
       if (!aboutView.value) {
         error.value = 'About page data is empty'

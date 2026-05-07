@@ -1,10 +1,10 @@
 <script setup>
-import { computed, onMounted, ref, watch } from 'vue'
+import { computed, ref, watch } from 'vue'
 import { useRouter } from 'vue-router'
 import { ArrowRight } from 'lucide-vue-next'
 import { useI18n } from 'vue-i18n'
 
-import { getNewsList } from '@/views/user/services/publicApi'
+import { useHomeBootstrap } from '@/views/user/home/composables/useHomeBootstrap'
 import { useSectionReveal } from '@/views/user/home/composables/useSectionReveal'
 
 const props = defineProps({
@@ -17,7 +17,7 @@ const props = defineProps({
 const router = useRouter()
 const { locale, t } = useI18n({ useScope: 'global' })
 const { rootRef, isVisible } = useSectionReveal({ threshold: 0.1 })
-const loading = ref(true)
+const { data: homeBootstrap, loading } = useHomeBootstrap()
 const newsList = ref([])
 const currentPage = ref(1)
 const ITEMS_PER_PAGE = 4
@@ -98,34 +98,23 @@ function resolveImage(item) {
   return item?.thumbnail_url || item?.image?.url || item?.image || ''
 }
 
-async function fetchNews() {
-  loading.value = true
-  try {
-    const response = await getNewsList({ skip: 0, limit: MAX_NEWS_ITEMS })
-    const rows = Array.isArray(response?.items) ? response.items : Array.isArray(response) ? response : []
-
-    newsList.value = rows.slice(0, MAX_NEWS_ITEMS).map((item) => {
-      const dateParts = formatDate(item?.published_at || item?.created_at)
-      return {
-        ...item,
-        ...dateParts,
-        category: resolveCategory(item),
-        summary: resolveSummary(item),
-        image: resolveImage(item),
-        link: `/news/${item.slug}`,
-      }
-    })
-
-    currentPage.value = 1
-  } catch {
-    newsList.value = []
-  } finally {
-    loading.value = false
-  }
+function syncNews() {
+  const rows = Array.isArray(homeBootstrap.value?.news?.items) ? homeBootstrap.value.news.items : []
+  newsList.value = rows.slice(0, MAX_NEWS_ITEMS).map((item) => {
+    const dateParts = formatDate(item?.published_at || item?.created_at)
+    return {
+      ...item,
+      ...dateParts,
+      category: resolveCategory(item),
+      summary: resolveSummary(item),
+      image: resolveImage(item),
+      link: `/news/${item.slug}`,
+    }
+  })
+  currentPage.value = 1
 }
 
-watch(locale, fetchNews)
-onMounted(fetchNews)
+watch([homeBootstrap, locale], syncNews, { immediate: true })
 
 </script>
 

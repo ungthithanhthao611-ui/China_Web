@@ -99,7 +99,7 @@ const items = ref([])
 const modules = [Autoplay, Navigation]
 const { locale, t } = useI18n({ useScope: 'global' })
 const { rootRef, isVisible } = useSectionReveal({ threshold: 0.24 })
-const { data: homeBootstrap, loading, ensureLoaded } = useHomeBootstrap()
+const { data: homeBootstrap, loading } = useHomeBootstrap()
 const API_ORIGIN = env.apiBaseUrl.replace(/\/api\/v\d+\/?$/, '')
 
 function resolveAssetUrl(url) {
@@ -130,7 +130,6 @@ function syncProjects() {
 }
 
 watch([homeBootstrap, locale], syncProjects, { immediate: true })
-ensureLoaded().catch(() => {})
 </script>
 
 <style scoped>

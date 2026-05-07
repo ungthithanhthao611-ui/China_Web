@@ -11,7 +11,7 @@ const items = ref([])
 const activeIndex = ref(0)
 const { locale, t } = useI18n({ useScope: 'global' })
 const { rootRef, isVisible } = useSectionReveal({ threshold: 0.1 })
-const { data: homeBootstrap, loading, ensureLoaded } = useHomeBootstrap()
+const { data: homeBootstrap, loading } = useHomeBootstrap()
 const API_ORIGIN = env.apiBaseUrl.replace(/\/api\/v\d+\/?$/, '')
 
 function resolveAssetUrl(url) {
@@ -87,7 +87,6 @@ function syncProducts() {
 const currentProduct = computed(() => items.value[activeIndex.value] || null)
 
 watch([homeBootstrap, locale], syncProducts, { immediate: true })
-ensureLoaded().catch(() => {})
 </script>
 
 <template>
